@@ -9,8 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideosRouteImport } from './routes/videos'
+import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as PremiosRouteImport } from './routes/premios'
+import { Route as MensagensRouteImport } from './routes/mensagens'
+import { Route as LgpdRouteImport } from './routes/lgpd'
+import { Route as ExerciciosRouteImport } from './routes/exercicios'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
+import { Route as ClientesRouteImport } from './routes/clientes'
+import { Route as AprovacoesRouteImport } from './routes/aprovacoes'
+import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatoriosRoute = RelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PremiosRoute = PremiosRouteImport.update({
+  id: '/premios',
+  path: '/premios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MensagensRoute = MensagensRouteImport.update({
+  id: '/mensagens',
+  path: '/mensagens',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LgpdRoute = LgpdRouteImport.update({
+  id: '/lgpd',
+  path: '/lgpd',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExerciciosRoute = ExerciciosRouteImport.update({
+  id: '/exercicios',
+  path: '/exercicios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientesRoute = ClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprovacoesRoute = AprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertasRoute = AlertasRouteImport.update({
+  id: '/alertas',
+  path: '/alertas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +85,186 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
+  '/aprovacoes': typeof AprovacoesRoute
+  '/clientes': typeof ClientesRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
+  '/exercicios': typeof ExerciciosRoute
+  '/lgpd': typeof LgpdRoute
+  '/mensagens': typeof MensagensRoute
+  '/premios': typeof PremiosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
+  '/aprovacoes': typeof AprovacoesRoute
+  '/clientes': typeof ClientesRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
+  '/exercicios': typeof ExerciciosRoute
+  '/lgpd': typeof LgpdRoute
+  '/mensagens': typeof MensagensRoute
+  '/premios': typeof PremiosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
+  '/aprovacoes': typeof AprovacoesRoute
+  '/clientes': typeof ClientesRoute
+  '/configuracoes': typeof ConfiguracoesRoute
+  '/dashboard': typeof DashboardRoute
+  '/exercicios': typeof ExerciciosRoute
+  '/lgpd': typeof LgpdRoute
+  '/mensagens': typeof MensagensRoute
+  '/premios': typeof PremiosRoute
+  '/relatorios': typeof RelatoriosRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/alertas'
+    | '/aprovacoes'
+    | '/clientes'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/exercicios'
+    | '/lgpd'
+    | '/mensagens'
+    | '/premios'
+    | '/relatorios'
+    | '/videos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/alertas'
+    | '/aprovacoes'
+    | '/clientes'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/exercicios'
+    | '/lgpd'
+    | '/mensagens'
+    | '/premios'
+    | '/relatorios'
+    | '/videos'
+  id:
+    | '__root__'
+    | '/'
+    | '/alertas'
+    | '/aprovacoes'
+    | '/clientes'
+    | '/configuracoes'
+    | '/dashboard'
+    | '/exercicios'
+    | '/lgpd'
+    | '/mensagens'
+    | '/premios'
+    | '/relatorios'
+    | '/videos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlertasRoute: typeof AlertasRoute
+  AprovacoesRoute: typeof AprovacoesRoute
+  ClientesRoute: typeof ClientesRoute
+  ConfiguracoesRoute: typeof ConfiguracoesRoute
+  DashboardRoute: typeof DashboardRoute
+  ExerciciosRoute: typeof ExerciciosRoute
+  LgpdRoute: typeof LgpdRoute
+  MensagensRoute: typeof MensagensRoute
+  PremiosRoute: typeof PremiosRoute
+  RelatoriosRoute: typeof RelatoriosRoute
+  VideosRoute: typeof VideosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios': {
+      id: '/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof RelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/premios': {
+      id: '/premios'
+      path: '/premios'
+      fullPath: '/premios'
+      preLoaderRoute: typeof PremiosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mensagens': {
+      id: '/mensagens'
+      path: '/mensagens'
+      fullPath: '/mensagens'
+      preLoaderRoute: typeof MensagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lgpd': {
+      id: '/lgpd'
+      path: '/lgpd'
+      fullPath: '/lgpd'
+      preLoaderRoute: typeof LgpdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exercicios': {
+      id: '/exercicios'
+      path: '/exercicios'
+      fullPath: '/exercicios'
+      preLoaderRoute: typeof ExerciciosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clientes': {
+      id: '/clientes'
+      path: '/clientes'
+      fullPath: '/clientes'
+      preLoaderRoute: typeof ClientesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprovacoes': {
+      id: '/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/aprovacoes'
+      preLoaderRoute: typeof AprovacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alertas': {
+      id: '/alertas'
+      path: '/alertas'
+      fullPath: '/alertas'
+      preLoaderRoute: typeof AlertasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +277,18 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlertasRoute: AlertasRoute,
+  AprovacoesRoute: AprovacoesRoute,
+  ClientesRoute: ClientesRoute,
+  ConfiguracoesRoute: ConfiguracoesRoute,
+  DashboardRoute: DashboardRoute,
+  ExerciciosRoute: ExerciciosRoute,
+  LgpdRoute: LgpdRoute,
+  MensagensRoute: MensagensRoute,
+  PremiosRoute: PremiosRoute,
+  RelatoriosRoute: RelatoriosRoute,
+  VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
