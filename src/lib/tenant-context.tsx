@@ -62,6 +62,7 @@ export type Tenant = {
 };
 
 export const DEFAULT_PLANS: Plan[] = [
+  { id: "interno", name: "Interno / Master", description: "Conta proprietária do SaaS. Acesso total e ilimitado.", userLimit: -1, clientLimit: -1, features: ["Usuários ilimitados", "Clientes ilimitados", "Acesso total ao sistema", "Sem restrições de plano"], active: true },
   { id: "essencial", name: "Essencial", description: "Para clínicas iniciando a operação digital.", userLimit: 2, clientLimit: 50, features: ["Até 2 usuários", "Até 50 clientes ativos", "Personalização básica de logo e cor", "Acesso aos módulos principais"], active: true },
   { id: "profissional", name: "Profissional", description: "Para clínicas em crescimento.", userLimit: 5, clientLimit: 200, features: ["Até 5 usuários", "Até 200 clientes ativos", "Personalização completa de marca", "Permissões por usuário", "Relatórios básicos"], active: true },
   { id: "premium", name: "Premium", description: "White Label completo para a sua marca.", userLimit: 15, clientLimit: 500, features: ["Até 15 usuários", "Até 500 clientes ativos", "White Label completo", "Permissões avançadas", "Relatórios completos", "Domínio personalizado (em breve)", "Suporte prioritário"], active: true },
