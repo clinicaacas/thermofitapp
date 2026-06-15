@@ -22,11 +22,21 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as AprovacoesRouteImport } from './routes/aprovacoes'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as ClientesNovaRouteImport } from './routes/clientes.nova'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
+import { Route as AppVideosRouteImport } from './routes/app.videos'
+import { Route as AppPulsoRouteImport } from './routes/app.pulso'
+import { Route as AppPrivacidadeRouteImport } from './routes/app.privacidade'
+import { Route as AppPremiosRouteImport } from './routes/app.premios'
+import { Route as AppPassaporteRouteImport } from './routes/app.passaporte'
+import { Route as AppFotosRouteImport } from './routes/app.fotos'
+import { Route as AppFalarRouteImport } from './routes/app.falar'
+import { Route as AppAguaRouteImport } from './routes/app.agua'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -93,6 +103,11 @@ const AprovacoesRoute = AprovacoesRouteImport.update({
   path: '/aprovacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AlertasRoute = AlertasRouteImport.update({
   id: '/alertas',
   path: '/alertas',
@@ -108,6 +123,11 @@ const ClientesIndexRoute = ClientesIndexRouteImport.update({
   path: '/clientes/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
 const ClientesNovaRoute = ClientesNovaRouteImport.update({
   id: '/clientes/nova',
   path: '/clientes/nova',
@@ -118,10 +138,51 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppVideosRoute = AppVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPulsoRoute = AppPulsoRouteImport.update({
+  id: '/pulso',
+  path: '/pulso',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrivacidadeRoute = AppPrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPremiosRoute = AppPremiosRouteImport.update({
+  id: '/premios',
+  path: '/premios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPassaporteRoute = AppPassaporteRouteImport.update({
+  id: '/passaporte',
+  path: '/passaporte',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFotosRoute = AppFotosRouteImport.update({
+  id: '/fotos',
+  path: '/fotos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFalarRoute = AppFalarRouteImport.update({
+  id: '/falar',
+  path: '/falar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAguaRoute = AppAguaRouteImport.update({
+  id: '/agua',
+  path: '/agua',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
+  '/app': typeof AppRouteWithChildren
   '/aprovacoes': typeof AprovacoesRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
@@ -135,8 +196,17 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
+  '/app/agua': typeof AppAguaRoute
+  '/app/falar': typeof AppFalarRoute
+  '/app/fotos': typeof AppFotosRoute
+  '/app/passaporte': typeof AppPassaporteRoute
+  '/app/premios': typeof AppPremiosRoute
+  '/app/privacidade': typeof AppPrivacidadeRoute
+  '/app/pulso': typeof AppPulsoRoute
+  '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -155,14 +225,24 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
+  '/app/agua': typeof AppAguaRoute
+  '/app/falar': typeof AppFalarRoute
+  '/app/fotos': typeof AppFotosRoute
+  '/app/passaporte': typeof AppPassaporteRoute
+  '/app/premios': typeof AppPremiosRoute
+  '/app/privacidade': typeof AppPrivacidadeRoute
+  '/app/pulso': typeof AppPulsoRoute
+  '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
+  '/app': typeof AppRouteWithChildren
   '/aprovacoes': typeof AprovacoesRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
@@ -176,8 +256,17 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
+  '/app/agua': typeof AppAguaRoute
+  '/app/falar': typeof AppFalarRoute
+  '/app/fotos': typeof AppFotosRoute
+  '/app/passaporte': typeof AppPassaporteRoute
+  '/app/premios': typeof AppPremiosRoute
+  '/app/privacidade': typeof AppPrivacidadeRoute
+  '/app/pulso': typeof AppPulsoRoute
+  '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
 }
 export interface FileRouteTypes {
@@ -185,6 +274,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alertas'
+    | '/app'
     | '/aprovacoes'
     | '/configuracoes'
     | '/dashboard'
@@ -198,8 +288,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/videos'
+    | '/app/agua'
+    | '/app/falar'
+    | '/app/fotos'
+    | '/app/passaporte'
+    | '/app/premios'
+    | '/app/privacidade'
+    | '/app/pulso'
+    | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/app/'
     | '/clientes/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -218,13 +317,23 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/videos'
+    | '/app/agua'
+    | '/app/falar'
+    | '/app/fotos'
+    | '/app/passaporte'
+    | '/app/premios'
+    | '/app/privacidade'
+    | '/app/pulso'
+    | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/app'
     | '/clientes'
   id:
     | '__root__'
     | '/'
     | '/alertas'
+    | '/app'
     | '/aprovacoes'
     | '/configuracoes'
     | '/dashboard'
@@ -238,14 +347,24 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/videos'
+    | '/app/agua'
+    | '/app/falar'
+    | '/app/fotos'
+    | '/app/passaporte'
+    | '/app/premios'
+    | '/app/privacidade'
+    | '/app/pulso'
+    | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/app/'
     | '/clientes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlertasRoute: typeof AlertasRoute
+  AppRoute: typeof AppRouteWithChildren
   AprovacoesRoute: typeof AprovacoesRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DashboardRoute: typeof DashboardRoute
@@ -357,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AprovacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/alertas': {
       id: '/alertas'
       path: '/alertas'
@@ -378,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/clientes/nova': {
       id: '/clientes/nova'
       path: '/clientes/nova'
@@ -392,12 +525,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/videos': {
+      id: '/app/videos'
+      path: '/videos'
+      fullPath: '/app/videos'
+      preLoaderRoute: typeof AppVideosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pulso': {
+      id: '/app/pulso'
+      path: '/pulso'
+      fullPath: '/app/pulso'
+      preLoaderRoute: typeof AppPulsoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/privacidade': {
+      id: '/app/privacidade'
+      path: '/privacidade'
+      fullPath: '/app/privacidade'
+      preLoaderRoute: typeof AppPrivacidadeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/premios': {
+      id: '/app/premios'
+      path: '/premios'
+      fullPath: '/app/premios'
+      preLoaderRoute: typeof AppPremiosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/passaporte': {
+      id: '/app/passaporte'
+      path: '/passaporte'
+      fullPath: '/app/passaporte'
+      preLoaderRoute: typeof AppPassaporteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fotos': {
+      id: '/app/fotos'
+      path: '/fotos'
+      fullPath: '/app/fotos'
+      preLoaderRoute: typeof AppFotosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/falar': {
+      id: '/app/falar'
+      path: '/falar'
+      fullPath: '/app/falar'
+      preLoaderRoute: typeof AppFalarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/agua': {
+      id: '/app/agua'
+      path: '/agua'
+      fullPath: '/app/agua'
+      preLoaderRoute: typeof AppAguaRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
+
+interface AppRouteChildren {
+  AppAguaRoute: typeof AppAguaRoute
+  AppFalarRoute: typeof AppFalarRoute
+  AppFotosRoute: typeof AppFotosRoute
+  AppPassaporteRoute: typeof AppPassaporteRoute
+  AppPremiosRoute: typeof AppPremiosRoute
+  AppPrivacidadeRoute: typeof AppPrivacidadeRoute
+  AppPulsoRoute: typeof AppPulsoRoute
+  AppVideosRoute: typeof AppVideosRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAguaRoute: AppAguaRoute,
+  AppFalarRoute: AppFalarRoute,
+  AppFotosRoute: AppFotosRoute,
+  AppPassaporteRoute: AppPassaporteRoute,
+  AppPremiosRoute: AppPremiosRoute,
+  AppPrivacidadeRoute: AppPrivacidadeRoute,
+  AppPulsoRoute: AppPulsoRoute,
+  AppVideosRoute: AppVideosRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
+  AppRoute: AppRouteWithChildren,
   AprovacoesRoute: AprovacoesRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DashboardRoute: DashboardRoute,
