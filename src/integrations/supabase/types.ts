@@ -290,6 +290,64 @@ export type Database = {
           },
         ]
       }
+      help_messages: {
+        Row: {
+          body: string
+          client_id: string
+          created_alert_id: string | null
+          created_at: string
+          id: string
+          quick_topic: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          client_id: string
+          created_alert_id?: string | null
+          created_at?: string
+          id?: string
+          quick_topic?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          client_id?: string
+          created_alert_id?: string | null
+          created_at?: string
+          id?: string
+          quick_topic?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "help_messages_created_alert_id_fkey"
+            columns: ["created_alert_id"]
+            isOneToOne: false
+            referencedRelation: "risk_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "help_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
