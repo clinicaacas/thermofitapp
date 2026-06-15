@@ -146,7 +146,7 @@ function mapProfile(row: any) {
     role: row.role,
     profile: row.profile,
     status: row.status,
-    mustChangePassword: row.must_change_password,
+    mustChangePassword: false,
     lastAccess: row.last_access ? new Date(row.last_access).toLocaleString("pt-BR") : "",
   };
 }
