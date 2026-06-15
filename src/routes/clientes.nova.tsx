@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/thermofit-data.functions";
+import { createClientRecord } from "@/lib/thermofit-data.functions";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/clientes/nova")({
@@ -20,7 +20,7 @@ const PLAN_OPTIONS = [
 ];
 
 function Page() {
-  const create = useServerFn(createClient);
+  const create = useServerFn(createClientRecord);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
