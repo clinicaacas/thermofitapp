@@ -81,14 +81,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "ThermoFit app" },
+      { name: "description", content: "ThermoFit Base provides the foundational visual structure for a web system." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "ThermoFit app" },
+      { property: "og:description", content: "ThermoFit Base provides the foundational visual structure for a web system." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "ThermoFit app" },
+      { name: "twitter:description", content: "ThermoFit Base provides the foundational visual structure for a web system." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/o26MLY4wpecEOcFNjUab91RQtrc2/social-images/social-1781531522859-screenshoteasy_-_2026-06-15T105049.680.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/o26MLY4wpecEOcFNjUab91RQtrc2/social-images/social-1781531522859-screenshoteasy_-_2026-06-15T105049.680.webp" },
     ],
     links: [
       {
