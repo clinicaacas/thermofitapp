@@ -549,9 +549,11 @@ function UsersTab() {
         <div>
           <CardTitle className="text-base">Usuários e Equipe</CardTitle>
           <CardDescription>
-            {limit === -1
-              ? "Plano com usuários ilimitados."
-              : `${tenant.team.length} de ${limit} usuários no plano.`}
+            {isInternal
+              ? "Usuários ilimitados no plano Interno / Master."
+              : limit === -1
+                ? "Plano com usuários ilimitados."
+                : `${tenant.team.length} de ${limit} usuários no plano.`}
           </CardDescription>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setError(null); setCreated(null); setForm(emptyForm); } }}>
