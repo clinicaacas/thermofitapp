@@ -104,6 +104,23 @@ async function assertSuperAdmin(admin: SupabaseAdmin, userId: string) {
   }
 }
 
+async function assertUserManager(admin: SupabaseAdmin, userId: string, tenantId: string) {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("profile,status,tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("Erro ao validar permissões do administrador", error);
+    throw error;
+  }
+  const canManage =
+    data?.status === "ativo" &&
+    data.tenant_id === tenantId &&
+    ["super_admin", "dono", "admin"].includes(data.profile);
+  if (!canManage) throw new Error("Forbidden");
+}
+
 function mapTenant(row: any) {
   return {
     id: row.id,
@@ -164,10 +181,14 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
     if (data.user) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
-        .select("profile,status")
+          .select("profile,status,tenant_id")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (profile?.profile === "super_admin" && profile.status === "ativo") {
+      if (
+        profile?.status === "ativo" &&
+        profile.tenant_id === tenant.id &&
+        ["super_admin", "dono", "admin"].includes(profile.profile)
+      ) {
         const { data: profiles, error } = await supabaseAdmin
           .from("profiles")
           .select("*")
@@ -180,6 +201,26 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   }
 
   return { tenant: { ...mapTenant(tenant), team } };
+});
+
+export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const tenant = await ensureAcasTenant(supabaseAdmin);
+  const master = await ensureMasterAdmin(supabaseAdmin, tenant.id);
+  const { count, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("profile", "super_admin")
+    .eq("status", "ativo");
+  if (error) {
+    console.error("Erro ao verificar setup inicial", error);
+    throw error;
+  }
+  return {
+    hasActiveSuperAdmin: Boolean(count && count > 0),
+    hasMainTenant: Boolean(tenant?.id),
+    masterAdminId: master.id,
+  };
 });
 
 export const getCurrentUserProfile = createServerFn({ method: "GET" })
