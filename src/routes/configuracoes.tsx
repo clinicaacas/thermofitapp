@@ -503,22 +503,38 @@ function statusClass(s: UserStatus) {
   return "bg-muted text-muted-foreground";
 }
 
-function publicBaseUrl() {
-  const env = (import.meta as any).env?.VITE_APP_PUBLIC_URL as string | undefined;
-  if (env) return env.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    // Avoid Lovable preview/editor hosts that require Lovable login
-    if (host.includes("id-preview--") || host.includes("lovable.app/projects") || host.includes("lovable.dev")) {
-      return "https://thermofitapp.lovable.app";
-    }
-    return window.location.origin;
-  }
-  return "https://thermofitapp.lovable.app";
+const INVALID_PUBLIC_URL_PARTS = [
+  "lovable.dev",
+  "auth-bridge",
+  "lovableproject.com",
+  "project_id",
+  "editor",
+  "preview",
+  "dashboard",
+  "/projects",
+];
+const PUBLIC_URL_WARNING = "Configure a URL pública do sistema antes de gerar links de acesso para usuários.";
+
+function publicBaseUrl(configured?: string) {
+  const env = ((import.meta as any).env?.VITE_PUBLIC_APP_URL || (import.meta as any).env?.VITE_APP_PUBLIC_URL) as string | undefined;
+  return (configured || env || "https://thermofitapp.lovable.app").trim().replace(/\/$/, "");
 }
 
-function accessText(u: TeamUser) {
-  const link = `${publicBaseUrl()}/login`;
+function publicUrlError(url: string) {
+  if (!url) return PUBLIC_URL_WARNING;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.protocol.startsWith("http")) return PUBLIC_URL_WARNING;
+  } catch {
+    return PUBLIC_URL_WARNING;
+  }
+  const normalized = url.toLowerCase();
+  if (INVALID_PUBLIC_URL_PARTS.some((part) => normalized.includes(part))) return PUBLIC_URL_WARNING;
+  return null;
+}
+
+function accessText(u: TeamUser, baseUrl: string) {
+  const link = `${baseUrl}/login`;
   return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
