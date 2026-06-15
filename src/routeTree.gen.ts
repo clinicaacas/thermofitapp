@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
-import { Route as SetupAdminRouteImport } from './routes/setup-admin'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
@@ -35,11 +34,6 @@ const VideosRoute = VideosRouteImport.update({
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
   path: '/trocar-senha',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetupAdminRoute = SetupAdminRouteImport.update({
-  id: '/setup-admin',
-  path: '/setup-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -128,7 +122,6 @@ export interface FileRoutesByFullPath {
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -147,7 +140,6 @@ export interface FileRoutesByTo {
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -167,7 +159,6 @@ export interface FileRoutesById {
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -188,7 +179,6 @@ export interface FileRouteTypes {
     | '/premios'
     | '/relatorios'
     | '/reset-password'
-    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   fileRoutesByTo: FileRoutesByTo
@@ -207,7 +197,6 @@ export interface FileRouteTypes {
     | '/premios'
     | '/relatorios'
     | '/reset-password'
-    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   id:
@@ -226,7 +215,6 @@ export interface FileRouteTypes {
     | '/premios'
     | '/relatorios'
     | '/reset-password'
-    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   fileRoutesById: FileRoutesById
@@ -246,7 +234,6 @@ export interface RootRouteChildren {
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  SetupAdminRoute: typeof SetupAdminRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   VideosRoute: typeof VideosRoute
 }
@@ -265,13 +252,6 @@ declare module '@tanstack/react-router' {
       path: '/trocar-senha'
       fullPath: '/trocar-senha'
       preLoaderRoute: typeof TrocarSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/setup-admin': {
-      id: '/setup-admin'
-      path: '/setup-admin'
-      fullPath: '/setup-admin'
-      preLoaderRoute: typeof SetupAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -390,20 +370,9 @@ const rootRouteChildren: RootRouteChildren = {
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  SetupAdminRoute: SetupAdminRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
