@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { listClients } from "@/lib/thermofit-data.functions";
 import { Plus, ChevronRight } from "lucide-react";
 
-export const Route = createFileRoute("/clientes")({
+export const Route = createFileRoute("/clientes/")({
   head: () => ({ meta: [{ title: "Clientes — ThermoFit" }] }),
   component: Page,
 });

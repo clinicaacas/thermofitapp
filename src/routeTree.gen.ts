@@ -21,10 +21,10 @@ import { Route as ExerciciosRouteImport } from './routes/exercicios'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as ClientesRouteImport } from './routes/clientes'
 import { Route as AprovacoesRouteImport } from './routes/aprovacoes'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNovaRouteImport } from './routes/clientes.nova'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 
@@ -88,11 +88,6 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientesRoute = ClientesRouteImport.update({
-  id: '/clientes',
-  path: '/clientes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AprovacoesRoute = AprovacoesRouteImport.update({
   id: '/aprovacoes',
   path: '/aprovacoes',
@@ -108,22 +103,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientesIndexRoute = ClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientesNovaRoute = ClientesNovaRouteImport.update({
-  id: '/nova',
-  path: '/nova',
-  getParentRoute: () => ClientesRoute,
+  id: '/clientes/nova',
+  path: '/clientes/nova',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesIdRoute = ClientesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ClientesRoute,
+  id: '/clientes/$id',
+  path: '/clientes/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
   '/aprovacoes': typeof AprovacoesRoute
-  '/clientes': typeof ClientesRouteWithChildren
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
@@ -138,12 +137,12 @@ export interface FileRoutesByFullPath {
   '/videos': typeof VideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/clientes/': typeof ClientesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
   '/aprovacoes': typeof AprovacoesRoute
-  '/clientes': typeof ClientesRouteWithChildren
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
@@ -158,13 +157,13 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/clientes': typeof ClientesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
   '/aprovacoes': typeof AprovacoesRoute
-  '/clientes': typeof ClientesRouteWithChildren
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
@@ -179,6 +178,7 @@ export interface FileRoutesById {
   '/videos': typeof VideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/clientes/': typeof ClientesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,7 +186,6 @@ export interface FileRouteTypes {
     | '/'
     | '/alertas'
     | '/aprovacoes'
-    | '/clientes'
     | '/configuracoes'
     | '/dashboard'
     | '/esqueci-senha'
@@ -201,12 +200,12 @@ export interface FileRouteTypes {
     | '/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/clientes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/alertas'
     | '/aprovacoes'
-    | '/clientes'
     | '/configuracoes'
     | '/dashboard'
     | '/esqueci-senha'
@@ -221,12 +220,12 @@ export interface FileRouteTypes {
     | '/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/clientes'
   id:
     | '__root__'
     | '/'
     | '/alertas'
     | '/aprovacoes'
-    | '/clientes'
     | '/configuracoes'
     | '/dashboard'
     | '/esqueci-senha'
@@ -241,13 +240,13 @@ export interface FileRouteTypes {
     | '/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/clientes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlertasRoute: typeof AlertasRoute
   AprovacoesRoute: typeof AprovacoesRoute
-  ClientesRoute: typeof ClientesRouteWithChildren
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DashboardRoute: typeof DashboardRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
@@ -260,6 +259,9 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   VideosRoute: typeof VideosRoute
+  ClientesIdRoute: typeof ClientesIdRoute
+  ClientesNovaRoute: typeof ClientesNovaRoute
+  ClientesIndexRoute: typeof ClientesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -348,13 +350,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clientes': {
-      id: '/clientes'
-      path: '/clientes'
-      fullPath: '/clientes'
-      preLoaderRoute: typeof ClientesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/aprovacoes': {
       id: '/aprovacoes'
       path: '/aprovacoes'
@@ -376,42 +371,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clientes/': {
+      id: '/clientes/'
+      path: '/clientes'
+      fullPath: '/clientes/'
+      preLoaderRoute: typeof ClientesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clientes/nova': {
       id: '/clientes/nova'
-      path: '/nova'
+      path: '/clientes/nova'
       fullPath: '/clientes/nova'
       preLoaderRoute: typeof ClientesNovaRouteImport
-      parentRoute: typeof ClientesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/clientes/$id': {
       id: '/clientes/$id'
-      path: '/$id'
+      path: '/clientes/$id'
       fullPath: '/clientes/$id'
       preLoaderRoute: typeof ClientesIdRouteImport
-      parentRoute: typeof ClientesRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface ClientesRouteChildren {
-  ClientesIdRoute: typeof ClientesIdRoute
-  ClientesNovaRoute: typeof ClientesNovaRoute
-}
-
-const ClientesRouteChildren: ClientesRouteChildren = {
-  ClientesIdRoute: ClientesIdRoute,
-  ClientesNovaRoute: ClientesNovaRoute,
-}
-
-const ClientesRouteWithChildren = ClientesRoute._addFileChildren(
-  ClientesRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
   AprovacoesRoute: AprovacoesRoute,
-  ClientesRoute: ClientesRouteWithChildren,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DashboardRoute: DashboardRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
@@ -424,6 +411,9 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   VideosRoute: VideosRoute,
+  ClientesIdRoute: ClientesIdRoute,
+  ClientesNovaRoute: ClientesNovaRoute,
+  ClientesIndexRoute: ClientesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
