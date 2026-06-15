@@ -176,7 +176,7 @@ export const getClient = createServerFn({ method: "GET" })
     };
   });
 
-export const createClient = createServerFn({ method: "POST" })
+export const createClientRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => clientPayloadSchema.parse(input))
   .handler(async ({ data, context }) => {
