@@ -14,6 +14,10 @@ function SetupAdmin() {
   const navigate = useNavigate();
   const hasUsers = tenant.team.length > 0;
 
+  if (hasUsers) {
+    return <Navigate to="/login" />;
+  }
+
   const [form, setForm] = useState({
     name: "Dra. Cynara Acas",
     email: "studioacass@gmail.com",
