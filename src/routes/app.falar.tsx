@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ClientAppShell } from "@/components/client-app-shell";
+import { ClientAppShell, useAppSettings } from "@/components/client-app-shell";
 import { listHelpMessages, sendHelpMessage } from "@/lib/thermofit-client-app.functions";
 import { AlertTriangle, Send } from "lucide-react";
 
@@ -11,18 +11,13 @@ export const Route = createFileRoute("/app/falar")({
   component: Page,
 });
 
-const QUICK = [
-  { key: "duvida_plano", label: "Tirar dúvida sobre o plano" },
-  { key: "remarcar", label: "Remarcar sessão" },
-  { key: "nao_estou_bem", label: "Não estou me sentindo bem", alert: true },
-  { key: "outro", label: "Outro assunto" },
-];
-
 function Page() {
   const { clientId } = useSearch({ from: "/app/falar" });
   const fetchMsgs = useServerFn(listHelpMessages);
   const sendMsg = useServerFn(sendHelpMessage);
   const qc = useQueryClient();
+  const { data: settings } = useAppSettings();
+  const QUICK = (settings?.quickTopics ?? []) as { key: string; label: string; creates_alert: boolean }[];
 
   const { data } = useQuery({
     queryKey: ["help-messages", clientId],
@@ -30,19 +25,21 @@ function Page() {
     enabled: !!clientId,
   });
 
-  const [topic, setTopic] = useState<string>(QUICK[0].key);
+  const [topic, setTopic] = useState<string>("");
   const [body, setBody] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
+  const currentTopic = topic || QUICK[0]?.key || "";
+
   const mut = useMutation({
     mutationFn: async () => {
-      const q = QUICK.find((x) => x.key === topic);
+      const q = QUICK.find((x) => x.key === currentTopic);
       return sendMsg({
         data: {
           clientId,
           quickTopic: q?.label ?? null,
           body: body.trim(),
-          createAlert: !!q?.alert,
+          createAlert: !!q?.creates_alert,
         },
       });
     },
@@ -66,13 +63,13 @@ function Page() {
               key={q.key}
               onClick={() => setTopic(q.key)}
               className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ${
-                topic === q.key
+                currentTopic === q.key
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                   : "border-slate-200 bg-white text-slate-700"
               }`}
             >
               <span>{q.label}</span>
-              {q.alert && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+              {q.creates_alert && <AlertTriangle className="h-4 w-4 text-amber-500" />}
             </button>
           ))}
         </div>
