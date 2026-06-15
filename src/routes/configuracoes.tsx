@@ -31,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus } from "@/lib/tenant-context";
-import { generateTempPassword } from "@/lib/auth-context";
 import {
   Pencil,
   Trash2,
@@ -533,15 +532,15 @@ function publicUrlError(url: string) {
   return null;
 }
 
-function accessText(u: TeamUser, baseUrl: string) {
+function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
   const link = `${baseUrl}/login`;
-  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
+  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado/atualizado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${temporaryPassword}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
 function UsersTab() {
-  const { tenant, currentPlan, addUser, updateUser, removeUser } = useTenant();
+  const { tenant, currentPlan, addUser, updateUser, resetUserPassword, removeUser } = useTenant();
   const [open, setOpen] = useState(false);
-  const [created, setCreated] = useState<TeamUser | null>(null);
+  const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const emptyForm = {
     name: "", email: "", phone: "", role: "",
@@ -559,28 +558,30 @@ function UsersTab() {
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
 
-  function copyAccess(u: TeamUser) {
+  function copyAccess(u: TeamUser, temporaryPassword: string) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) {
       setLinkError(invalid);
       return;
     }
-    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl, temporaryPassword));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
 
-  function resetPassword(u: TeamUser) {
+  async function resetPassword(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) {
       setLinkError(invalid);
       return;
     }
-    const np = generateTempPassword();
-    updateUser(u.id, { password: np, mustChangePassword: true });
-    const updated = { ...u, password: np, mustChangePassword: true };
-    navigator.clipboard.writeText(accessText(updated, accessBaseUrl));
+    const result = await resetUserPassword(u.id);
+    if (!result.ok || !result.user || !result.temporaryPassword) {
+      setLinkError(result.reason ?? "Não foi possível redefinir a senha.");
+      return;
+    }
+    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl, result.temporaryPassword));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -653,12 +654,11 @@ function UsersTab() {
                   <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
                   <Button
                     disabled={!form.name || !form.email}
-                    onClick={() => {
+                    onClick={async () => {
                       setError(null);
-                      const password = generateTempPassword();
-                      const r = addUser({ ...form, password });
+                      const r = await addUser(form);
                       if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
-                      setCreated(r.user);
+                      setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "" });
                     }}
                   >
                     Criar usuário
@@ -675,10 +675,10 @@ function UsersTab() {
                         {PUBLIC_URL_WARNING}
                       </div>
                     ) : (
-                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created, accessBaseUrl)}</pre>
+                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
                     )}
                   </div>
-                  <Button onClick={() => copyAccess(created)} className="w-full">
+                  <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
                     <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
                   </Button>
                 </div>
@@ -738,7 +738,7 @@ function UsersTab() {
                         <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => copyAccess(u)}>
+                        <DropdownMenuItem onClick={() => resetPassword(u)}>
                           <Copy className="h-3 w-3" /> Copiar dados de acesso
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => resetPassword(u)}>

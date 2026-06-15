@@ -1,60 +1,74 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useCallback, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserProfile, markPasswordChanged } from "@/lib/thermofit-auth.functions";
 import { useTenant, type TeamUser } from "./tenant-context";
 
 type AuthCtx = {
   user: TeamUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => { ok: boolean; reason?: string };
-  signOut: () => void;
-  changePassword: (newPassword: string) => void;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; reason?: string }>;
+  signOut: () => Promise<void>;
+  changePassword: (newPassword: string) => Promise<{ ok: boolean; reason?: string }>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
-const SESSION_KEY = "thermofit_session_v1";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { tenant, updateUser } = useTenant();
-  const [userId, setUserId] = useState<string | null>(null);
+  const { refreshTenant } = useTenant();
+  const fetchProfile = useServerFn(getCurrentUserProfile);
+  const savePasswordChanged = useServerFn(markPasswordChanged);
+  const [user, setUser] = useState<TeamUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (raw) setUserId(JSON.parse(raw));
-    } catch {}
-    setLoading(false);
-  }, []);
+  const loadProfile = useCallback(async () => {
+    const profile = await fetchProfile();
+    if (!profile.ok) return profile;
+    setUser(profile.user);
+    void refreshTenant();
+    return { ok: true as const };
+  }, [fetchProfile, refreshTenant]);
 
-  const user = userId ? tenant.team.find((u) => u.id === userId) ?? null : null;
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        setLoading(false);
+        return;
+      }
+      loadProfile().finally(() => setLoading(false));
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) setUser(null);
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") void loadProfile();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [loadProfile]);
 
   const value: AuthCtx = {
     user,
     loading,
-    signIn: (email, password) => {
-      const found = tenant.team.find(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-      );
-      if (!found || found.password !== password) {
+    signIn: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      if (error) {
         return { ok: false, reason: "E-mail ou senha incorretos." };
       }
-      if (found.status !== "ativo") {
-        return { ok: false, reason: "Usuário sem permissão de acesso. Contate o administrador." };
+      const profile = await loadProfile();
+      if (!profile.ok) {
+        await supabase.auth.signOut();
+        return { ok: false, reason: profile.reason };
       }
-      if (!found.tenantId || found.tenantId !== tenant.id || tenant.status !== "ativa") {
-        return { ok: false, reason: "Usuário sem clínica ativa vinculada. Contate o administrador." };
-      }
-      localStorage.setItem(SESSION_KEY, JSON.stringify(found.id));
-      setUserId(found.id);
-      updateUser(found.id, { lastAccess: new Date().toLocaleString("pt-BR") });
       return { ok: true };
     },
-    signOut: () => {
-      localStorage.removeItem(SESSION_KEY);
-      setUserId(null);
+    signOut: async () => {
+      await supabase.auth.signOut();
+      setUser(null);
     },
-    changePassword: (newPassword) => {
-      if (!user) return;
-      updateUser(user.id, { password: newPassword, mustChangePassword: false });
+    changePassword: async (newPassword) => {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { ok: false, reason: "Não foi possível atualizar a senha." };
+      await savePasswordChanged();
+      setUser((current) => current ? { ...current, mustChangePassword: false } : current);
+      return { ok: true };
     },
   };
 

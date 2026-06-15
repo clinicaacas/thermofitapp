@@ -56,10 +56,10 @@ function LoginPage() {
 
           <form
             className="mt-6 space-y-4"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               setError(null);
-              const r = signIn(email, password);
+              const r = await signIn(email, password);
               if (!r.ok) setError(r.reason ?? "Falha ao entrar.");
             }}
           >

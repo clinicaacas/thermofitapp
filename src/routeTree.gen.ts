@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as SetupAdminRouteImport } from './routes/setup-admin'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
 import { Route as MensagensRouteImport } from './routes/mensagens'
@@ -39,6 +40,11 @@ const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
 const SetupAdminRoute = SetupAdminRouteImport.update({
   id: '/setup-admin',
   path: '/setup-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/reset-password'
     | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/reset-password'
     | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/reset-password'
     | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
@@ -233,6 +245,7 @@ export interface RootRouteChildren {
   MensagensRoute: typeof MensagensRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SetupAdminRoute: typeof SetupAdminRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   VideosRoute: typeof VideosRoute
@@ -259,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/setup-admin'
       fullPath: '/setup-admin'
       preLoaderRoute: typeof SetupAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/relatorios': {
@@ -369,6 +389,7 @@ const rootRouteChildren: RootRouteChildren = {
   MensagensRoute: MensagensRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SetupAdminRoute: SetupAdminRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   VideosRoute: VideosRoute,
