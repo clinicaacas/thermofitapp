@@ -94,20 +94,8 @@ const DEFAULT_TENANT: Tenant = {
   planId: "interno",
   renewalDate: "",
   createdAt: new Date().toISOString(),
-  team: [
-    {
-      id: "u1",
-      name: "Dra. Cynara Acas",
-      email: "cynara.acas1@gmail.com",
-      role: "Super Admin",
-      profile: "super_admin",
-      status: "ativo",
-      password: "admin123",
-      mustChangePassword: false,
-      tenantId: "acas",
-      lastAccess: "Hoje",
-    },
-  ],
+  team: [],
+
 };
 
 type Ctx = {
@@ -122,7 +110,7 @@ type Ctx = {
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
-const STORAGE = "thermofit_tenant_v2";
+const STORAGE = "thermofit_tenant_v3";
 const PLANS_STORAGE = "thermofit_plans_v1";
 
 export function TenantProvider({ children }: { children: ReactNode }) {
