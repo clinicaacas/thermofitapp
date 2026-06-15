@@ -149,7 +149,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))),
     addUser: (u) => {
       const limit = currentPlan?.userLimit ?? 0;
-      if (limit !== -1 && tenant.team.length >= limit) {
+      // Super Admin SaaS and Interno/Master plan have no limits
+      const unlimited = u.profile === "super_admin" || tenant.planId === "interno" || limit === -1;
+      if (!unlimited && tenant.team.length >= limit) {
         return { ok: false, reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.` };
       }
       const newUser: TeamUser = { ...u, id: crypto.randomUUID(), tenantId: tenant.id };
