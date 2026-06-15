@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminCreateUser,
@@ -105,19 +105,7 @@ const DEFAULT_TENANT: Tenant = {
   planId: "interno",
   renewalDate: "",
   createdAt: new Date().toISOString(),
-  team: [
-    {
-      id: "seed-cynara",
-      name: "Dra. Cynara Acas",
-      email: "studioacass@gmail.com",
-      role: "Super Admin",
-      profile: "super_admin",
-      status: "ativo",
-      mustChangePassword: true,
-      tenantId: "acas",
-      lastAccess: "",
-    },
-  ],
+  team: [],
 };
 
 function normalizeTenant(raw?: Partial<Tenant>): Tenant {
@@ -135,22 +123,8 @@ function normalizeTenant(raw?: Partial<Tenant>): Tenant {
         tenantId: next.id,
       };
     }
-    if (email === "robsongesso26@gmail.com") {
-      return {
-        ...user,
-        name: user.name || "Robson",
-        role: user.role || "Equipe",
-        profile: "equipe",
-        status: "ativo",
-        tenantId: next.id,
-      };
-    }
     return { ...user, tenantId: user.tenantId || next.id };
   });
-  // Ensure Super Admin SaaS always exists (idempotent seed)
-  if (!next.team.some((u) => u.email.toLowerCase() === "studioacass@gmail.com")) {
-    next.team = [...DEFAULT_TENANT.team, ...next.team];
-  }
   next.planId = "interno";
   next.status = "ativa";
   return next;
@@ -158,12 +132,14 @@ function normalizeTenant(raw?: Partial<Tenant>): Tenant {
 
 type Ctx = {
   tenant: Tenant;
+  tenantLoading: boolean;
+  tenantError: string | null;
   plans: Plan[];
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
   refreshTenant: () => Promise<void>;
-  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
+  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
   updateUser: (id: string, patch: Partial<TeamUser>) => Promise<void>;
   resetUserPassword: (id: string) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
   removeUser: (id: string) => Promise<void>;
