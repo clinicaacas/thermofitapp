@@ -94,20 +94,8 @@ const DEFAULT_TENANT: Tenant = {
   planId: "interno",
   renewalDate: "",
   createdAt: new Date().toISOString(),
-  team: [
-    {
-      id: "u1",
-      name: "Dra. Cynara Acas",
-      email: "cynara.acas1@gmail.com",
-      role: "Super Admin",
-      profile: "super_admin",
-      status: "ativo",
-      password: "admin123",
-      mustChangePassword: false,
-      tenantId: "acas",
-      lastAccess: "Hoje",
-    },
-  ],
+  team: [],
+
 };
 
 type Ctx = {

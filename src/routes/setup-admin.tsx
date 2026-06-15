@@ -16,7 +16,7 @@ function SetupAdmin() {
 
   const [form, setForm] = useState({
     name: "Dra. Cynara Acas",
-    email: "cynara.acas1@gmail.com",
+    email: "studioacass@gmail.com",
     password: "",
     confirm: "",
     clinicName: "Clínica Acas",
