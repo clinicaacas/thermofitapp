@@ -31,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus } from "@/lib/tenant-context";
-import { generateTempPassword } from "@/lib/auth-context";
 import {
   Pencil,
   Trash2,
@@ -657,10 +656,9 @@ function UsersTab() {
                     disabled={!form.name || !form.email}
                     onClick={() => {
                       setError(null);
-                      const password = generateTempPassword();
-                      const r = addUser({ ...form, password });
+                      const r = await addUser(form);
                       if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
-                      setCreated(r.user);
+                      setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "" });
                     }}
                   >
                     Criar usuário
@@ -677,10 +675,10 @@ function UsersTab() {
                         {PUBLIC_URL_WARNING}
                       </div>
                     ) : (
-                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created, accessBaseUrl)}</pre>
+                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
                     )}
                   </div>
-                  <Button onClick={() => copyAccess(created)} className="w-full">
+                  <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
                     <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
                   </Button>
                 </div>
@@ -740,7 +738,7 @@ function UsersTab() {
                         <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => copyAccess(u)}>
+                        <DropdownMenuItem onClick={() => resetPassword(u)}>
                           <Copy className="h-3 w-3" /> Copiar dados de acesso
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => resetPassword(u)}>
