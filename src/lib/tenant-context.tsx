@@ -1,4 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  adminCreateUser,
+  adminRemoveUser,
+  adminResetUserPassword,
+  adminUpdateUser,
+  getTenantSnapshot,
+  updateTenantSettings,
+} from "@/lib/thermofit-auth.functions";
 
 export type PlanId = "essencial" | "profissional" | "premium" | "enterprise" | "interno";
 export type ProfileRole = "super_admin" | "dono" | "admin" | "equipe";
@@ -23,7 +32,6 @@ export type TeamUser = {
   role: string;
   profile: ProfileRole;
   status: UserStatus;
-  password: string;
   mustChangePassword: boolean;
   tenantId: string;
   lastAccess?: string;
@@ -105,7 +113,6 @@ const DEFAULT_TENANT: Tenant = {
       role: "Super Admin",
       profile: "super_admin",
       status: "ativo",
-      password: "Acas@2026",
       mustChangePassword: true,
       tenantId: "acas",
       lastAccess: "",
@@ -155,9 +162,11 @@ type Ctx = {
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
-  addUser: (u: Omit<TeamUser, "id" | "tenantId">) => { ok: boolean; reason?: string; user?: TeamUser };
-  updateUser: (id: string, patch: Partial<TeamUser>) => void;
-  removeUser: (id: string) => void;
+  refreshTenant: () => Promise<void>;
+  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
+  updateUser: (id: string, patch: Partial<TeamUser>) => Promise<void>;
+  resetUserPassword: (id: string) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
+  removeUser: (id: string) => Promise<void>;
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
@@ -167,19 +176,20 @@ const PLANS_STORAGE = "thermofit_plans_v2";
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<Tenant>(DEFAULT_TENANT);
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
+  const getSnapshot = useServerFn(getTenantSnapshot);
+  const saveTenant = useServerFn(updateTenantSettings);
+  const createUser = useServerFn(adminCreateUser);
+  const saveUser = useServerFn(adminUpdateUser);
+  const resetPassword = useServerFn(adminResetUserPassword);
+  const deleteUser = useServerFn(adminRemoveUser);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE);
-      if (raw) setTenant(normalizeTenant(JSON.parse(raw)));
       const rawP = localStorage.getItem(PLANS_STORAGE);
       if (rawP) setPlans(JSON.parse(rawP));
     } catch {}
+    void getSnapshot().then((r) => setTenant(normalizeTenant(r.tenant))).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE, JSON.stringify(tenant));
-  }, [tenant]);
 
   useEffect(() => {
     localStorage.setItem(PLANS_STORAGE, JSON.stringify(plans));
@@ -194,24 +204,47 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tenant,
     plans,
     currentPlan,
-    updateTenant: (patch) => setTenant((t) => ({ ...t, ...patch })),
+    refreshTenant: async () => {
+      const r = await getSnapshot();
+      setTenant(normalizeTenant(r.tenant));
+    },
+    updateTenant: (patch) => {
+      setTenant((t) => normalizeTenant({ ...t, ...patch }));
+      void saveTenant({ data: patch }).then((r) => setTenant((t) => normalizeTenant({ ...t, ...r.tenant }))).catch(() => {});
+    },
     updatePlan: (id, patch) =>
       setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))),
-    addUser: (u) => {
+    addUser: async (u) => {
       const limit = currentPlan?.userLimit ?? 0;
-      // Super Admin SaaS and Interno/Master plan have no limits
       const unlimited = u.profile === "super_admin" || tenant.planId === "interno" || limit === -1;
       if (!unlimited && tenant.team.length >= limit) {
         return { ok: false, reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.` };
       }
-      const newUser: TeamUser = { ...u, id: crypto.randomUUID(), tenantId: tenant.id };
-      setTenant((t) => ({ ...t, team: [...t.team, newUser] }));
-      return { ok: true, user: newUser };
+      try {
+        const result = await createUser({ data: u });
+        setTenant((t) => ({ ...t, team: [...t.team.filter((x) => x.id !== result.user.id), result.user] }));
+        return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível adicionar." };
+      }
     },
-    updateUser: (id, patch) =>
-      setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
-    removeUser: (id) =>
-      setTenant((t) => ({ ...t, team: t.team.filter((u) => u.id !== id) })),
+    updateUser: async (id, patch) => {
+      setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? { ...u, ...patch } : u)) }));
+      await saveUser({ data: { userId: id, patch } });
+    },
+    resetUserPassword: async (id) => {
+      try {
+        const result = await resetPassword({ data: { userId: id } });
+        setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? result.user : u)) }));
+        return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível redefinir a senha." };
+      }
+    },
+    removeUser: async (id) => {
+      await deleteUser({ data: { userId: id } });
+      setTenant((t) => ({ ...t, team: t.team.filter((u) => u.id !== id) }));
+    },
   };
 
   return <TenantCtx.Provider value={value}>{children}</TenantCtx.Provider>;
