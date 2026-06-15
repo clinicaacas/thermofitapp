@@ -173,6 +173,18 @@ function GeneralTab() {
             </SelectContent>
           </Select>
         </Field>
+        <div className="md:col-span-2 space-y-1.5">
+          <Field label="URL pública do sistema">
+            <Input
+              placeholder="https://thermofitapp.lovable.app"
+              value={tenant.publicAppUrl}
+              onChange={(e) => updateTenant({ publicAppUrl: e.target.value })}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Use aqui a URL pública publicada do sistema. Não use link de preview, editor ou projeto do Lovable.
+          </p>
+        </div>
         <div className="md:col-span-2 flex items-center gap-3 pt-2">
           <Button onClick={markSaved}>Salvar alterações</Button>
           {saved && <span className="text-xs text-muted-foreground">Alterações salvas.</span>}
@@ -491,22 +503,38 @@ function statusClass(s: UserStatus) {
   return "bg-muted text-muted-foreground";
 }
 
-function publicBaseUrl() {
-  const env = (import.meta as any).env?.VITE_APP_PUBLIC_URL as string | undefined;
-  if (env) return env.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    // Avoid Lovable preview/editor hosts that require Lovable login
-    if (host.includes("id-preview--") || host.includes("lovable.app/projects") || host.includes("lovable.dev")) {
-      return "https://thermofitapp.lovable.app";
-    }
-    return window.location.origin;
-  }
-  return "https://thermofitapp.lovable.app";
+const INVALID_PUBLIC_URL_PARTS = [
+  "lovable.dev",
+  "auth-bridge",
+  "lovableproject.com",
+  "project_id",
+  "editor",
+  "preview",
+  "dashboard",
+  "/projects",
+];
+const PUBLIC_URL_WARNING = "Configure a URL pública do sistema antes de gerar links de acesso para usuários.";
+
+function publicBaseUrl(configured?: string) {
+  const env = ((import.meta as any).env?.VITE_PUBLIC_APP_URL || (import.meta as any).env?.VITE_APP_PUBLIC_URL) as string | undefined;
+  return (configured || env || "https://thermofitapp.lovable.app").trim().replace(/\/$/, "");
 }
 
-function accessText(u: TeamUser) {
-  const link = `${publicBaseUrl()}/login`;
+function publicUrlError(url: string) {
+  if (!url) return PUBLIC_URL_WARNING;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.protocol.startsWith("http")) return PUBLIC_URL_WARNING;
+  } catch {
+    return PUBLIC_URL_WARNING;
+  }
+  const normalized = url.toLowerCase();
+  if (INVALID_PUBLIC_URL_PARTS.some((part) => normalized.includes(part))) return PUBLIC_URL_WARNING;
+  return null;
+}
+
+function accessText(u: TeamUser, baseUrl: string) {
+  const link = `${baseUrl}/login`;
   return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
@@ -523,22 +551,37 @@ function UsersTab() {
   };
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
   const unlimited = isInternal || limit === -1;
   const atLimit = !unlimited && tenant.team.length >= limit;
+  const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
+  const accessUrlError = publicUrlError(accessBaseUrl);
 
   function copyAccess(u: TeamUser) {
-    navigator.clipboard.writeText(accessText(u));
+    const invalid = publicUrlError(accessBaseUrl);
+    if (invalid) {
+      setLinkError(invalid);
+      return;
+    }
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
+    setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
 
   function resetPassword(u: TeamUser) {
+    const invalid = publicUrlError(accessBaseUrl);
+    if (invalid) {
+      setLinkError(invalid);
+      return;
+    }
     const np = generateTempPassword();
     updateUser(u.id, { password: np, mustChangePassword: true });
     const updated = { ...u, password: np, mustChangePassword: true };
-    navigator.clipboard.writeText(accessText(updated));
+    navigator.clipboard.writeText(accessText(updated, accessBaseUrl));
+    setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
@@ -627,7 +670,13 @@ function UsersTab() {
                 <div className="space-y-3">
                   <div className="rounded-md border bg-muted/40 p-3 text-xs">
                     <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
-                    <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created)}</pre>
+                    {accessUrlError ? (
+                      <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
+                        {PUBLIC_URL_WARNING}
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created, accessBaseUrl)}</pre>
+                    )}
                   </div>
                   <Button onClick={() => copyAccess(created)} className="w-full">
                     <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
@@ -650,6 +699,11 @@ function UsersTab() {
         {copied && (
           <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
             Dados de acesso copiados para a área de transferência.
+          </div>
+        )}
+        {(linkError || accessUrlError) && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            {linkError || accessUrlError}
           </div>
         )}
         <div className="overflow-x-auto rounded-md border">

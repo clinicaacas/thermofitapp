@@ -37,8 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!found || found.password !== password) {
         return { ok: false, reason: "E-mail ou senha incorretos." };
       }
-      if (found.status === "inativo" || found.status === "bloqueado") {
+      if (found.status !== "ativo") {
         return { ok: false, reason: "Usuário sem permissão de acesso. Contate o administrador." };
+      }
+      if (!found.tenantId || found.tenantId !== tenant.id || tenant.status !== "ativa") {
+        return { ok: false, reason: "Usuário sem clínica ativa vinculada. Contate o administrador." };
       }
       localStorage.setItem(SESSION_KEY, JSON.stringify(found.id));
       setUserId(found.id);

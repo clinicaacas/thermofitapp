@@ -70,6 +70,7 @@ function SetupAdmin() {
               clinicName: form.clinicName,
               systemName: form.systemName,
               systemSubtitle: form.systemSubtitle,
+              publicAppUrl: "https://thermofitapp.lovable.app",
               ownerName: form.name,
               contactEmail: form.email,
               planId: "interno",
