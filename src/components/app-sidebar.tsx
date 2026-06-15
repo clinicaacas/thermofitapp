@@ -1,5 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useTenant } from "@/lib/tenant-context";
+import { useAuth } from "@/lib/auth-context";
 import {
   LayoutGrid,
   Users,
@@ -33,7 +34,13 @@ const items = [
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { tenant } = useTenant();
-  const initials = tenant.ownerName
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const displayName = user?.name ?? tenant.ownerName;
+  const displayRole = user
+    ? ({ super_admin: "Super Admin", dono: "Dono da Clínica", admin: "Admin da Clínica", equipe: "Equipe" } as const)[user.profile]
+    : "Super Admin";
+  const initials = displayName
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -87,11 +94,12 @@ export function AppSidebar() {
             {initials || "CA"}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{tenant.ownerName}</div>
-            <div className="truncate text-xs text-muted-foreground">Super Admin</div>
+            <div className="truncate text-sm font-medium">{displayName}</div>
+            <div className="truncate text-xs text-muted-foreground">{displayRole}</div>
           </div>
           <button
             type="button"
+            onClick={() => { signOut(); navigate({ to: "/login" }); }}
             className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-hover hover:text-foreground transition-colors"
             aria-label="Sair"
           >
