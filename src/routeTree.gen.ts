@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
+import { Route as SetupAdminRouteImport } from './routes/setup-admin'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
 import { Route as MensagensRouteImport } from './routes/mensagens'
@@ -33,6 +34,11 @@ const VideosRoute = VideosRouteImport.update({
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
   path: '/trocar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupAdminRoute = SetupAdminRouteImport.update({
+  id: '/setup-admin',
+  path: '/setup-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/setup-admin': typeof SetupAdminRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   id:
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/setup-admin'
     | '/trocar-senha'
     | '/videos'
   fileRoutesById: FileRoutesById
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   MensagensRoute: typeof MensagensRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  SetupAdminRoute: typeof SetupAdminRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   VideosRoute: typeof VideosRoute
 }
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/trocar-senha'
       fullPath: '/trocar-senha'
       preLoaderRoute: typeof TrocarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup-admin': {
+      id: '/setup-admin'
+      path: '/setup-admin'
+      fullPath: '/setup-admin'
+      preLoaderRoute: typeof SetupAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/relatorios': {
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   MensagensRoute: MensagensRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
+  SetupAdminRoute: SetupAdminRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   VideosRoute: VideosRoute,
 }
