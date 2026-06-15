@@ -104,6 +104,23 @@ async function assertSuperAdmin(admin: SupabaseAdmin, userId: string) {
   }
 }
 
+async function assertUserManager(admin: SupabaseAdmin, userId: string, tenantId: string) {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("profile,status,tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("Erro ao validar permissões do administrador", error);
+    throw error;
+  }
+  const canManage =
+    data?.status === "ativo" &&
+    data.tenant_id === tenantId &&
+    ["super_admin", "dono", "admin"].includes(data.profile);
+  if (!canManage) throw new Error("Forbidden");
+}
+
 function mapTenant(row: any) {
   return {
     id: row.id,
@@ -164,10 +181,14 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
     if (data.user) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
-        .select("profile,status")
+          .select("profile,status,tenant_id")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (profile?.profile === "super_admin" && profile.status === "ativo") {
+      if (
+        profile?.status === "ativo" &&
+        profile.tenant_id === tenant.id &&
+        ["super_admin", "dono", "admin"].includes(profile.profile)
+      ) {
         const { data: profiles, error } = await supabaseAdmin
           .from("profiles")
           .select("*")
@@ -180,6 +201,26 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   }
 
   return { tenant: { ...mapTenant(tenant), team } };
+});
+
+export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const tenant = await ensureAcasTenant(supabaseAdmin);
+  const master = await ensureMasterAdmin(supabaseAdmin, tenant.id);
+  const { count, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("profile", "super_admin")
+    .eq("status", "ativo");
+  if (error) {
+    console.error("Erro ao verificar setup inicial", error);
+    throw error;
+  }
+  return {
+    hasActiveSuperAdmin: Boolean(count && count > 0),
+    hasMainTenant: Boolean(tenant?.id),
+    masterAdminId: master.id,
+  };
 });
 
 export const getCurrentUserProfile = createServerFn({ method: "GET" })
@@ -276,15 +317,17 @@ export const adminCreateUser = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertSuperAdmin(supabaseAdmin, context.userId);
     const tenant = await ensureAcasTenant(supabaseAdmin);
+    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
     const password = generateTemporaryPassword();
     let authUser = await findAuthUserByEmail(supabaseAdmin, data.email);
+    let existed = Boolean(authUser);
     if (authUser) {
-      const { data: existingProfile } = await supabaseAdmin.from("profiles").select("id").eq("email", data.email.toLowerCase()).maybeSingle();
-      if (existingProfile) throw new Error("Este e-mail já está cadastrado.");
       const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { password, email_confirm: true });
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao criar/atualizar usuário no Auth", error);
+        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      }
     } else {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
         email: data.email.toLowerCase(),
@@ -292,7 +335,10 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: { name: data.name },
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao criar usuário no Auth", error);
+        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      }
       authUser = created.user;
     }
     const { data: profile, error } = await supabaseAdmin
@@ -310,8 +356,11 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       }, { onConflict: "email" })
       .select("*")
       .single();
-    if (error) throw error;
-    return { user: mapProfile(profile), temporaryPassword: password };
+    if (error) {
+      console.error("Erro ao criar perfil ou vincular clínica", error);
+      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+    }
+    return { user: mapProfile(profile), temporaryPassword: password, existed };
   });
 
 export const adminResetUserPassword = createServerFn({ method: "POST" })
@@ -319,17 +368,24 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertSuperAdmin(supabaseAdmin, context.userId);
+    const tenant = await ensureAcasTenant(supabaseAdmin);
+    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
     const password = generateTemporaryPassword();
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
-    if (authError) throw authError;
+    if (authError) {
+      console.error("Erro ao redefinir senha no Auth", authError);
+      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+    }
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
-      .update({ must_change_password: true, status: "ativo" })
+      .update({ must_change_password: false, status: "ativo" })
       .eq("id", data.userId)
       .select("*")
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("Erro ao atualizar perfil após redefinir senha", error);
+      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+    }
     return { user: mapProfile(profile), temporaryPassword: password };
   });
 
@@ -338,7 +394,8 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ userId: z.string().uuid(), patch: z.record(z.any()) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertSuperAdmin(supabaseAdmin, context.userId);
+    const tenant = await ensureAcasTenant(supabaseAdmin);
+    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
     const allowed: Record<string, string> = {
       name: "name",
       email: "email",
@@ -353,7 +410,10 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       if (key in allowed) patch[allowed[key]] = value;
     });
     const { data: profile, error } = await supabaseAdmin.from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
-    if (error) throw error;
+    if (error) {
+      console.error("Erro ao atualizar perfil", error);
+      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+    }
     return { user: mapProfile(profile) };
   });
 
@@ -362,7 +422,8 @@ export const adminRemoveUser = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertSuperAdmin(supabaseAdmin, context.userId);
+    const tenant = await ensureAcasTenant(supabaseAdmin);
+    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
     const { data: profile } = await supabaseAdmin.from("profiles").select("profile").eq("id", data.userId).maybeSingle();
     if (profile?.profile === "super_admin") throw new Error("A conta Super Admin não pode ser removida.");
     await supabaseAdmin.from("profiles").delete().eq("id", data.userId);

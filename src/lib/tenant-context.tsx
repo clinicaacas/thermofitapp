@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminCreateUser,
@@ -105,19 +105,7 @@ const DEFAULT_TENANT: Tenant = {
   planId: "interno",
   renewalDate: "",
   createdAt: new Date().toISOString(),
-  team: [
-    {
-      id: "seed-cynara",
-      name: "Dra. Cynara Acas",
-      email: "studioacass@gmail.com",
-      role: "Super Admin",
-      profile: "super_admin",
-      status: "ativo",
-      mustChangePassword: true,
-      tenantId: "acas",
-      lastAccess: "",
-    },
-  ],
+  team: [],
 };
 
 function normalizeTenant(raw?: Partial<Tenant>): Tenant {
@@ -135,22 +123,8 @@ function normalizeTenant(raw?: Partial<Tenant>): Tenant {
         tenantId: next.id,
       };
     }
-    if (email === "robsongesso26@gmail.com") {
-      return {
-        ...user,
-        name: user.name || "Robson",
-        role: user.role || "Equipe",
-        profile: "equipe",
-        status: "ativo",
-        tenantId: next.id,
-      };
-    }
     return { ...user, tenantId: user.tenantId || next.id };
   });
-  // Ensure Super Admin SaaS always exists (idempotent seed)
-  if (!next.team.some((u) => u.email.toLowerCase() === "studioacass@gmail.com")) {
-    next.team = [...DEFAULT_TENANT.team, ...next.team];
-  }
   next.planId = "interno";
   next.status = "ativa";
   return next;
@@ -158,23 +132,26 @@ function normalizeTenant(raw?: Partial<Tenant>): Tenant {
 
 type Ctx = {
   tenant: Tenant;
+  tenantLoading: boolean;
+  tenantError: string | null;
   plans: Plan[];
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
   refreshTenant: () => Promise<void>;
-  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
+  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
   updateUser: (id: string, patch: Partial<TeamUser>) => Promise<void>;
   resetUserPassword: (id: string) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
   removeUser: (id: string) => Promise<void>;
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
-const STORAGE = "thermofit_tenant_v4";
 const PLANS_STORAGE = "thermofit_plans_v2";
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<Tenant>(DEFAULT_TENANT);
+  const [tenantLoading, setTenantLoading] = useState(true);
+  const [tenantError, setTenantError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const getSnapshot = useServerFn(getTenantSnapshot);
   const saveTenant = useServerFn(updateTenantSettings);
@@ -183,13 +160,27 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const resetPassword = useServerFn(adminResetUserPassword);
   const deleteUser = useServerFn(adminRemoveUser);
 
+  const refreshTenant = useCallback(async () => {
+    setTenantLoading(true);
+    setTenantError(null);
+    try {
+      const r = await getSnapshot();
+      setTenant(normalizeTenant(r.tenant));
+    } catch (err) {
+      console.error("Erro ao buscar lista de usuários", err);
+      setTenantError("Não foi possível carregar os usuários salvos no banco.");
+    } finally {
+      setTenantLoading(false);
+    }
+  }, [getSnapshot]);
+
   useEffect(() => {
     try {
       const rawP = localStorage.getItem(PLANS_STORAGE);
       if (rawP) setPlans(JSON.parse(rawP));
     } catch {}
-    void getSnapshot().then((r) => setTenant(normalizeTenant(r.tenant))).catch(() => {});
-  }, []);
+    void refreshTenant();
+  }, [refreshTenant]);
 
   useEffect(() => {
     localStorage.setItem(PLANS_STORAGE, JSON.stringify(plans));
@@ -202,12 +193,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = {
     tenant,
+    tenantLoading,
+    tenantError,
     plans,
     currentPlan,
-    refreshTenant: async () => {
-      const r = await getSnapshot();
-      setTenant(normalizeTenant(r.tenant));
-    },
+    refreshTenant,
     updateTenant: (patch) => {
       setTenant((t) => normalizeTenant({ ...t, ...patch }));
       void saveTenant({ data: patch }).then((r) => setTenant((t) => normalizeTenant({ ...t, ...r.tenant }))).catch(() => {});
@@ -222,28 +212,30 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       }
       try {
         const result = await createUser({ data: u });
-        setTenant((t) => ({ ...t, team: [...t.team.filter((x) => x.id !== result.user.id), result.user] }));
-        return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword };
+        await refreshTenant();
+        return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword, existed: result.existed };
       } catch (err) {
-        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível adicionar." };
+        console.error("Erro ao criar usuário", err);
+        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação." };
       }
     },
     updateUser: async (id, patch) => {
-      setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? { ...u, ...patch } : u)) }));
       await saveUser({ data: { userId: id, patch } });
+      await refreshTenant();
     },
     resetUserPassword: async (id) => {
       try {
         const result = await resetPassword({ data: { userId: id } });
-        setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? result.user : u)) }));
+        await refreshTenant();
         return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword };
       } catch (err) {
+        console.error("Erro ao redefinir senha", err);
         return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível redefinir a senha." };
       }
     },
     removeUser: async (id) => {
       await deleteUser({ data: { userId: id } });
-      setTenant((t) => ({ ...t, team: t.team.filter((u) => u.id !== id) }));
+      await refreshTenant();
     },
   };
 
