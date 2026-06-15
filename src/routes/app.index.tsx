@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ClientAppShell } from "@/components/client-app-shell";
+import { ClientAppShell, useAppSettings } from "@/components/client-app-shell";
 import { getClientHome } from "@/lib/thermofit-client-app.functions";
 import { Droplet, Video, MessageCircle, Award, Camera, BookOpen, HeartPulse, Plane } from "lucide-react";
 
@@ -11,14 +11,14 @@ export const Route = createFileRoute("/app/")({
 });
 
 const modules = [
-  { to: "/app/videos", label: "Vídeos", icon: Video },
-  { to: "/app/agua", label: "Hidratação", icon: Droplet },
-  { to: "/app/premios", label: "Prêmios", icon: Award },
-  { to: "/app/falar", label: "Falar com a equipe", icon: MessageCircle },
-  { to: "/app/fotos", label: "Fotos", icon: Camera },
-  { to: "/app/pulso", label: "Pulso", icon: HeartPulse },
-  { to: "/app/passaporte", label: "Passaporte", icon: Plane },
-  { to: "/app/privacidade", label: "Privacidade", icon: BookOpen },
+  { key: "videos", to: "/app/videos", label: "Vídeos", icon: Video },
+  { key: "agua", to: "/app/agua", label: "Hidratação", icon: Droplet },
+  { key: "premios", to: "/app/premios", label: "Prêmios", icon: Award },
+  { key: "falar", to: "/app/falar", label: "Falar com a equipe", icon: MessageCircle },
+  { key: "fotos", to: "/app/fotos", label: "Fotos", icon: Camera },
+  { key: "pulso", to: "/app/pulso", label: "Pulso", icon: HeartPulse },
+  { key: "passaporte", to: "/app/passaporte", label: "Passaporte", icon: Plane },
+  { key: "privacidade", to: "/app/privacidade", label: "Privacidade", icon: BookOpen },
 ] as const;
 
 function Page() {
