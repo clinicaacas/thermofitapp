@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useTenant } from "@/lib/tenant-context";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/esqueci-senha")({
   head: () => ({ meta: [{ title: "Recuperar senha — ThermoFit" }] }),
@@ -39,7 +40,16 @@ function ForgotPage() {
             </Link>
           </div>
         ) : (
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setSent(true); }}>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+                redirectTo: "https://thermofitapp.lovable.app/reset-password",
+              });
+              setSent(true);
+            }}
+          >
             <div className="space-y-1.5">
               <Label className="text-xs">E-mail</Label>
               <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />

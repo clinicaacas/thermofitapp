@@ -39,12 +39,13 @@ function ChangePasswordPage() {
 
         <form
           className="space-y-4"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             setError(null);
             if (p1.length < 6) return setError("A senha deve ter pelo menos 6 caracteres.");
             if (p1 !== p2) return setError("As senhas não coincidem.");
-            changePassword(p1);
+            const result = await changePassword(p1);
+            if (!result.ok) return setError(result.reason ?? "Não foi possível atualizar a senha.");
             navigate({ to: "/dashboard" });
           }}
         >
