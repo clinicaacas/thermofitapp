@@ -204,17 +204,25 @@ export const createClient = createServerFn({ method: "POST" })
       .insert(insertPayload as any)
       .select("*")
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("[createClient] insert error", error);
+      throw new Error(error.message || "Falha ao criar cliente.");
+    }
 
-    await context.supabase.from("consents").insert({
-      tenant_id: tenantId,
-      client_id: row.id,
-      terms: !!data.consents.terms,
-      privacy: !!data.consents.privacy,
-      data_processing: !!data.consents.dataProcessing,
-      photos_internal: !!data.consents.photosInternal,
-      photos_marketing: !!data.consents.photosMarketing,
-    });
+    try {
+      const { error: cErr } = await context.supabase.from("consents").insert({
+        tenant_id: tenantId,
+        client_id: row.id,
+        terms: !!data.consents.terms,
+        privacy: !!data.consents.privacy,
+        data_processing: !!data.consents.dataProcessing,
+        photos_internal: !!data.consents.photosInternal,
+        photos_marketing: !!data.consents.photosMarketing,
+      });
+      if (cErr) console.error("[createClient] consents insert error", cErr);
+    } catch (err) {
+      console.error("[createClient] consents insert threw (non-fatal)", err);
+    }
 
     await logAudit(context, tenantId, "client.create", "client", row.id, { name: row.name });
     return { client: mapClient(row) };
