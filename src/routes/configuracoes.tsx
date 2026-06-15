@@ -491,9 +491,23 @@ function statusClass(s: UserStatus) {
   return "bg-muted text-muted-foreground";
 }
 
+function publicBaseUrl() {
+  const env = (import.meta as any).env?.VITE_APP_PUBLIC_URL as string | undefined;
+  if (env) return env.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    // Avoid Lovable preview/editor hosts that require Lovable login
+    if (host.includes("id-preview--") || host.includes("lovable.app/projects") || host.includes("lovable.dev")) {
+      return "https://thermofitapp.lovable.app";
+    }
+    return window.location.origin;
+  }
+  return "https://thermofitapp.lovable.app";
+}
+
 function accessText(u: TeamUser) {
-  const link = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
-  return `Olá, seu acesso ao sistema foi criado.\n\nLink de acesso: ${link}\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.`;
+  const link = `${publicBaseUrl()}/login`;
+  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
 function UsersTab() {
@@ -509,8 +523,10 @@ function UsersTab() {
   };
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
-  const atLimit = limit !== -1 && tenant.team.length >= limit;
+  const unlimited = isInternal || limit === -1;
+  const atLimit = !unlimited && tenant.team.length >= limit;
 
   function copyAccess(u: TeamUser) {
     navigator.clipboard.writeText(accessText(u));
