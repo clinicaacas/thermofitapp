@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_module_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          module_key: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_key: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_key?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_module_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_templates: {
+        Row: {
+          config: Json
+          content: string
+          created_at: string
+          creates_alert: boolean
+          id: string
+          key: string
+          kind: string
+          label: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          content?: string
+          created_at?: string
+          creates_alert?: boolean
+          id?: string
+          key: string
+          kind: string
+          label?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          content?: string
+          created_at?: string
+          creates_alert?: boolean
+          id?: string
+          key?: string
+          kind?: string
+          label?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           client_id: string | null
@@ -107,6 +189,50 @@ export type Database = {
             foreignKeyName: "audit_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_app_settings: {
+        Row: {
+          accent_color: string
+          app_name: string
+          app_subtitle: string
+          config: Json
+          created_at: string
+          primary_color: string
+          tenant_id: string
+          updated_at: string
+          welcome_text: string
+        }
+        Insert: {
+          accent_color?: string
+          app_name?: string
+          app_subtitle?: string
+          config?: Json
+          created_at?: string
+          primary_color?: string
+          tenant_id: string
+          updated_at?: string
+          welcome_text?: string
+        }
+        Update: {
+          accent_color?: string
+          app_name?: string
+          app_subtitle?: string
+          config?: Json
+          created_at?: string
+          primary_color?: string
+          tenant_id?: string
+          updated_at?: string
+          welcome_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_app_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
