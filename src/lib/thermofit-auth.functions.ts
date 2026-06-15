@@ -271,7 +271,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       role: z.string().max(120).optional().default("Equipe"),
       profile: profileSchema.default("equipe"),
       status: statusSchema.default("ativo"),
-      mustChangePassword: z.boolean().default(true),
+      mustChangePassword: z.boolean().default(false),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
