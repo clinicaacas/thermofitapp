@@ -253,7 +253,7 @@ export const updateTenantSettings = createServerFn({ method: "POST" })
     }
     const { data: tenant, error } = await supabaseAdmin
       .from("tenants")
-      .update(patch)
+      .update(patch as any)
       .eq("slug", "acas")
       .select("*")
       .single();
@@ -352,7 +352,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     Object.entries(data.patch).forEach(([key, value]) => {
       if (key in allowed) patch[allowed[key]] = value;
     });
-    const { data: profile, error } = await supabaseAdmin.from("profiles").update(patch).eq("id", data.userId).select("*").single();
+    const { data: profile, error } = await supabaseAdmin.from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
     if (error) throw error;
     return { user: mapProfile(profile) };
   });
