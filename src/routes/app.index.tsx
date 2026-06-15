@@ -29,19 +29,24 @@ function Page() {
     queryFn: () => fetchHome({ data: { clientId } }),
     enabled: !!clientId,
   });
-
+  const { data: settings } = useAppSettings();
   const client = data?.client;
+  const enabled = new Set(
+    (settings?.modules ?? []).filter((m: any) => m.enabled).map((m: any) => m.key),
+  );
+  const visible = modules.filter((m) => !settings || enabled.has(m.key));
+  const welcome = settings?.settings?.welcome_text;
 
   return (
     <ClientAppShell title={client?.name ?? "Plano de Voo"} subtitle={client?.plan}>
       <section className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 p-4 text-white">
-        <p className="text-xs opacity-90">Sua jornada</p>
+        <p className="text-xs opacity-90">{welcome || "Sua jornada"}</p>
         <h2 className="mt-1 text-xl font-semibold">{client?.goal || "Plano de Voo da Transformação"}</h2>
         <p className="mt-2 text-xs opacity-90">Meta de hidratação: {client?.hydrationGoalMl ?? 2000} ml/dia</p>
       </section>
 
       <section className="mt-6 grid grid-cols-3 gap-3">
-        {modules.map((m) => {
+        {visible.map((m) => {
           const Icon = m.icon;
           return (
             <Link
