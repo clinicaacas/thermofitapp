@@ -16,6 +16,8 @@ function Page() {
   const fetchMsgs = useServerFn(listHelpMessages);
   const sendMsg = useServerFn(sendHelpMessage);
   const qc = useQueryClient();
+  const { data: settings } = useAppSettings();
+  const QUICK = (settings?.quickTopics ?? []) as { key: string; label: string; creates_alert: boolean }[];
 
   const { data } = useQuery({
     queryKey: ["help-messages", clientId],
@@ -23,19 +25,21 @@ function Page() {
     enabled: !!clientId,
   });
 
-  const [topic, setTopic] = useState<string>(QUICK[0].key);
+  const [topic, setTopic] = useState<string>("");
   const [body, setBody] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
+  const currentTopic = topic || QUICK[0]?.key || "";
+
   const mut = useMutation({
     mutationFn: async () => {
-      const q = QUICK.find((x) => x.key === topic);
+      const q = QUICK.find((x) => x.key === currentTopic);
       return sendMsg({
         data: {
           clientId,
           quickTopic: q?.label ?? null,
           body: body.trim(),
-          createAlert: !!q?.alert,
+          createAlert: !!q?.creates_alert,
         },
       });
     },
@@ -59,13 +63,13 @@ function Page() {
               key={q.key}
               onClick={() => setTopic(q.key)}
               className={`flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ${
-                topic === q.key
+                currentTopic === q.key
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                   : "border-slate-200 bg-white text-slate-700"
               }`}
             >
               <span>{q.label}</span>
-              {q.alert && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+              {q.creates_alert && <AlertTriangle className="h-4 w-4 text-amber-500" />}
             </button>
           ))}
         </div>
