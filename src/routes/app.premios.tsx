@@ -34,7 +34,7 @@ function Page() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{r.name}</p>
-              <p className="text-xs text-slate-500">{r.miles_cost} milhas · {r.type ?? "—"}</p>
+              <p className="text-xs text-slate-500">{r.cost_miles} milhas · estoque {r.stock}</p>
             </div>
             <button className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white">
               Resgatar
