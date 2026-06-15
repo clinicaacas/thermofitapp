@@ -97,8 +97,20 @@ const DEFAULT_TENANT: Tenant = {
   planId: "interno",
   renewalDate: "",
   createdAt: new Date().toISOString(),
-  team: [],
-
+  team: [
+    {
+      id: "seed-cynara",
+      name: "Dra. Cynara Acas",
+      email: "studioacass@gmail.com",
+      role: "Super Admin",
+      profile: "super_admin",
+      status: "ativo",
+      password: "Acas@2026",
+      mustChangePassword: true,
+      tenantId: "acas",
+      lastAccess: "",
+    },
+  ],
 };
 
 function normalizeTenant(raw?: Partial<Tenant>): Tenant {
