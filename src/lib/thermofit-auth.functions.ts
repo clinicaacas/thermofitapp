@@ -81,7 +81,7 @@ async function ensureMasterAdmin(admin: SupabaseAdmin, tenantId: string) {
         role: "Super Admin",
         profile: "super_admin",
         status: "ativo",
-        must_change_password: true,
+        must_change_password: false,
         permissions: { all: true },
       },
       { onConflict: "email" },
