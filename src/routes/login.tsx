@@ -18,7 +18,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      navigate({ to: user.mustChangePassword ? "/trocar-senha" : "/dashboard" });
+      navigate({ to: "/dashboard" });
     }
   }, [user, navigate]);
 

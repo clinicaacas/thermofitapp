@@ -81,7 +81,7 @@ async function ensureMasterAdmin(admin: SupabaseAdmin, tenantId: string) {
         role: "Super Admin",
         profile: "super_admin",
         status: "ativo",
-        must_change_password: true,
+        must_change_password: false,
         permissions: { all: true },
       },
       { onConflict: "email" },
@@ -146,7 +146,7 @@ function mapProfile(row: any) {
     role: row.role,
     profile: row.profile,
     status: row.status,
-    mustChangePassword: row.must_change_password,
+    mustChangePassword: false,
     lastAccess: row.last_access ? new Date(row.last_access).toLocaleString("pt-BR") : "",
   };
 }
@@ -271,7 +271,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       role: z.string().max(120).optional().default("Equipe"),
       profile: profileSchema.default("equipe"),
       status: statusSchema.default("ativo"),
-      mustChangePassword: z.boolean().default(true),
+      mustChangePassword: z.boolean().default(false),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {

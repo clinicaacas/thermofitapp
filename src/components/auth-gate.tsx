@@ -10,22 +10,18 @@ export function AuthGate({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
 
   const isPublic = PUBLIC_PATHS.includes(pathname);
-  const isChangePwd = pathname === "/trocar-senha";
 
   useEffect(() => {
     if (loading) return;
     if (!user && !isPublic) {
       navigate({ to: "/login" });
-    } else if (user && user.mustChangePassword && !isChangePwd) {
-      navigate({ to: "/trocar-senha" });
-    } else if (user && !user.mustChangePassword && (isPublic || isChangePwd)) {
+    } else if (user && isPublic) {
       navigate({ to: "/dashboard" });
     }
-  }, [user, loading, pathname, isPublic, isChangePwd, navigate]);
+  }, [user, loading, pathname, isPublic, navigate]);
 
   if (loading) return null;
   if (!user && !isPublic) return null;
-  if (user && user.mustChangePassword && !isChangePwd) return null;
 
   return <>{children ?? <Outlet />}</>;
 }
