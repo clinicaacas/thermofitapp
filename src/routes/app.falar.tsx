@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ClientAppShell } from "@/components/client-app-shell";
+import { ClientAppShell, useAppSettings } from "@/components/client-app-shell";
 import { listHelpMessages, sendHelpMessage } from "@/lib/thermofit-client-app.functions";
 import { AlertTriangle, Send } from "lucide-react";
 
@@ -10,13 +10,6 @@ export const Route = createFileRoute("/app/falar")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
   component: Page,
 });
-
-const QUICK = [
-  { key: "duvida_plano", label: "Tirar dúvida sobre o plano" },
-  { key: "remarcar", label: "Remarcar sessão" },
-  { key: "nao_estou_bem", label: "Não estou me sentindo bem", alert: true },
-  { key: "outro", label: "Outro assunto" },
-];
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/falar" });
