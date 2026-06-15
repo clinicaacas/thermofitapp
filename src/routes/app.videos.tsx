@@ -35,7 +35,7 @@ function Page() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{v.title}</p>
-              <p className="text-xs text-slate-500">Dia {v.release_day ?? "—"} · {v.miles_on_complete ?? 0} milhas</p>
+              <p className="text-xs text-slate-500">{v.category ?? "geral"} · {Math.round((v.duration_seconds ?? 0) / 60)} min</p>
             </div>
           </li>
         ))}
