@@ -14,10 +14,6 @@ function SetupAdmin() {
   const navigate = useNavigate();
   const hasUsers = tenant.team.length > 0;
 
-  if (hasUsers) {
-    return <Navigate to="/login" />;
-  }
-
   const [form, setForm] = useState({
     name: "Dra. Cynara Acas",
     email: "studioacass@gmail.com",
@@ -30,23 +26,7 @@ function SetupAdmin() {
   const [error, setError] = useState<string | null>(null);
 
   if (hasUsers) {
-    return (
-      <div className="min-h-screen w-full grid place-items-center px-4" style={{ background: "#F3EFE6" }}>
-        <div className="max-w-md rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-lg font-semibold text-[#0B111A]">Configuração inicial indisponível</h1>
-          <p className="mt-2 text-sm text-neutral-500">
-            O sistema já possui administrador cadastrado.
-          </p>
-          <button
-            onClick={() => navigate({ to: "/login" })}
-            className="mt-5 h-10 w-full rounded-md text-sm font-semibold text-white"
-            style={{ background: "#2563EB" }}
-          >
-            Ir para o login
-          </button>
-        </div>
-      </div>
-    );
+    return <Navigate to="/login" />;
   }
 
   return (
