@@ -234,6 +234,62 @@ export type Database = {
           },
         ]
       }
+      exercises: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          equipment: string
+          id: string
+          muscle_group: string
+          reps: string
+          sets: number
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          equipment?: string
+          id?: string
+          muscle_group?: string
+          reps?: string
+          sets?: number
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          video_url?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          equipment?: string
+          id?: string
+          muscle_group?: string
+          reps?: string
+          sets?: number
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -337,6 +393,120 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reward_redemptions: {
+        Row: {
+          client_id: string
+          cost_miles: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          notes: string
+          reward_id: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          cost_miles?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          notes?: string
+          reward_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          cost_miles?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          notes?: string
+          reward_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_redemptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_redemptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards: {
+        Row: {
+          cost_miles: number
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          image_url: string
+          name: string
+          status: string
+          stock: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cost_miles?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          image_url?: string
+          name: string
+          status?: string
+          stock?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cost_miles?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          image_url?: string
+          name?: string
+          status?: string
+          stock?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -490,6 +660,59 @@ export type Database = {
           white_label_enabled?: boolean
         }
         Relationships: []
+      }
+      videos: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          duration_seconds: number
+          id: string
+          status: string
+          tenant_id: string
+          thumbnail_url: string
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          duration_seconds?: number
+          id?: string
+          status?: string
+          tenant_id: string
+          thumbnail_url?: string
+          title: string
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          duration_seconds?: number
+          id?: string
+          status?: string
+          tenant_id?: string
+          thumbnail_url?: string
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
