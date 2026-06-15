@@ -654,7 +654,7 @@ function UsersTab() {
                   <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
                   <Button
                     disabled={!form.name || !form.email}
-                    onClick={() => {
+                    onClick={async () => {
                       setError(null);
                       const r = await addUser(form);
                       if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }

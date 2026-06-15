@@ -67,7 +67,6 @@ function SetupAdmin() {
                   role: "Super Admin",
                   profile: "super_admin",
                   status: "ativo",
-                  password: form.password,
                   mustChangePassword: false,
                   tenantId: tenant.id,
                   lastAccess: "",
