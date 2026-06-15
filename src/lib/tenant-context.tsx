@@ -110,7 +110,7 @@ type Ctx = {
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
-const STORAGE = "thermofit_tenant_v2";
+const STORAGE = "thermofit_tenant_v3";
 const PLANS_STORAGE = "thermofit_plans_v1";
 
 export function TenantProvider({ children }: { children: ReactNode }) {
