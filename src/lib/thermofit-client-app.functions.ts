@@ -1,25 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEFAULT_MODULES, DEFAULT_QUICK_TOPICS } from "./thermofit-app-settings.functions";
 
-type Ctx = { supabase: any; userId: string };
 
-async function callerTenant(context: Ctx) {
-  const { data, error } = await context.supabase
-    .from("profiles")
-    .select("tenant_id, status")
-    .eq("id", context.userId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data || data.status !== "ativo") throw new Error("Sem acesso.");
-  return { tenantId: data.tenant_id as string };
+async function getAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
 }
 
-async function ensureClient(context: Ctx, tenantId: string, clientId: string) {
-  const { data, error } = await context.supabase
+async function loadClient(clientId: string) {
+  const admin = await getAdmin();
+  const { data, error } = await admin
     .from("clients")
     .select("id, name, tenant_id, plan, hydration_goal_ml, status, start_date, goal")
-    .eq("tenant_id", tenantId)
     .eq("id", clientId)
     .maybeSingle();
   if (error) throw error;
@@ -28,11 +21,9 @@ async function ensureClient(context: Ctx, tenantId: string, clientId: string) {
 }
 
 export const getClientHome = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
-    const client = await ensureClient(context, tenantId, data.clientId);
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
     return {
       client: {
         id: client.id,
@@ -47,15 +38,14 @@ export const getClientHome = createServerFn({ method: "GET" })
   });
 
 export const listClientVideos = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
-    await ensureClient(context, tenantId, data.clientId);
-    const { data: rows, error } = await context.supabase
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
       .from("videos")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -63,15 +53,14 @@ export const listClientVideos = createServerFn({ method: "GET" })
   });
 
 export const listClientRewards = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
-    await ensureClient(context, tenantId, data.clientId);
-    const { data: rows, error } = await context.supabase
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
       .from("rewards")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
       .order("cost_miles", { ascending: true });
     if (error) throw error;
@@ -86,15 +75,15 @@ const helpSchema = z.object({
 });
 
 export const sendHelpMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((i) => helpSchema.parse(i))
-  .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
-    const client = await ensureClient(context, tenantId, data.clientId);
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const tenantId = client.tenant_id;
 
     let alertId: string | null = null;
     if (data.createAlert) {
-      const { data: alert, error: aErr } = await context.supabase
+      const { data: alert, error: aErr } = await admin
         .from("risk_alerts")
         .insert({
           tenant_id: tenantId,
@@ -109,7 +98,7 @@ export const sendHelpMessage = createServerFn({ method: "POST" })
       else alertId = alert.id;
     }
 
-    const { data: row, error } = await context.supabase
+    const { data: row, error } = await admin
       .from("help_messages")
       .insert({
         tenant_id: tenantId,
@@ -125,33 +114,61 @@ export const sendHelpMessage = createServerFn({ method: "POST" })
       throw new Error(error.message || "Falha ao enviar mensagem.");
     }
 
-    try {
-      await context.supabase.from("audit_logs").insert({
-        tenant_id: tenantId,
-        actor_id: context.userId,
-        action: "help_message.create",
-        entity: "help_message",
-        entity_id: row.id,
-        metadata: { quickTopic: data.quickTopic, alertId },
-      });
-    } catch {}
-
     return { ok: true, alertCreated: !!alertId };
   });
 
 export const listHelpMessages = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
-    await ensureClient(context, tenantId, data.clientId);
-    const { data: rows, error } = await context.supabase
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
       .from("help_messages")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", client.tenant_id)
       .eq("client_id", data.clientId)
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
     return { messages: rows ?? [] };
+  });
+
+export const getAppSettingsForClient = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const tenantId = client.tenant_id;
+    const admin = await getAdmin();
+    const [s, m, t] = await Promise.all([
+      admin.from("client_app_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
+      admin.from("app_module_settings").select("*").eq("tenant_id", tenantId),
+      admin.from("app_templates").select("*").eq("tenant_id", tenantId),
+    ]);
+    if (s.error) throw s.error;
+    if (m.error) throw m.error;
+    if (t.error) throw t.error;
+
+    const settings = s.data ?? {
+      tenant_id: tenantId,
+      app_name: "ThermoFit",
+      app_subtitle: "Plano de Voo da Transformação",
+      welcome_text: "Bem-vinda ao seu Plano de Voo!",
+      primary_color: "#5b6cff",
+      accent_color: "#7c83ff",
+      config: {},
+    };
+
+    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r.enabled]));
+    const modules = DEFAULT_MODULES.map((d) => ({
+      ...d,
+      enabled: moduleMap.has(d.key) ? !!moduleMap.get(d.key) : true,
+    }));
+
+    const quickTopics = (t.data ?? []).filter((r: any) => r.kind === "quick_topic");
+    const finalQuickTopics =
+      quickTopics.length > 0
+        ? quickTopics.map((r: any) => ({ key: r.key, label: r.label, creates_alert: r.creates_alert }))
+        : DEFAULT_QUICK_TOPICS;
+
+    return { settings, modules, quickTopics: finalQuickTopics, templates: t.data ?? [] };
   });

@@ -16,7 +16,7 @@ function Page() {
   const fetchMsgs = useServerFn(listHelpMessages);
   const sendMsg = useServerFn(sendHelpMessage);
   const qc = useQueryClient();
-  const { data: settings } = useAppSettings();
+  const { data: settings } = useAppSettings(clientId);
   const QUICK = (settings?.quickTopics ?? []) as { key: string; label: string; creates_alert: boolean }[];
 
   const { data } = useQuery({

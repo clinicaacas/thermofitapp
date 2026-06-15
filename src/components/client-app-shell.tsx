@@ -3,7 +3,7 @@ import { Link, useRouterState, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, Video, Droplet, MessageCircle, Award } from "lucide-react";
-import { getAppSettings } from "@/lib/thermofit-app-settings.functions";
+import { getAppSettingsForClient } from "@/lib/thermofit-client-app.functions";
 
 const nav = [
   { to: "/app", key: "inicio", label: "Início", icon: Home },
@@ -13,10 +13,15 @@ const nav = [
   { to: "/app/falar", key: "falar", label: "Equipe", icon: MessageCircle },
 ] as const;
 
-export function useAppSettings() {
-  const fetchAll = useServerFn(getAppSettings);
-  return useQuery({ queryKey: ["app-settings"], queryFn: () => fetchAll() });
+export function useAppSettings(clientId?: string) {
+  const fetchAll = useServerFn(getAppSettingsForClient);
+  return useQuery({
+    queryKey: ["app-settings", clientId],
+    queryFn: () => fetchAll({ data: { clientId: clientId! } }),
+    enabled: !!clientId,
+  });
 }
+
 
 export function ClientAppShell({
   title,
@@ -30,7 +35,7 @@ export function ClientAppShell({
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
   const clientId = search?.clientId;
-  const { data } = useAppSettings();
+  const { data } = useAppSettings(clientId);
   const s = data?.settings;
   const modules = data?.modules ?? [];
   const enabledKeys = new Set(modules.filter((m: any) => m.enabled).map((m: any) => m.key));
