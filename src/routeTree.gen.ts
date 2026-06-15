@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
+import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
 import { Route as MensagensRouteImport } from './routes/mensagens'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LgpdRouteImport } from './routes/lgpd'
 import { Route as ExerciciosRouteImport } from './routes/exercicios'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as ClientesRouteImport } from './routes/clientes'
@@ -25,6 +28,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
   path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
+  id: '/trocar-senha',
+  path: '/trocar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RelatoriosRoute = RelatoriosRouteImport.update({
@@ -42,6 +50,11 @@ const MensagensRoute = MensagensRouteImport.update({
   path: '/mensagens',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LgpdRoute = LgpdRouteImport.update({
   id: '/lgpd',
   path: '/lgpd',
@@ -50,6 +63,11 @@ const LgpdRoute = LgpdRouteImport.update({
 const ExerciciosRoute = ExerciciosRouteImport.update({
   id: '/exercicios',
   path: '/exercicios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -90,11 +108,14 @@ export interface FileRoutesByFullPath {
   '/clientes': typeof ClientesRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/exercicios': typeof ExerciciosRoute
   '/lgpd': typeof LgpdRoute
+  '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
@@ -104,11 +125,14 @@ export interface FileRoutesByTo {
   '/clientes': typeof ClientesRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/exercicios': typeof ExerciciosRoute
   '/lgpd': typeof LgpdRoute
+  '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
@@ -119,11 +143,14 @@ export interface FileRoutesById {
   '/clientes': typeof ClientesRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/dashboard': typeof DashboardRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/exercicios': typeof ExerciciosRoute
   '/lgpd': typeof LgpdRoute
+  '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
@@ -135,11 +162,14 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/configuracoes'
     | '/dashboard'
+    | '/esqueci-senha'
     | '/exercicios'
     | '/lgpd'
+    | '/login'
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/trocar-senha'
     | '/videos'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -149,11 +179,14 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/configuracoes'
     | '/dashboard'
+    | '/esqueci-senha'
     | '/exercicios'
     | '/lgpd'
+    | '/login'
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/trocar-senha'
     | '/videos'
   id:
     | '__root__'
@@ -163,11 +196,14 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/configuracoes'
     | '/dashboard'
+    | '/esqueci-senha'
     | '/exercicios'
     | '/lgpd'
+    | '/login'
     | '/mensagens'
     | '/premios'
     | '/relatorios'
+    | '/trocar-senha'
     | '/videos'
   fileRoutesById: FileRoutesById
 }
@@ -178,11 +214,14 @@ export interface RootRouteChildren {
   ClientesRoute: typeof ClientesRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   DashboardRoute: typeof DashboardRoute
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   ExerciciosRoute: typeof ExerciciosRoute
   LgpdRoute: typeof LgpdRoute
+  LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  TrocarSenhaRoute: typeof TrocarSenhaRoute
   VideosRoute: typeof VideosRoute
 }
 
@@ -193,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/videos'
       fullPath: '/videos'
       preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trocar-senha': {
+      id: '/trocar-senha'
+      path: '/trocar-senha'
+      fullPath: '/trocar-senha'
+      preLoaderRoute: typeof TrocarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/relatorios': {
@@ -216,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MensagensRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lgpd': {
       id: '/lgpd'
       path: '/lgpd'
@@ -228,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/exercicios'
       fullPath: '/exercicios'
       preLoaderRoute: typeof ExerciciosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -282,11 +342,14 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesRoute: ClientesRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   DashboardRoute: DashboardRoute,
+  EsqueciSenhaRoute: EsqueciSenhaRoute,
   ExerciciosRoute: ExerciciosRoute,
   LgpdRoute: LgpdRoute,
+  LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
+  TrocarSenhaRoute: TrocarSenhaRoute,
   VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport

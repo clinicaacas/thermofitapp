@@ -3,12 +3,13 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 export type PlanId = "essencial" | "profissional" | "premium" | "enterprise" | "interno";
 export type ProfileRole = "super_admin" | "dono" | "admin" | "equipe";
 export type TenantStatus = "ativa" | "suspensa" | "cancelada";
+export type UserStatus = "ativo" | "inativo" | "bloqueado" | "convite_pendente";
 
 export type Plan = {
   id: PlanId;
   name: string;
   description: string;
-  userLimit: number; // -1 = ilimitado/custom
+  userLimit: number;
   clientLimit: number;
   features: string[];
   active: boolean;
@@ -21,7 +22,10 @@ export type TeamUser = {
   phone?: string;
   role: string;
   profile: ProfileRole;
-  status: "ativo" | "inativo";
+  status: UserStatus;
+  password: string;
+  mustChangePassword: boolean;
+  tenantId: string;
   lastAccess?: string;
 };
 
@@ -36,14 +40,12 @@ export type Tenant = {
   city: string;
   state: string;
   status: TenantStatus;
-  // appearance
   logoUrl?: string;
   faviconUrl?: string;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
   defaultTheme: "light" | "dark";
-  // white label
   whiteLabelEnabled: boolean;
   brandName: string;
   brandShortName: string;
@@ -53,7 +55,6 @@ export type Tenant = {
   footerText: string;
   subdomain: string;
   customDomain: string;
-  // plan
   planId: PlanId;
   renewalDate: string;
   createdAt: string;
@@ -61,68 +62,10 @@ export type Tenant = {
 };
 
 export const DEFAULT_PLANS: Plan[] = [
-  {
-    id: "essencial",
-    name: "Essencial",
-    description: "Para clínicas iniciando a operação digital.",
-    userLimit: 2,
-    clientLimit: 50,
-    features: [
-      "Até 2 usuários",
-      "Até 50 clientes ativos",
-      "Personalização básica de logo e cor",
-      "Acesso aos módulos principais",
-    ],
-    active: true,
-  },
-  {
-    id: "profissional",
-    name: "Profissional",
-    description: "Para clínicas em crescimento.",
-    userLimit: 5,
-    clientLimit: 200,
-    features: [
-      "Até 5 usuários",
-      "Até 200 clientes ativos",
-      "Personalização completa de marca",
-      "Permissões por usuário",
-      "Relatórios básicos",
-    ],
-    active: true,
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    description: "White Label completo para a sua marca.",
-    userLimit: 15,
-    clientLimit: 500,
-    features: [
-      "Até 15 usuários",
-      "Até 500 clientes ativos",
-      "White Label completo",
-      "Permissões avançadas",
-      "Relatórios completos",
-      "Domínio personalizado (em breve)",
-      "Suporte prioritário",
-    ],
-    active: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "Sob consulta. Recursos sob demanda.",
-    userLimit: -1,
-    clientLimit: -1,
-    features: [
-      "Usuários personalizados",
-      "Clientes ativos personalizados",
-      "White Label completo",
-      "Domínio personalizado",
-      "Permissões avançadas",
-      "Recursos sob demanda",
-    ],
-    active: true,
-  },
+  { id: "essencial", name: "Essencial", description: "Para clínicas iniciando a operação digital.", userLimit: 2, clientLimit: 50, features: ["Até 2 usuários", "Até 50 clientes ativos", "Personalização básica de logo e cor", "Acesso aos módulos principais"], active: true },
+  { id: "profissional", name: "Profissional", description: "Para clínicas em crescimento.", userLimit: 5, clientLimit: 200, features: ["Até 5 usuários", "Até 200 clientes ativos", "Personalização completa de marca", "Permissões por usuário", "Relatórios básicos"], active: true },
+  { id: "premium", name: "Premium", description: "White Label completo para a sua marca.", userLimit: 15, clientLimit: 500, features: ["Até 15 usuários", "Até 500 clientes ativos", "White Label completo", "Permissões avançadas", "Relatórios completos", "Domínio personalizado (em breve)", "Suporte prioritário"], active: true },
+  { id: "enterprise", name: "Enterprise", description: "Sob consulta. Recursos sob demanda.", userLimit: -1, clientLimit: -1, features: ["Usuários personalizados", "Clientes ativos personalizados", "White Label completo", "Domínio personalizado", "Permissões avançadas", "Recursos sob demanda"], active: true },
 ];
 
 const DEFAULT_TENANT: Tenant = {
@@ -159,6 +102,9 @@ const DEFAULT_TENANT: Tenant = {
       role: "Super Admin",
       profile: "super_admin",
       status: "ativo",
+      password: "admin123",
+      mustChangePassword: false,
+      tenantId: "acas",
       lastAccess: "Hoje",
     },
   ],
@@ -170,13 +116,13 @@ type Ctx = {
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
-  addUser: (u: Omit<TeamUser, "id">) => { ok: boolean; reason?: string };
+  addUser: (u: Omit<TeamUser, "id" | "tenantId">) => { ok: boolean; reason?: string; user?: TeamUser };
   updateUser: (id: string, patch: Partial<TeamUser>) => void;
   removeUser: (id: string) => void;
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
-const STORAGE = "thermofit_tenant_v1";
+const STORAGE = "thermofit_tenant_v2";
 const PLANS_STORAGE = "thermofit_plans_v1";
 
 export function TenantProvider({ children }: { children: ReactNode }) {
@@ -215,22 +161,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     addUser: (u) => {
       const limit = currentPlan?.userLimit ?? 0;
       if (limit !== -1 && tenant.team.length >= limit) {
-        return {
-          ok: false,
-          reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.`,
-        };
+        return { ok: false, reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.` };
       }
-      setTenant((t) => ({
-        ...t,
-        team: [...t.team, { ...u, id: crypto.randomUUID() }],
-      }));
-      return { ok: true };
+      const newUser: TeamUser = { ...u, id: crypto.randomUUID(), tenantId: tenant.id };
+      setTenant((t) => ({ ...t, team: [...t.team, newUser] }));
+      return { ok: true, user: newUser };
     },
     updateUser: (id, patch) =>
-      setTenant((t) => ({
-        ...t,
-        team: t.team.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-      })),
+      setTenant((t) => ({ ...t, team: t.team.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
     removeUser: (id) =>
       setTenant((t) => ({ ...t, team: t.team.filter((u) => u.id !== id) })),
   };

@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../components/theme-provider";
 import { TenantProvider } from "../lib/tenant-context";
+import { AuthProvider } from "../lib/auth-context";
+import { AuthGate } from "../components/auth-gate";
 
 function NotFoundComponent() {
   return (
@@ -122,7 +124,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TenantProvider>
-          <Outlet />
+          <AuthProvider>
+            <AuthGate>
+              <Outlet />
+            </AuthGate>
+          </AuthProvider>
         </TenantProvider>
       </ThemeProvider>
     </QueryClientProvider>
