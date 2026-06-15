@@ -44,25 +44,26 @@ function Page() {
   const save = useServerFn(saveVideo);
   const remove = useServerFn(deleteVideo);
   const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: () => fetchAll() });
-  const [editing, setEditing] = useState<V | null>(null);
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<V, "id">>(empty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function openNew() {
-    setEditing(null);
+    setEditingId(null);
     setForm(empty);
     setError(null);
+    setOpen(true);
   }
   function openEdit(v: V) {
-    setEditing(v);
+    setEditingId(v.id);
     setForm({ ...v });
     setError(null);
+    setOpen(true);
   }
   function close() {
-    setEditing(null);
-    setForm(empty);
-    setError(null);
+    setOpen(false);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -70,7 +71,7 @@ function Page() {
     setSaving(true);
     setError(null);
     try {
-      await save({ data: { id: editing?.id, patch: form as any } });
+      await save({ data: { id: editingId ?? undefined, patch: form as any } });
       await qc.invalidateQueries({ queryKey: ["videos"] });
       close();
     } catch (err) {
@@ -130,16 +131,10 @@ function Page() {
                 <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">{v.description}</p>
               )}
               <div className="mt-3 flex justify-end gap-2">
-                <button
-                  onClick={() => openEdit(v)}
-                  className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent"
-                >
+                <button onClick={() => openEdit(v)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
                   <Pencil className="h-3 w-3" /> Editar
                 </button>
-                <button
-                  onClick={() => onDelete(v.id)}
-                  className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                >
+                <button onClick={() => onDelete(v.id)} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
                   <Trash2 className="h-3 w-3" /> Excluir
                 </button>
               </div>
@@ -148,59 +143,36 @@ function Page() {
         </div>
       </div>
 
-      {(editing !== null || form !== empty || (editing === null && (form.title || form.url))) && false}
-
-      {(editing !== null || (form.title || form.url || error)) && (
-        <Dialog onClose={close} title={editing ? "Editar vídeo" : "Novo vídeo"}>
+      {open && (
+        <Dialog onClose={close} title={editingId ? "Editar vídeo" : "Novo vídeo"}>
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Título *</Label>
+            <Field label="Título *">
               <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>URL do vídeo</Label>
+            </Field>
+            <Field label="URL do vídeo">
               <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." />
-            </div>
+            </Field>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Categoria</Label>
+              <Field label="Categoria">
                 <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Duração (segundos)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.durationSeconds}
-                  onChange={(e) => setForm({ ...form, durationSeconds: Number(e.target.value) || 0 })}
-                />
-              </div>
+              </Field>
+              <Field label="Duração (s)">
+                <Input type="number" min={0} value={form.durationSeconds} onChange={(e) => setForm({ ...form, durationSeconds: Number(e.target.value) || 0 })} />
+              </Field>
             </div>
-            <div className="space-y-1.5">
-              <Label>Descrição</Label>
-              <textarea
-                className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
+            <Field label="Descrição">
+              <textarea className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </Field>
+            <Field label="Status">
+              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 <option value="ativo">Ativo</option>
                 <option value="rascunho">Rascunho</option>
                 <option value="arquivado">Arquivado</option>
               </select>
-            </div>
+            </Field>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={close} className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
-                Cancelar
-              </button>
+              <button type="button" onClick={close} className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">Cancelar</button>
               <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
                 {saving ? "Salvando…" : "Salvar"}
               </button>
@@ -209,6 +181,15 @@ function Page() {
         </Dialog>
       )}
     </AppShell>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}</Label>
+      {children}
+    </div>
   );
 }
 
