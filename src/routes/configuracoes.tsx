@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -14,8 +22,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useTenant, type PlanId, type ProfileRole } from "@/lib/tenant-context";
-import { Trash2, Pencil, Check, X } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  MessageCircle,
+  Calendar,
+  CreditCard,
+  Mail,
+  Webhook,
+  Upload,
+} from "lucide-react";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — ThermoFit" }] }),
@@ -31,18 +58,10 @@ const TABS = [
   { value: "permissoes", label: "Permissões" },
   { value: "formularios", label: "Formulários" },
   { value: "integracoes", label: "Integrações" },
-  { value: "lgpd", label: "LGPD" },
   { value: "conta", label: "Conta e Assinatura" },
-  { value: "saas", label: "Administração SaaS" },
 ];
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -51,9 +70,26 @@ function Field({
   );
 }
 
+function useSavedFlag() {
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 1800);
+    return () => clearTimeout(t);
+  }, [saved]);
+  return [saved, () => setSaved(true)] as const;
+}
+
 function Page() {
   return (
-    <AppShell title="Configurações">
+    <AppShell>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
+        <p className="text-sm text-muted-foreground">
+          Gerencie a clínica, identidade visual, usuários, planos e preferências do sistema.
+        </p>
+      </div>
+
       <div className="mt-6">
         <Tabs defaultValue="geral" className="w-full">
           <TabsList className="flex h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
@@ -64,115 +100,59 @@ function Page() {
             ))}
           </TabsList>
 
-          <TabsContent value="geral" className="mt-6">
-            <GeneralTab />
-          </TabsContent>
-          <TabsContent value="aparencia" className="mt-6">
-            <AppearanceTab />
-          </TabsContent>
-          <TabsContent value="whitelabel" className="mt-6">
-            <WhiteLabelTab />
-          </TabsContent>
-          <TabsContent value="planos" className="mt-6">
-            <PlansTab />
-          </TabsContent>
-          <TabsContent value="usuarios" className="mt-6">
-            <UsersTab />
-          </TabsContent>
-          <TabsContent value="conta" className="mt-6">
-            <AccountTab />
-          </TabsContent>
-          <TabsContent value="saas" className="mt-6">
-            <SaasTab />
-          </TabsContent>
-          {["permissoes", "formularios", "integracoes", "lgpd"].map((v) => (
-            <TabsContent key={v} value={v} className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {TABS.find((t) => t.value === v)?.label}
-                  </CardTitle>
-                  <CardDescription>Em breve.</CardDescription>
-                </CardHeader>
-              </Card>
-            </TabsContent>
-          ))}
+          <TabsContent value="geral" className="mt-6"><GeneralTab /></TabsContent>
+          <TabsContent value="aparencia" className="mt-6"><AppearanceTab /></TabsContent>
+          <TabsContent value="whitelabel" className="mt-6"><WhiteLabelTab /></TabsContent>
+          <TabsContent value="planos" className="mt-6"><PlansTab /></TabsContent>
+          <TabsContent value="usuarios" className="mt-6"><UsersTab /></TabsContent>
+          <TabsContent value="permissoes" className="mt-6"><PermissionsTab /></TabsContent>
+          <TabsContent value="formularios" className="mt-6"><FormsTab /></TabsContent>
+          <TabsContent value="integracoes" className="mt-6"><IntegrationsTab /></TabsContent>
+          <TabsContent value="conta" className="mt-6"><AccountTab /></TabsContent>
         </Tabs>
       </div>
     </AppShell>
   );
 }
 
+/* ------------------- GERAL ------------------- */
 function GeneralTab() {
   const { tenant, updateTenant } = useTenant();
+  const [saved, markSaved] = useSavedFlag();
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Informações da Clínica</CardTitle>
-        <CardDescription>
-          Esses dados aparecem no topo do menu lateral.
-        </CardDescription>
+        <CardDescription>Esses dados aparecem no topo do menu lateral.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Nome da clínica">
-          <Input
-            value={tenant.clinicName}
-            onChange={(e) => updateTenant({ clinicName: e.target.value })}
-          />
+          <Input value={tenant.clinicName} onChange={(e) => updateTenant({ clinicName: e.target.value })} />
         </Field>
         <Field label="Nome exibido no sistema">
-          <Input
-            value={tenant.systemName}
-            onChange={(e) => updateTenant({ systemName: e.target.value })}
-          />
+          <Input value={tenant.systemName} onChange={(e) => updateTenant({ systemName: e.target.value })} />
         </Field>
         <Field label="Subtítulo do sistema">
-          <Input
-            value={tenant.systemSubtitle}
-            onChange={(e) => updateTenant({ systemSubtitle: e.target.value })}
-          />
+          <Input value={tenant.systemSubtitle} onChange={(e) => updateTenant({ systemSubtitle: e.target.value })} />
         </Field>
         <Field label="Nome do responsável">
-          <Input
-            value={tenant.ownerName}
-            onChange={(e) => updateTenant({ ownerName: e.target.value })}
-          />
+          <Input value={tenant.ownerName} onChange={(e) => updateTenant({ ownerName: e.target.value })} />
         </Field>
         <Field label="E-mail de contato">
-          <Input
-            type="email"
-            value={tenant.contactEmail}
-            onChange={(e) => updateTenant({ contactEmail: e.target.value })}
-          />
+          <Input type="email" value={tenant.contactEmail} onChange={(e) => updateTenant({ contactEmail: e.target.value })} />
         </Field>
-        <Field label="Telefone / WhatsApp">
-          <Input
-            value={tenant.contactPhone}
-            onChange={(e) => updateTenant({ contactPhone: e.target.value })}
-          />
+        <Field label="WhatsApp">
+          <Input value={tenant.contactPhone} onChange={(e) => updateTenant({ contactPhone: e.target.value })} />
         </Field>
         <Field label="Cidade">
-          <Input
-            value={tenant.city}
-            onChange={(e) => updateTenant({ city: e.target.value })}
-          />
+          <Input value={tenant.city} onChange={(e) => updateTenant({ city: e.target.value })} />
         </Field>
         <Field label="Estado">
-          <Input
-            value={tenant.state}
-            onChange={(e) => updateTenant({ state: e.target.value })}
-          />
+          <Input value={tenant.state} onChange={(e) => updateTenant({ state: e.target.value })} />
         </Field>
         <Field label="Status da clínica">
-          <Select
-            value={tenant.status}
-            onValueChange={(v) =>
-              updateTenant({ status: v as typeof tenant.status })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={tenant.status} onValueChange={(v) => updateTenant({ status: v as typeof tenant.status })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ativa">Ativa</SelectItem>
               <SelectItem value="suspensa">Suspensa</SelectItem>
@@ -180,18 +160,17 @@ function GeneralTab() {
             </SelectContent>
           </Select>
         </Field>
+        <div className="md:col-span-2 flex items-center gap-3 pt-2">
+          <Button onClick={markSaved}>Salvar alterações</Button>
+          {saved && <span className="text-xs text-muted-foreground">Alterações salvas.</span>}
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function ColorInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+/* ------------------- APARÊNCIA ------------------- */
+function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
       <input
@@ -207,96 +186,102 @@ function ColorInput({
 
 function AppearanceTab() {
   const { tenant, updateTenant } = useTenant();
+  const [saved, markSaved] = useSavedFlag();
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Identidade visual</CardTitle>
-          <CardDescription>
-            Personalize as cores e logos exibidos na sua clínica.
-          </CardDescription>
+          <CardTitle className="text-base">Identidade Visual</CardTitle>
+          <CardDescription>Personalize logo, cores e tema padrão.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Field label="URL do logo principal">
-            <Input
-              placeholder="https://..."
-              value={tenant.logoUrl ?? ""}
-              onChange={(e) => updateTenant({ logoUrl: e.target.value })}
-            />
+          <Field label="Logo principal">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" type="button">
+                <Upload className="h-3 w-3" /> Enviar logo
+              </Button>
+              <Input
+                placeholder="ou cole uma URL"
+                value={tenant.logoUrl ?? ""}
+                onChange={(e) => updateTenant({ logoUrl: e.target.value })}
+              />
+            </div>
           </Field>
-          <Field label="URL do ícone / favicon">
-            <Input
-              placeholder="https://..."
-              value={tenant.faviconUrl ?? ""}
-              onChange={(e) => updateTenant({ faviconUrl: e.target.value })}
-            />
+          <Field label="Ícone pequeno (favicon)">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" type="button">
+                <Upload className="h-3 w-3" /> Enviar ícone
+              </Button>
+              <Input
+                placeholder="ou cole uma URL"
+                value={tenant.faviconUrl ?? ""}
+                onChange={(e) => updateTenant({ faviconUrl: e.target.value })}
+              />
+            </div>
           </Field>
           <Field label="Cor primária">
-            <ColorInput
-              value={tenant.primaryColor}
-              onChange={(v) => updateTenant({ primaryColor: v })}
-            />
+            <ColorInput value={tenant.primaryColor} onChange={(v) => updateTenant({ primaryColor: v })} />
           </Field>
           <Field label="Cor secundária">
-            <ColorInput
-              value={tenant.secondaryColor}
-              onChange={(v) => updateTenant({ secondaryColor: v })}
-            />
+            <ColorInput value={tenant.secondaryColor} onChange={(v) => updateTenant({ secondaryColor: v })} />
           </Field>
           <Field label="Cor de destaque">
-            <ColorInput
-              value={tenant.accentColor}
-              onChange={(v) => updateTenant({ accentColor: v })}
-            />
+            <ColorInput value={tenant.accentColor} onChange={(v) => updateTenant({ accentColor: v })} />
           </Field>
           <Field label="Tema padrão">
-            <Select
-              value={tenant.defaultTheme}
-              onValueChange={(v) =>
-                updateTenant({ defaultTheme: v as "light" | "dark" })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={tenant.defaultTheme} onValueChange={(v) => updateTenant({ defaultTheme: v as "light" | "dark" })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="light">Light</SelectItem>
                 <SelectItem value="dark">Dark</SelectItem>
               </SelectContent>
             </Select>
           </Field>
+          <div className="flex items-center gap-3 pt-2">
+            <Button onClick={markSaved}>Salvar aparência</Button>
+            {saved && <span className="text-xs text-muted-foreground">Aparência salva.</span>}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Pré-visualização</CardTitle>
-          <CardDescription>Exemplo de aplicação das cores.</CardDescription>
+          <CardDescription>Como a marca aparecerá no sistema.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div
-            className="rounded-md border p-3 text-sm"
-            style={{ borderColor: tenant.primaryColor }}
-          >
-            Cabeçalho da clínica
+          <div className="rounded-md border p-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="grid h-9 w-9 place-items-center rounded-md text-xs font-semibold text-white"
+                style={{ background: tenant.primaryColor }}
+              >
+                {tenant.brandShortName?.slice(0, 2).toUpperCase() || "TF"}
+              </div>
+              <div>
+                <div className="text-sm font-semibold">{tenant.systemName}</div>
+                <div className="text-xs text-muted-foreground">{tenant.systemSubtitle}</div>
+              </div>
+            </div>
           </div>
           <div
-            className="rounded-md p-3 text-sm text-white"
+            className="rounded-md p-3 text-sm font-medium text-white"
             style={{ background: tenant.primaryColor }}
           >
             Item ativo do menu
           </div>
           <button
             className="rounded-md px-3 py-2 text-sm font-medium text-white"
-            style={{ background: tenant.accentColor }}
+            style={{ background: tenant.primaryColor }}
           >
-            Botão de destaque
+            Botão principal
           </button>
-          <div
-            className="rounded-md p-3 text-sm"
-            style={{ background: tenant.secondaryColor, color: "#111" }}
-          >
-            Bloco secundário
+          <div className="rounded-md border p-4">
+            <div className="text-xs text-muted-foreground">Card</div>
+            <div className="mt-1 text-sm font-medium">Exemplo de card</div>
+            <div className="mt-2 inline-block rounded-md px-2 py-0.5 text-xs" style={{ background: tenant.accentColor, color: "#111" }}>
+              destaque
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -304,151 +289,130 @@ function AppearanceTab() {
   );
 }
 
+/* ------------------- WHITE LABEL ------------------- */
 function WhiteLabelTab() {
   const { tenant, updateTenant } = useTenant();
+  const [saved, markSaved] = useSavedFlag();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">White Label</CardTitle>
-        <CardDescription>
-          Configure a marca exibida para os clientes da sua clínica.
-        </CardDescription>
+        <CardTitle className="text-base">Configuração White Label</CardTitle>
+        <CardDescription>Configure a marca exibida para os clientes da sua clínica.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between rounded-md border p-3">
           <div>
             <div className="text-sm font-medium">Ativar White Label</div>
-            <div className="text-xs text-muted-foreground">
-              Substitui a marca ThermoFit pela marca da sua clínica.
-            </div>
+            <div className="text-xs text-muted-foreground">Exibe a marca da sua clínica no lugar de ThermoFit.</div>
           </div>
-          <Switch
-            checked={tenant.whiteLabelEnabled}
-            onCheckedChange={(v) => updateTenant({ whiteLabelEnabled: v })}
-          />
+          <Switch checked={tenant.whiteLabelEnabled} onCheckedChange={(v) => updateTenant({ whiteLabelEnabled: v })} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Nome da marca">
-            <Input
-              value={tenant.brandName}
-              onChange={(e) => updateTenant({ brandName: e.target.value })}
-            />
+            <Input value={tenant.brandName} onChange={(e) => updateTenant({ brandName: e.target.value })} />
           </Field>
           <Field label="Nome curto da marca">
-            <Input
-              value={tenant.brandShortName}
-              onChange={(e) => updateTenant({ brandShortName: e.target.value })}
-            />
+            <Input value={tenant.brandShortName} onChange={(e) => updateTenant({ brandShortName: e.target.value })} />
           </Field>
-          <Field label="URL do logo da marca">
-            <Input
-              placeholder="https://..."
-              value={tenant.brandLogoUrl ?? ""}
-              onChange={(e) => updateTenant({ brandLogoUrl: e.target.value })}
-            />
+          <Field label="Logo da marca (URL)">
+            <Input placeholder="https://..." value={tenant.brandLogoUrl ?? ""} onChange={(e) => updateTenant({ brandLogoUrl: e.target.value })} />
           </Field>
-          <Field label="Texto do rodapé / assinatura">
-            <Input
-              value={tenant.footerText}
-              onChange={(e) => updateTenant({ footerText: e.target.value })}
-            />
+          <Field label="Texto de assinatura / rodapé">
+            <Input value={tenant.footerText} onChange={(e) => updateTenant({ footerText: e.target.value })} />
           </Field>
           <Field label="Cor principal da marca">
-            <ColorInput
-              value={tenant.brandPrimary}
-              onChange={(v) => updateTenant({ brandPrimary: v })}
-            />
+            <ColorInput value={tenant.brandPrimary} onChange={(v) => updateTenant({ brandPrimary: v })} />
           </Field>
           <Field label="Cor secundária da marca">
-            <ColorInput
-              value={tenant.brandSecondary}
-              onChange={(v) => updateTenant({ brandSecondary: v })}
-            />
+            <ColorInput value={tenant.brandSecondary} onChange={(v) => updateTenant({ brandSecondary: v })} />
           </Field>
-          <Field label="Subdomínio da clínica (em breve)">
-            <Input
-              placeholder="clinicaacas"
-              value={tenant.subdomain}
-              onChange={(e) => updateTenant({ subdomain: e.target.value })}
-            />
+          <Field label="Subdomínio da clínica">
+            <Input value={tenant.subdomain} onChange={(e) => updateTenant({ subdomain: e.target.value })} />
           </Field>
-          <Field label="Domínio personalizado (em breve)">
-            <Input
-              placeholder="app.clinicaacas.com.br"
-              value={tenant.customDomain}
-              onChange={(e) => updateTenant({ customDomain: e.target.value })}
-            />
+          <Field label="Domínio personalizado">
+            <Input placeholder="app.clinicaacas.com.br" value={tenant.customDomain} onChange={(e) => updateTenant({ customDomain: e.target.value })} />
           </Field>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Exemplo: {tenant.subdomain || "clinicaacas"}.thermofit.app
+
+        <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+          O domínio personalizado será preparado para uma etapa futura. Nesta versão, os campos
+          ficam disponíveis apenas para configuração.
         </p>
+
+        <div className="flex items-center gap-3">
+          <Button onClick={markSaved}>Salvar White Label</Button>
+          {saved && <span className="text-xs text-muted-foreground">Salvo.</span>}
+        </div>
       </CardContent>
     </Card>
   );
 }
 
+/* ------------------- PLANOS ------------------- */
 function PlansTab() {
   const { plans, updatePlan, tenant, updateTenant } = useTenant();
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold">Planos White Label</h2>
+        <p className="text-sm text-muted-foreground">Gerencie os planos disponíveis no SaaS.</p>
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {plans.map((p) => {
-          const isCurrent = tenant.planId === p.id;
-          return (
-            <Card key={p.id} className={isCurrent ? "ring-1 ring-primary" : ""}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base">{p.name}</CardTitle>
-                    <CardDescription>{p.description}</CardDescription>
+        {plans
+          .filter((p) => p.id !== "interno")
+          .map((p) => {
+            const isCurrent = tenant.planId === p.id;
+            return (
+              <Card key={p.id} className={isCurrent ? "ring-1 ring-primary" : ""}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base">{p.name}</CardTitle>
+                      <CardDescription>{p.description}</CardDescription>
+                    </div>
+                    <Switch checked={p.active} onCheckedChange={(v) => updatePlan(p.id, { active: v })} />
                   </div>
-                  <Switch
-                    checked={p.active}
-                    onCheckedChange={(v) => updatePlan(p.id, { active: v })}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-xs text-muted-foreground">
-                  <div>
-                    Usuários:{" "}
-                    <span className="text-foreground font-medium">
-                      {p.userLimit === -1 ? "Personalizado" : p.userLimit}
-                    </span>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    <div>
+                      Usuários:{" "}
+                      <span className="text-foreground font-medium">
+                        {p.userLimit === -1 ? "Personalizado" : p.userLimit}
+                      </span>
+                    </div>
+                    <div>
+                      Clientes ativos:{" "}
+                      <span className="text-foreground font-medium">
+                        {p.clientLimit === -1 ? "Personalizado" : p.clientLimit}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    Clientes ativos:{" "}
-                    <span className="text-foreground font-medium">
-                      {p.clientLimit === -1 ? "Personalizado" : p.clientLimit}
-                    </span>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-1.5">
+                        <Check className="mt-0.5 h-3 w-3 text-primary" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant={isCurrent ? "secondary" : "default"}
+                      onClick={() => updateTenant({ planId: p.id })}
+                      disabled={isCurrent}
+                      className="flex-1"
+                    >
+                      {isCurrent ? "Plano atual" : "Selecionar"}
+                    </Button>
+                    <EditPlanButton planId={p.id} />
                   </div>
-                </div>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5">
-                      <Check className="mt-0.5 h-3 w-3 text-primary" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant={isCurrent ? "secondary" : "default"}
-                    onClick={() => updateTenant({ planId: p.id })}
-                    disabled={isCurrent}
-                    className="flex-1"
-                  >
-                    {isCurrent ? "Plano atual" : "Selecionar"}
-                  </Button>
-                  <EditPlanButton planId={p.id} />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                </CardContent>
+              </Card>
+            );
+          })}
       </div>
     </div>
   );
@@ -457,203 +421,44 @@ function PlansTab() {
 function EditPlanButton({ planId }: { planId: PlanId }) {
   const { plans, updatePlan } = useTenant();
   const plan = plans.find((p) => p.id === planId)!;
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const [userLimit, setUserLimit] = useState(String(plan.userLimit));
   const [clientLimit, setClientLimit] = useState(String(plan.clientLimit));
-
-  if (!editing) {
-    return (
-      <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-        <Pencil className="h-3 w-3" /> Editar
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Pencil className="h-3 w-3" /> Editar plano
       </Button>
-    );
-  }
-
-  return (
-    <div className="flex w-full flex-col gap-2 rounded-md border p-2">
-      <Field label="Usuários (-1 = personalizado)">
-        <Input value={userLimit} onChange={(e) => setUserLimit(e.target.value)} />
-      </Field>
-      <Field label="Clientes ativos (-1 = personalizado)">
-        <Input
-          value={clientLimit}
-          onChange={(e) => setClientLimit(e.target.value)}
-        />
-      </Field>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={() => {
-            updatePlan(planId, {
-              userLimit: Number(userLimit) || 0,
-              clientLimit: Number(clientLimit) || 0,
-            });
-            setEditing(false);
-          }}
-        >
-          Salvar
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-          Cancelar
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function UsersTab() {
-  const { tenant, currentPlan, addUser, updateUser, removeUser } = useTenant();
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    profile: "equipe" as ProfileRole,
-  });
-  const [error, setError] = useState<string | null>(null);
-  const limit = currentPlan?.userLimit ?? 0;
-  const atLimit = limit !== -1 && tenant.team.length >= limit;
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Adicionar usuário</CardTitle>
-          <CardDescription>
-            {limit === -1
-              ? "Plano com usuários personalizados."
-              : `Plano atual: ${tenant.team.length} de ${limit} usuários.`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label="Nome">
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </Field>
-            <Field label="E-mail">
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </Field>
-            <Field label="Telefone">
-              <Input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </Field>
-            <Field label="Cargo">
-              <Input
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              />
-            </Field>
-            <Field label="Perfil de acesso">
-              <Select
-                value={form.profile}
-                onValueChange={(v) =>
-                  setForm({ ...form, profile: v as ProfileRole })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dono">Dono da Clínica</SelectItem>
-                  <SelectItem value="admin">Admin da Clínica</SelectItem>
-                  <SelectItem value="equipe">Equipe</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-              {error}
-            </div>
-          )}
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar {plan.name}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <Field label="Limite de usuários (-1 = personalizado)">
+            <Input value={userLimit} onChange={(e) => setUserLimit(e.target.value)} />
+          </Field>
+          <Field label="Limite de clientes (-1 = personalizado)">
+            <Input value={clientLimit} onChange={(e) => setClientLimit(e.target.value)} />
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button
-            size="sm"
-            disabled={!form.name || !form.email}
             onClick={() => {
-              setError(null);
-              const r = addUser({ ...form, status: "ativo" });
-              if (!r.ok) {
-                setError(r.reason ?? "Não foi possível adicionar.");
-                return;
-              }
-              setForm({
-                name: "",
-                email: "",
-                phone: "",
-                role: "",
-                profile: "equipe",
+              updatePlan(planId, {
+                userLimit: Number(userLimit) || 0,
+                clientLimit: Number(clientLimit) || 0,
               });
+              setOpen(false);
             }}
           >
-            Adicionar usuário
+            Salvar
           </Button>
-          {atLimit && (
-            <p className="text-xs text-muted-foreground">
-              Seu plano atual permite até {limit} usuários. Para adicionar mais
-              pessoas, atualize seu plano.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Equipe</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {tenant.team.map((u) => (
-            <div
-              key={u.id}
-              className="flex items-center justify-between gap-3 rounded-md border p-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{u.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {u.email} · {u.role || "—"} · {profileLabel(u.profile)}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={u.status}
-                  onValueChange={(v) =>
-                    updateUser(u.id, { status: v as "ativo" | "inativo" })
-                  }
-                >
-                  <SelectTrigger className="h-8 w-28 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-                {u.profile !== "super_admin" && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeUser(u.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
+/* ------------------- USUÁRIOS ------------------- */
 function profileLabel(p: ProfileRole) {
   return {
     super_admin: "Super Admin SaaS",
@@ -663,42 +468,314 @@ function profileLabel(p: ProfileRole) {
   }[p];
 }
 
+function UsersTab() {
+  const { tenant, currentPlan, addUser, removeUser } = useTenant();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "",
+    profile: "equipe" as ProfileRole,
+    status: "ativo" as "ativo" | "inativo",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const limit = currentPlan?.userLimit ?? 0;
+  const atLimit = limit !== -1 && tenant.team.length >= limit;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div>
+          <CardTitle className="text-base">Usuários e Equipe</CardTitle>
+          <CardDescription>
+            {limit === -1
+              ? "Plano com usuários ilimitados."
+              : `${tenant.team.length} de ${limit} usuários no plano.`}
+          </CardDescription>
+        </div>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
+          <Button size="sm" onClick={() => setOpen(true)}>Adicionar usuário</Button>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Adicionar usuário</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Field label="Nome"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+              <Field label="E-mail"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+              <Field label="Telefone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+              <Field label="Cargo"><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
+              <Field label="Perfil">
+                <Select value={form.profile} onValueChange={(v) => setForm({ ...form, profile: v as ProfileRole })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin SaaS</SelectItem>
+                    <SelectItem value="dono">Dono da Clínica</SelectItem>
+                    <SelectItem value="admin">Admin da Clínica</SelectItem>
+                    <SelectItem value="equipe">Equipe</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Status">
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "ativo" | "inativo" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            {error && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                {error}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button
+                disabled={!form.name || !form.email}
+                onClick={() => {
+                  setError(null);
+                  const r = addUser(form);
+                  if (!r.ok) { setError(r.reason ?? "Não foi possível adicionar."); return; }
+                  setForm({ name: "", email: "", phone: "", role: "", profile: "equipe", status: "ativo" });
+                  setOpen(false);
+                }}
+              >
+                Adicionar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {atLimit && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            Seu plano atual permite até {limit} usuários. Para adicionar mais pessoas, atualize seu plano.
+          </div>
+        )}
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Perfil</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Último acesso</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tenant.team.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.phone || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.role || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{profileLabel(u.profile)}</TableCell>
+                  <TableCell>
+                    <span className={
+                      "inline-flex rounded-full px-2 py-0.5 text-xs " +
+                      (u.status === "ativo"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground")
+                    }>
+                      {u.status === "ativo" ? "Ativo" : "Inativo"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.lastAccess || "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {u.profile !== "super_admin" && (
+                      <Button size="icon" variant="ghost" onClick={() => removeUser(u.id)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------- PERMISSÕES ------------------- */
+const PERM_PROFILES: { key: Exclude<ProfileRole, "super_admin">; label: string }[] = [
+  { key: "dono", label: "Dono da Clínica" },
+  { key: "admin", label: "Admin da Clínica" },
+  { key: "equipe", label: "Equipe" },
+];
+const PERM_MODULES = [
+  "Dashboard", "Clientes", "Alertas", "Mensagens", "Aprovações",
+  "Vídeos", "Exercícios", "Prêmios", "Relatórios", "LGPD", "Configurações",
+];
+
+function PermissionsTab() {
+  const [perms, setPerms] = useState<Record<string, Record<string, boolean>>>(() => {
+    const init: Record<string, Record<string, boolean>> = {};
+    PERM_PROFILES.forEach((p) => {
+      init[p.key] = {};
+      PERM_MODULES.forEach((m) => {
+        init[p.key][m] = p.key === "dono" || (p.key === "admin" && m !== "Configurações");
+      });
+    });
+    return init;
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Permissões de Acesso</CardTitle>
+        <CardDescription>Defina quais módulos cada perfil poderá acessar.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-40">Perfil</TableHead>
+                {PERM_MODULES.map((m) => (
+                  <TableHead key={m} className="text-center text-xs">{m}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {PERM_PROFILES.map((p) => (
+                <TableRow key={p.key}>
+                  <TableCell className="font-medium">{p.label}</TableCell>
+                  {PERM_MODULES.map((m) => (
+                    <TableCell key={m} className="text-center">
+                      <Checkbox
+                        checked={perms[p.key][m]}
+                        onCheckedChange={(v) =>
+                          setPerms((prev) => ({
+                            ...prev,
+                            [p.key]: { ...prev[p.key], [m]: Boolean(v) },
+                          }))
+                        }
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------- FORMULÁRIOS ------------------- */
+function FormsTab() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div>
+          <CardTitle className="text-base">Formulários</CardTitle>
+          <CardDescription>
+            Centralize aqui os campos e perguntas usados nos formulários do sistema.
+          </CardDescription>
+        </div>
+        <Button size="sm">Criar formulário</Button>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+          Nenhum formulário criado ainda.
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------- INTEGRAÇÕES ------------------- */
+const INTEGRATIONS = [
+  { name: "WhatsApp", desc: "Envie mensagens e notificações.", icon: MessageCircle },
+  { name: "Google Agenda", desc: "Sincronize compromissos.", icon: Calendar },
+  { name: "Pagamentos", desc: "Receba via cartão e Pix.", icon: CreditCard },
+  { name: "E-mail", desc: "Disparo de e-mails transacionais.", icon: Mail },
+  { name: "Webhooks", desc: "Integre com sistemas externos.", icon: Webhook },
+];
+
+function IntegrationsTab() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold">Integrações</h2>
+        <p className="text-sm text-muted-foreground">
+          Configure futuras integrações com WhatsApp, agenda, pagamentos, e-mail e automações.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {INTEGRATIONS.map((i) => {
+          const Icon = i.icon;
+          return (
+            <Card key={i.name}>
+              <CardContent className="flex items-start justify-between gap-3 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-md bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">{i.name}</div>
+                    <div className="text-xs text-muted-foreground">{i.desc}</div>
+                    <div className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      Não conectado
+                    </div>
+                  </div>
+                </div>
+                <Button size="sm" variant="outline">Conectar</Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------- CONTA E ASSINATURA ------------------- */
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-medium">{value}</div>
+    </div>
+  );
+}
+
 function AccountTab() {
   const { tenant, currentPlan } = useTenant();
+  const isInternal = tenant.planId === "interno";
+  const planName = isInternal ? "Interno / Master" : currentPlan?.name ?? "—";
+  const userLimit = isInternal
+    ? "Ilimitado"
+    : currentPlan?.userLimit === -1
+      ? "Personalizado"
+      : String(currentPlan?.userLimit ?? 0);
+  const clientLimit = isInternal
+    ? "Ilimitado"
+    : currentPlan?.clientLimit === -1
+      ? "Personalizado"
+      : String(currentPlan?.clientLimit ?? 0);
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Conta e Assinatura</CardTitle>
-        <CardDescription>Resumo da sua clínica.</CardDescription>
+        <CardDescription>Resumo da assinatura da clínica.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          <Info label="Plano atual" value={currentPlan?.name ?? "—"} />
-          <Info label="Status" value={tenant.status} />
-          <Info
-            label="Renovação"
-            value={tenant.renewalDate || "—"}
-          />
-          <Info
-            label="Limite de usuários"
-            value={
-              currentPlan?.userLimit === -1
-                ? "Personalizado"
-                : String(currentPlan?.userLimit ?? 0)
-            }
-          />
-          <Info
-            label="Usuários cadastrados"
-            value={String(tenant.team.length)}
-          />
-          <Info
-            label="Limite de clientes ativos"
-            value={
-              currentPlan?.clientLimit === -1
-                ? "Personalizado"
-                : String(currentPlan?.clientLimit ?? 0)
-            }
-          />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Info label="Plano atual" value={planName} />
+          <Info label="Status da assinatura" value={tenant.status === "ativa" ? "Ativa" : tenant.status} />
+          <Info label="Data de renovação" value={isInternal ? "Não aplicável" : tenant.renewalDate || "—"} />
+          <Info label="Limite de usuários" value={userLimit} />
+          <Info label="Usuários cadastrados" value={String(tenant.team.length)} />
+          <Info label="Limite de clientes ativos" value={clientLimit} />
+          <Info label="Clientes ativos cadastrados" value="0" />
         </div>
         <div className="flex gap-2">
           <Button size="sm">Alterar plano</Button>
@@ -706,51 +783,6 @@ function AccountTab() {
             <X className="h-3 w-3" /> Cancelar assinatura
           </Button>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium capitalize">{value}</div>
-    </div>
-  );
-}
-
-function SaasTab() {
-  const { tenant, currentPlan } = useTenant();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Administração SaaS</CardTitle>
-        <CardDescription>
-          Visão global das clínicas cadastradas. Disponível para Super Admin
-          SaaS.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-          <div>
-            <div className="text-sm font-medium">{tenant.clinicName}</div>
-            <div className="text-xs text-muted-foreground">
-              {currentPlan?.name} · {tenant.team.length} usuário(s) · {tenant.status}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline">
-              Editar
-            </Button>
-            <Button size="sm" variant="ghost">
-              Suspender
-            </Button>
-          </div>
-        </div>
-        <Button size="sm" variant="outline" disabled>
-          Criar nova clínica (em breve)
-        </Button>
       </CardContent>
     </Card>
   );
