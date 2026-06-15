@@ -56,8 +56,8 @@ export const listClientVideos = createServerFn({ method: "GET" })
       .from("videos")
       .select("*")
       .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("release_day", { ascending: true });
+      .eq("status", "ativo")
+      .order("created_at", { ascending: true });
     if (error) throw error;
     return { videos: rows ?? [] };
   });
