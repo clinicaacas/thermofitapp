@@ -29,7 +29,7 @@ function Page() {
     queryFn: () => fetchHome({ data: { clientId } }),
     enabled: !!clientId,
   });
-  const { data: settings } = useAppSettings();
+  const { data: settings } = useAppSettings(clientId);
   const client = data?.client;
   const enabled = new Set(
     (settings?.modules ?? []).filter((m: any) => m.enabled).map((m: any) => m.key),
