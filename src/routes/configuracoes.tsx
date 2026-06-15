@@ -533,15 +533,15 @@ function publicUrlError(url: string) {
   return null;
 }
 
-function accessText(u: TeamUser, baseUrl: string) {
+function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
   const link = `${baseUrl}/login`;
-  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
+  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado/atualizado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${temporaryPassword}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
 function UsersTab() {
-  const { tenant, currentPlan, addUser, updateUser, removeUser } = useTenant();
+  const { tenant, currentPlan, addUser, updateUser, resetUserPassword, removeUser } = useTenant();
   const [open, setOpen] = useState(false);
-  const [created, setCreated] = useState<TeamUser | null>(null);
+  const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const emptyForm = {
     name: "", email: "", phone: "", role: "",
@@ -559,28 +559,30 @@ function UsersTab() {
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
 
-  function copyAccess(u: TeamUser) {
+  function copyAccess(u: TeamUser, temporaryPassword: string) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) {
       setLinkError(invalid);
       return;
     }
-    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl, temporaryPassword));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
 
-  function resetPassword(u: TeamUser) {
+  async function resetPassword(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) {
       setLinkError(invalid);
       return;
     }
-    const np = generateTempPassword();
-    updateUser(u.id, { password: np, mustChangePassword: true });
-    const updated = { ...u, password: np, mustChangePassword: true };
-    navigator.clipboard.writeText(accessText(updated, accessBaseUrl));
+    const result = await resetUserPassword(u.id);
+    if (!result.ok || !result.user || !result.temporaryPassword) {
+      setLinkError(result.reason ?? "Não foi possível redefinir a senha.");
+      return;
+    }
+    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl, result.temporaryPassword));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
