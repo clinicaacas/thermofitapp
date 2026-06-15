@@ -73,7 +73,7 @@ export const listClientRewards = createServerFn({ method: "GET" })
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("status", "ativo")
-      .order("miles_cost", { ascending: true });
+      .order("cost_miles", { ascending: true });
     if (error) throw error;
     return { rewards: rows ?? [] };
   });
