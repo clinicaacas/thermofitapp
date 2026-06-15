@@ -51,7 +51,7 @@ export function ClientAppShell({
                 <li key={item.to}>
                   <Link
                     to={item.to}
-                    search={(prev) => prev}
+                    search={(prev: Record<string, unknown>) => prev}
                     className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
                       active ? "text-indigo-600" : "text-slate-500"
                     }`}
