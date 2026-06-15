@@ -30,7 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTenant, type PlanId, type ProfileRole } from "@/lib/tenant-context";
+import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus } from "@/lib/tenant-context";
+import { generateTempPassword } from "@/lib/auth-context";
 import {
   Pencil,
   Trash2,
@@ -42,7 +43,19 @@ import {
   Mail,
   Webhook,
   Upload,
+  Copy,
+  KeyRound,
+  Ban,
+  UserX,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — ThermoFit" }] }),
@@ -468,20 +481,51 @@ function profileLabel(p: ProfileRole) {
   }[p];
 }
 
+function statusLabel(s: UserStatus) {
+  return { ativo: "Ativo", inativo: "Inativo", bloqueado: "Bloqueado", convite_pendente: "Convite pendente" }[s];
+}
+function statusClass(s: UserStatus) {
+  if (s === "ativo") return "bg-primary/10 text-primary";
+  if (s === "bloqueado") return "bg-destructive/10 text-destructive";
+  if (s === "convite_pendente") return "bg-amber-500/10 text-amber-600";
+  return "bg-muted text-muted-foreground";
+}
+
+function accessText(u: TeamUser) {
+  const link = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
+  return `Olá, seu acesso ao sistema foi criado.\n\nLink de acesso: ${link}\nE-mail: ${u.email}\nSenha provisória: ${u.password}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.`;
+}
+
 function UsersTab() {
-  const { tenant, currentPlan, addUser, removeUser } = useTenant();
+  const { tenant, currentPlan, addUser, updateUser, removeUser } = useTenant();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
+  const [created, setCreated] = useState<TeamUser | null>(null);
+  const [copied, setCopied] = useState(false);
+  const emptyForm = {
+    name: "", email: "", phone: "", role: "",
     profile: "equipe" as ProfileRole,
-    status: "ativo" as "ativo" | "inativo",
-  });
+    status: "ativo" as UserStatus,
+    mustChangePassword: true,
+  };
+  const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const limit = currentPlan?.userLimit ?? 0;
   const atLimit = limit !== -1 && tenant.team.length >= limit;
+
+  function copyAccess(u: TeamUser) {
+    navigator.clipboard.writeText(accessText(u));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+
+  function resetPassword(u: TeamUser) {
+    const np = generateTempPassword();
+    updateUser(u.id, { password: np, mustChangePassword: true });
+    const updated = { ...u, password: np, mustChangePassword: true };
+    navigator.clipboard.writeText(accessText(updated));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
 
   return (
     <Card>
@@ -494,56 +538,88 @@ function UsersTab() {
               : `${tenant.team.length} de ${limit} usuários no plano.`}
           </CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
-          <Button size="sm" onClick={() => setOpen(true)}>Adicionar usuário</Button>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setError(null); setCreated(null); setForm(emptyForm); } }}>
+          <Button size="sm" onClick={() => setOpen(true)} disabled={atLimit}>Adicionar usuário</Button>
           <DialogContent>
-            <DialogHeader><DialogTitle>Adicionar usuário</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Field label="Nome"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-              <Field label="E-mail"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-              <Field label="Telefone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-              <Field label="Cargo"><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
-              <Field label="Perfil">
-                <Select value={form.profile} onValueChange={(v) => setForm({ ...form, profile: v as ProfileRole })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="super_admin">Super Admin SaaS</SelectItem>
-                    <SelectItem value="dono">Dono da Clínica</SelectItem>
-                    <SelectItem value="admin">Admin da Clínica</SelectItem>
-                    <SelectItem value="equipe">Equipe</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Status">
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "ativo" | "inativo" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            {error && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                {error}
-              </div>
+            <DialogHeader>
+              <DialogTitle>{created ? "Dados de acesso" : "Adicionar usuário"}</DialogTitle>
+            </DialogHeader>
+
+            {!created ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <Field label="Nome"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+                  <Field label="E-mail"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+                  <Field label="Telefone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+                  <Field label="Cargo"><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
+                  <Field label="Perfil de acesso">
+                    <Select value={form.profile} onValueChange={(v) => setForm({ ...form, profile: v as ProfileRole })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="super_admin">Super Admin SaaS</SelectItem>
+                        <SelectItem value="dono">Dono da Clínica</SelectItem>
+                        <SelectItem value="admin">Admin da Clínica</SelectItem>
+                        <SelectItem value="equipe">Equipe</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Clínica vinculada">
+                    <Input value={tenant.clinicName} readOnly />
+                  </Field>
+                  <Field label="Status do usuário">
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as UserStatus })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="inativo">Inativo</SelectItem>
+                        <SelectItem value="bloqueado">Bloqueado</SelectItem>
+                        <SelectItem value="convite_pendente">Convite pendente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="md:col-span-2 flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Exigir troca de senha no primeiro acesso</div>
+                      <div className="text-xs text-muted-foreground">Será gerada uma senha provisória.</div>
+                    </div>
+                    <Switch checked={form.mustChangePassword} onCheckedChange={(v) => setForm({ ...form, mustChangePassword: v })} />
+                  </div>
+                </div>
+                {error && (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
+                )}
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                  <Button
+                    disabled={!form.name || !form.email}
+                    onClick={() => {
+                      setError(null);
+                      const password = generateTempPassword();
+                      const r = addUser({ ...form, password });
+                      if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
+                      setCreated(r.user);
+                    }}
+                  >
+                    Criar usuário
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  <div className="rounded-md border bg-muted/40 p-3 text-xs">
+                    <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
+                    <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created)}</pre>
+                  </div>
+                  <Button onClick={() => copyAccess(created)} className="w-full">
+                    <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
+                  </Button>
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setOpen(false)}>Concluir</Button>
+                </DialogFooter>
+              </>
             )}
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button
-                disabled={!form.name || !form.email}
-                onClick={() => {
-                  setError(null);
-                  const r = addUser(form);
-                  if (!r.ok) { setError(r.reason ?? "Não foi possível adicionar."); return; }
-                  setForm({ name: "", email: "", phone: "", role: "", profile: "equipe", status: "ativo" });
-                  setOpen(false);
-                }}
-              >
-                Adicionar
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </CardHeader>
@@ -553,15 +629,19 @@ function UsersTab() {
             Seu plano atual permite até {limit} usuários. Para adicionar mais pessoas, atualize seu plano.
           </div>
         )}
+        {copied && (
+          <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
+            Dados de acesso copiados para a área de transferência.
+          </div>
+        )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Cargo</TableHead>
                 <TableHead>Perfil</TableHead>
+                <TableHead>Clínica</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Último acesso</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -572,26 +652,46 @@ function UsersTab() {
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.phone || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.role || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{profileLabel(u.profile)}</TableCell>
+                  <TableCell className="text-muted-foreground">{tenant.clinicName}</TableCell>
                   <TableCell>
-                    <span className={
-                      "inline-flex rounded-full px-2 py-0.5 text-xs " +
-                      (u.status === "ativo"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground")
-                    }>
-                      {u.status === "ativo" ? "Ativo" : "Inativo"}
+                    <span className={"inline-flex rounded-full px-2 py-0.5 text-xs " + statusClass(u.status)}>
+                      {statusLabel(u.status)}
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.lastAccess || "—"}</TableCell>
                   <TableCell className="text-right">
-                    {u.profile !== "super_admin" && (
-                      <Button size="icon" variant="ghost" onClick={() => removeUser(u.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => copyAccess(u)}>
+                          <Copy className="h-3 w-3" /> Copiar dados de acesso
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => resetPassword(u)}>
+                          <KeyRound className="h-3 w-3" /> Redefinir senha
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => resetPassword(u)}>
+                          <Pencil className="h-3 w-3" /> Gerar novo acesso
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "inativo" ? "ativo" : "inativo" })}>
+                          <UserX className="h-3 w-3" /> {u.status === "inativo" ? "Ativar" : "Inativar"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "bloqueado" ? "ativo" : "bloqueado" })}>
+                          <Ban className="h-3 w-3" /> {u.status === "bloqueado" ? "Desbloquear" : "Bloquear"}
+                        </DropdownMenuItem>
+                        {u.profile !== "super_admin" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => removeUser(u.id)} className="text-destructive">
+                              <Trash2 className="h-3 w-3" /> Remover
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
