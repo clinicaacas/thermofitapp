@@ -173,6 +173,18 @@ function GeneralTab() {
             </SelectContent>
           </Select>
         </Field>
+        <div className="md:col-span-2 space-y-1.5">
+          <Field label="URL pública do sistema">
+            <Input
+              placeholder="https://thermofitapp.lovable.app"
+              value={tenant.publicAppUrl}
+              onChange={(e) => updateTenant({ publicAppUrl: e.target.value })}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Use aqui a URL pública publicada do sistema. Não use link de preview, editor ou projeto do Lovable.
+          </p>
+        </div>
         <div className="md:col-span-2 flex items-center gap-3 pt-2">
           <Button onClick={markSaved}>Salvar alterações</Button>
           {saved && <span className="text-xs text-muted-foreground">Alterações salvas.</span>}
