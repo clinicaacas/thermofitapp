@@ -551,22 +551,37 @@ function UsersTab() {
   };
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
   const unlimited = isInternal || limit === -1;
   const atLimit = !unlimited && tenant.team.length >= limit;
+  const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
+  const accessUrlError = publicUrlError(accessBaseUrl);
 
   function copyAccess(u: TeamUser) {
-    navigator.clipboard.writeText(accessText(u));
+    const invalid = publicUrlError(accessBaseUrl);
+    if (invalid) {
+      setLinkError(invalid);
+      return;
+    }
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
+    setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
 
   function resetPassword(u: TeamUser) {
+    const invalid = publicUrlError(accessBaseUrl);
+    if (invalid) {
+      setLinkError(invalid);
+      return;
+    }
     const np = generateTempPassword();
     updateUser(u.id, { password: np, mustChangePassword: true });
     const updated = { ...u, password: np, mustChangePassword: true };
-    navigator.clipboard.writeText(accessText(updated));
+    navigator.clipboard.writeText(accessText(updated, accessBaseUrl));
+    setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
@@ -655,7 +670,13 @@ function UsersTab() {
                 <div className="space-y-3">
                   <div className="rounded-md border bg-muted/40 p-3 text-xs">
                     <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
-                    <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created)}</pre>
+                    {accessUrlError ? (
+                      <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
+                        {PUBLIC_URL_WARNING}
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created, accessBaseUrl)}</pre>
+                    )}
                   </div>
                   <Button onClick={() => copyAccess(created)} className="w-full">
                     <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
@@ -678,6 +699,11 @@ function UsersTab() {
         {copied && (
           <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
             Dados de acesso copiados para a área de transferência.
+          </div>
+        )}
+        {(linkError || accessUrlError) && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            {linkError || accessUrlError}
           </div>
         )}
         <div className="overflow-x-auto rounded-md border">
