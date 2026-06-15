@@ -160,7 +160,8 @@ export const getClient = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw error;
     if (!row) throw new Error("Cliente não encontrada.");
-    const consent = row.consents?.[0] ?? row.consents ?? null;
+    const rawConsent = (row as any).consents;
+    const consent = Array.isArray(rawConsent) ? rawConsent[0] : rawConsent ?? null;
     return {
       client: mapClient(row),
       consents: consent
@@ -200,7 +201,7 @@ export const createClient = createServerFn({ method: "POST" })
     if (data.birthDate) insertPayload.birth_date = data.birthDate;
     const { data: row, error } = await context.supabase
       .from("clients")
-      .insert(insertPayload)
+      .insert(insertPayload as any)
       .select("*")
       .single();
     if (error) throw error;
@@ -244,7 +245,7 @@ export const updateClient = createServerFn({ method: "POST" })
 
     const { data: row, error } = await context.supabase
       .from("clients")
-      .update(update)
+      .update(update as any)
       .eq("tenant_id", tenantId)
       .eq("id", data.id)
       .select("*")
