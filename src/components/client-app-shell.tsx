@@ -1,14 +1,22 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState, useSearch } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Home, Video, Droplet, MessageCircle, Award } from "lucide-react";
+import { getAppSettings } from "@/lib/thermofit-app-settings.functions";
 
 const nav = [
-  { to: "/app", label: "Início", icon: Home },
-  { to: "/app/videos", label: "Vídeos", icon: Video },
-  { to: "/app/agua", label: "Água", icon: Droplet },
-  { to: "/app/premios", label: "Prêmios", icon: Award },
-  { to: "/app/falar", label: "Equipe", icon: MessageCircle },
+  { to: "/app", key: "inicio", label: "Início", icon: Home },
+  { to: "/app/videos", key: "videos", label: "Vídeos", icon: Video },
+  { to: "/app/agua", key: "agua", label: "Água", icon: Droplet },
+  { to: "/app/premios", key: "premios", label: "Prêmios", icon: Award },
+  { to: "/app/falar", key: "falar", label: "Equipe", icon: MessageCircle },
 ] as const;
+
+export function useAppSettings() {
+  const fetchAll = useServerFn(getAppSettings);
+  return useQuery({ queryKey: ["app-settings"], queryFn: () => fetchAll() });
+}
 
 export function ClientAppShell({
   title,
@@ -22,13 +30,23 @@ export function ClientAppShell({
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
   const clientId = search?.clientId;
+  const { data } = useAppSettings();
+  const s = data?.settings;
+  const modules = data?.modules ?? [];
+  const enabledKeys = new Set(modules.filter((m: any) => m.enabled).map((m: any) => m.key));
+
+  const primary = s?.primary_color || "#5b6cff";
+  const accent = s?.accent_color || "#7c83ff";
 
   return (
     <div className="min-h-screen w-full bg-slate-50">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white shadow-sm">
-        <header className="sticky top-0 z-10 border-b bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-4 text-white">
-          <p className="text-xs opacity-80">ThermoFit</p>
-          <h1 className="text-lg font-semibold leading-tight">{title ?? "Início"}</h1>
+        <header
+          className="sticky top-0 z-10 border-b px-4 py-4 text-white"
+          style={{ background: `linear-gradient(135deg, ${primary}, ${accent})` }}
+        >
+          <p className="text-xs opacity-80">{s?.app_name ?? "ThermoFit"}</p>
+          <h1 className="text-lg font-semibold leading-tight">{title ?? s?.app_subtitle ?? "Início"}</h1>
           {subtitle && <p className="mt-0.5 text-xs opacity-80">{subtitle}</p>}
         </header>
 
@@ -47,14 +65,17 @@ export function ClientAppShell({
             {nav.map((item) => {
               const active = pathname === item.to;
               const Icon = item.icon;
+              const disabled = data && !enabledKeys.has(item.key);
               return (
                 <li key={item.to}>
                   <Link
                     to={item.to}
                     search={(prev: Record<string, unknown>) => prev}
+                    disabled={disabled}
                     className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
-                      active ? "text-indigo-600" : "text-slate-500"
+                      disabled ? "pointer-events-none opacity-30" : ""
                     }`}
+                    style={{ color: active ? primary : "#64748b" }}
                   >
                     <Icon className="h-5 w-5" />
                     {item.label}
