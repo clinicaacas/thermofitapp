@@ -1,0 +1,381 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+type Ctx = { supabase: any; userId: string };
+
+async function callerTenant(context: Ctx) {
+  const { data, error } = await context.supabase
+    .from("profiles")
+    .select("tenant_id, profile, status")
+    .eq("id", context.userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.status !== "ativo") throw new Error("Usuário sem acesso ativo.");
+  return { tenantId: data.tenant_id as string, role: data.profile as string };
+}
+
+async function logAudit(
+  context: Ctx,
+  tenantId: string,
+  action: string,
+  entity: string,
+  entityId: string | null,
+  metadata: Record<string, unknown> = {},
+) {
+  try {
+    await context.supabase.from("audit_logs").insert({
+      tenant_id: tenantId,
+      actor_id: context.userId,
+      action,
+      entity,
+      entity_id: entityId,
+      metadata,
+    });
+  } catch (err) {
+    console.error("audit_logs insert failed", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// VIDEOS
+// ---------------------------------------------------------------------------
+
+const videoSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(2000).default(""),
+  url: z.string().trim().max(500).default(""),
+  thumbnailUrl: z.string().trim().max(500).default(""),
+  durationSeconds: z.number().int().min(0).max(86400).default(0),
+  category: z.string().trim().max(60).default("geral"),
+  status: z.enum(["ativo", "rascunho", "arquivado"]).default("ativo"),
+});
+
+function mapVideo(row: any) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? "",
+    url: row.url ?? "",
+    thumbnailUrl: row.thumbnail_url ?? "",
+    durationSeconds: row.duration_seconds ?? 0,
+    category: row.category ?? "geral",
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+export const listVideos = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { data, error } = await context.supabase
+      .from("videos")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return { videos: (data ?? []).map(mapVideo) };
+  });
+
+export const saveVideo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid().optional(), patch: videoSchema }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const payload = {
+      tenant_id: tenantId,
+      title: data.patch.title.trim(),
+      description: data.patch.description,
+      url: data.patch.url,
+      thumbnail_url: data.patch.thumbnailUrl,
+      duration_seconds: data.patch.durationSeconds,
+      category: data.patch.category,
+      status: data.patch.status,
+    };
+    if (data.id) {
+      const { data: row, error } = await context.supabase
+        .from("videos")
+        .update(payload)
+        .eq("tenant_id", tenantId)
+        .eq("id", data.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "video.update", "video", row.id, {});
+      return { video: mapVideo(row) };
+    } else {
+      const { data: row, error } = await context.supabase
+        .from("videos")
+        .insert({ ...payload, created_by: context.userId })
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "video.create", "video", row.id, {});
+      return { video: mapVideo(row) };
+    }
+  });
+
+export const deleteVideo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { error } = await context.supabase
+      .from("videos")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(context, tenantId, "video.delete", "video", data.id, {});
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// EXERCISES
+// ---------------------------------------------------------------------------
+
+const exerciseSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(2000).default(""),
+  videoUrl: z.string().trim().max(500).default(""),
+  muscleGroup: z.string().trim().max(60).default("geral"),
+  equipment: z.string().trim().max(120).default(""),
+  sets: z.number().int().min(1).max(30).default(3),
+  reps: z.string().trim().max(40).default("10"),
+  status: z.enum(["ativo", "rascunho", "arquivado"]).default("ativo"),
+});
+
+function mapExercise(row: any) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? "",
+    videoUrl: row.video_url ?? "",
+    muscleGroup: row.muscle_group ?? "geral",
+    equipment: row.equipment ?? "",
+    sets: row.sets ?? 3,
+    reps: row.reps ?? "10",
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+export const listExercises = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { data, error } = await context.supabase
+      .from("exercises")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return { exercises: (data ?? []).map(mapExercise) };
+  });
+
+export const saveExercise = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid().optional(), patch: exerciseSchema }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const payload = {
+      tenant_id: tenantId,
+      title: data.patch.title.trim(),
+      description: data.patch.description,
+      video_url: data.patch.videoUrl,
+      muscle_group: data.patch.muscleGroup,
+      equipment: data.patch.equipment,
+      sets: data.patch.sets,
+      reps: data.patch.reps,
+      status: data.patch.status,
+    };
+    if (data.id) {
+      const { data: row, error } = await context.supabase
+        .from("exercises")
+        .update(payload)
+        .eq("tenant_id", tenantId)
+        .eq("id", data.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "exercise.update", "exercise", row.id, {});
+      return { exercise: mapExercise(row) };
+    } else {
+      const { data: row, error } = await context.supabase
+        .from("exercises")
+        .insert({ ...payload, created_by: context.userId })
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "exercise.create", "exercise", row.id, {});
+      return { exercise: mapExercise(row) };
+    }
+  });
+
+export const deleteExercise = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { error } = await context.supabase
+      .from("exercises")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(context, tenantId, "exercise.delete", "exercise", data.id, {});
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// REWARDS
+// ---------------------------------------------------------------------------
+
+const rewardSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(2000).default(""),
+  costMiles: z.number().int().min(0).max(1000000).default(0),
+  stock: z.number().int().min(0).max(1000000).default(0),
+  status: z.enum(["ativo", "esgotado", "arquivado"]).default("ativo"),
+  imageUrl: z.string().trim().max(500).default(""),
+});
+
+function mapReward(row: any) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    costMiles: row.cost_miles ?? 0,
+    stock: row.stock ?? 0,
+    status: row.status,
+    imageUrl: row.image_url ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+export const listRewards = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { data, error } = await context.supabase
+      .from("rewards")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return { rewards: (data ?? []).map(mapReward) };
+  });
+
+export const saveReward = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid().optional(), patch: rewardSchema }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const payload = {
+      tenant_id: tenantId,
+      name: data.patch.name.trim(),
+      description: data.patch.description,
+      cost_miles: data.patch.costMiles,
+      stock: data.patch.stock,
+      status: data.patch.status,
+      image_url: data.patch.imageUrl,
+    };
+    if (data.id) {
+      const { data: row, error } = await context.supabase
+        .from("rewards")
+        .update(payload)
+        .eq("tenant_id", tenantId)
+        .eq("id", data.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "reward.update", "reward", row.id, {});
+      return { reward: mapReward(row) };
+    } else {
+      const { data: row, error } = await context.supabase
+        .from("rewards")
+        .insert({ ...payload, created_by: context.userId })
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(context, tenantId, "reward.create", "reward", row.id, {});
+      return { reward: mapReward(row) };
+    }
+  });
+
+export const deleteReward = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { error } = await context.supabase
+      .from("rewards")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(context, tenantId, "reward.delete", "reward", data.id, {});
+    return { ok: true };
+  });
+
+export const listRedemptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { data, error } = await context.supabase
+      .from("reward_redemptions")
+      .select("*, rewards(name), clients(name)")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return {
+      redemptions: (data ?? []).map((r: any) => ({
+        id: r.id,
+        rewardId: r.reward_id,
+        rewardName: r.rewards?.name ?? "",
+        clientId: r.client_id,
+        clientName: r.clients?.name ?? "",
+        costMiles: r.cost_miles,
+        status: r.status,
+        notes: r.notes ?? "",
+        createdAt: r.created_at,
+        decidedAt: r.decided_at,
+      })),
+    };
+  });
+
+export const decideRedemption = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["entregue", "cancelado"]),
+        notes: z.string().trim().max(500).default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { error } = await context.supabase
+      .from("reward_redemptions")
+      .update({
+        status: data.status,
+        notes: data.notes,
+        decided_by: context.userId,
+        decided_at: new Date().toISOString(),
+      })
+      .eq("tenant_id", tenantId)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(context, tenantId, `redemption.${data.status}`, "redemption", data.id, {});
+    return { ok: true };
+  });
