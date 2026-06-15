@@ -534,19 +534,19 @@ function publicUrlError(url: string) {
 
 function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
   const link = `${baseUrl}/login`;
-  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado/atualizado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha provisória: ${temporaryPassword}\n\nNo primeiro acesso, altere sua senha para manter sua conta segura.\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
+  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha: ${temporaryPassword}\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
 function UsersTab() {
-  const { tenant, currentPlan, addUser, updateUser, resetUserPassword, removeUser } = useTenant();
+  const { tenant, tenantLoading, tenantError, currentPlan, refreshTenant, addUser, updateUser, resetUserPassword, removeUser } = useTenant();
   const [open, setOpen] = useState(false);
-  const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string; existed?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const emptyForm = {
     name: "", email: "", phone: "", role: "",
     profile: "equipe" as ProfileRole,
     status: "ativo" as UserStatus,
-    mustChangePassword: true,
+    mustChangePassword: false,
   };
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -557,6 +557,10 @@ function UsersTab() {
   const atLimit = !unlimited && tenant.team.length >= limit;
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
+
+  useEffect(() => {
+    void refreshTenant();
+  }, [refreshTenant]);
 
   function copyAccess(u: TeamUser, temporaryPassword: string) {
     const invalid = publicUrlError(accessBaseUrl);
@@ -639,13 +643,6 @@ function UsersTab() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <div className="md:col-span-2 flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <div className="text-sm font-medium">Exigir troca de senha no primeiro acesso</div>
-                      <div className="text-xs text-muted-foreground">Será gerada uma senha provisória.</div>
-                    </div>
-                    <Switch checked={form.mustChangePassword} onCheckedChange={(v) => setForm({ ...form, mustChangePassword: v })} />
-                  </div>
                 </div>
                 {error && (
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
@@ -658,7 +655,7 @@ function UsersTab() {
                       setError(null);
                       const r = await addUser(form);
                       if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
-                      setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "" });
+                      setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "", existed: r.existed });
                     }}
                   >
                     Criar usuário
@@ -668,6 +665,11 @@ function UsersTab() {
             ) : (
               <>
                 <div className="space-y-3">
+                  {created.existed && (
+                    <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
+                      Usuário já existe. Dados atualizados.
+                    </div>
+                  )}
                   <div className="rounded-md border bg-muted/40 p-3 text-xs">
                     <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
                     {accessUrlError ? (
@@ -706,6 +708,11 @@ function UsersTab() {
             {linkError || accessUrlError}
           </div>
         )}
+        {tenantError && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            {tenantError}
+          </div>
+        )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -720,7 +727,19 @@ function UsersTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenant.team.map((u) => (
+              {tenantLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    Carregando usuários salvos no banco...
+                  </TableCell>
+                </TableRow>
+              ) : tenant.team.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    Nenhum usuário encontrado no banco para esta clínica.
+                  </TableCell>
+                </TableRow>
+              ) : tenant.team.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
