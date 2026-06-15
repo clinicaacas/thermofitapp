@@ -1,20 +1,16 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Flame } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { useTenant } from "@/lib/tenant-context";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Entrar — ThermoFit" }] }),
+  head: () => ({ meta: [{ title: "Entrar — ThermoFit Acas" }] }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const { signIn, user } = useAuth();
-  const { tenant } = useTenant();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,50 +23,104 @@ function LoginPage() {
   }, [user, navigate]);
 
   return (
-    <div className="grid min-h-screen w-full place-items-center bg-muted/30 px-4">
-      <div className="w-full max-w-sm rounded-xl border bg-background p-6 shadow-sm">
-        <div className="flex flex-col items-center gap-3 pb-5 text-center">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-foreground text-background">
-            <Flame className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="text-base font-semibold">{tenant.systemName}</div>
-            <div className="text-xs text-muted-foreground">{tenant.systemSubtitle}</div>
-          </div>
+    <div className="min-h-screen w-full px-4 py-10 sm:py-16" style={{ background: "#F3EFE6" }}>
+      <div className="mx-auto flex w-full max-w-[520px] flex-col items-center">
+        {/* Logo */}
+        <div
+          className="grid h-16 w-16 place-items-center text-white"
+          style={{ background: "#0B111A", borderRadius: 15 }}
+        >
+          <span className="text-[20px] font-bold tracking-wide">ACAS</span>
         </div>
 
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(null);
-            const r = signIn(email, password);
-            if (!r.ok) setError(r.reason ?? "Falha ao entrar.");
-          }}
+        {/* Titles */}
+        <h1 className="mt-[18px] text-[26px] font-semibold tracking-tight text-[#0B111A]">
+          ThermoFit Acas
+        </h1>
+        <p className="mt-1 text-[14px] text-neutral-500">
+          Plano de Voo da Transformação
+        </p>
+
+        {/* Card */}
+        <div
+          className="mt-[34px] w-full rounded-2xl border border-neutral-200 bg-white p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.08)]"
         >
-          <div className="space-y-1.5">
-            <Label className="text-xs">E-mail</Label>
-            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Senha</Label>
-            <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div>
+            <h2 className="text-[20px] font-semibold text-[#0B111A]">
+              Entrar na sua conta
+            </h2>
+            <p className="mt-1 text-[14px] text-neutral-500">
+              Acesse sua jornada ThermoFit
+            </p>
           </div>
 
-          {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-              {error}
+          <form
+            className="mt-6 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              const r = signIn(email, password);
+              if (!r.ok) setError(r.reason ?? "Falha ao entrar.");
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm font-medium text-[#0B111A]">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-md border-neutral-200 bg-white"
+              />
             </div>
-          )}
 
-          <Button type="submit" className="w-full">Entrar</Button>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm font-medium text-[#0B111A]">
+                  Senha
+                </Label>
+                <Link
+                  to="/esqueci-senha"
+                  className="text-[13px] text-[#2563EB] hover:underline"
+                >
+                  Esqueci minha senha
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-md border-neutral-200 bg-white"
+              />
+            </div>
 
-          <div className="text-center">
-            <Link to="/esqueci-senha" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
-              Esqueci minha senha
-            </Link>
+            {error && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-600">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="h-12 w-full rounded-md text-[15px] font-semibold text-white transition-colors hover:bg-[#1D4FD8]"
+              style={{ background: "#2563EB" }}
+            >
+              Entrar
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-[12px] text-neutral-500">
+            Clínica Acas — Sistema ThermoFit
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
