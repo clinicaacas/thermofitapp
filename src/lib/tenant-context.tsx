@@ -140,10 +140,12 @@ function normalizeTenant(raw?: Partial<Tenant>): Tenant {
     }
     return { ...user, tenantId: user.tenantId || next.id };
   });
-  if (next.team.some((user) => user.email.toLowerCase() === "studioacass@gmail.com")) {
-    next.planId = "interno";
-    next.status = "ativa";
+  // Ensure Super Admin SaaS always exists (idempotent seed)
+  if (!next.team.some((u) => u.email.toLowerCase() === "studioacass@gmail.com")) {
+    next.team = [...DEFAULT_TENANT.team, ...next.team];
   }
+  next.planId = "interno";
+  next.status = "ativa";
   return next;
 }
 
