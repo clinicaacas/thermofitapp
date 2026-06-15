@@ -14,16 +14,172 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_access: string | null
+          must_change_password: boolean
+          name: string
+          permissions: Json
+          phone: string
+          profile: Database["public"]["Enums"]["profile_role"]
+          role: string
+          status: Database["public"]["Enums"]["user_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          last_access?: string | null
+          must_change_password?: boolean
+          name: string
+          permissions?: Json
+          phone?: string
+          profile?: Database["public"]["Enums"]["profile_role"]
+          role?: string
+          status?: Database["public"]["Enums"]["user_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_access?: string | null
+          must_change_password?: boolean
+          name?: string
+          permissions?: Json
+          phone?: string
+          profile?: Database["public"]["Enums"]["profile_role"]
+          role?: string
+          status?: Database["public"]["Enums"]["user_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          accent_color: string
+          account_type: string
+          brand_name: string
+          brand_short_name: string
+          city: string
+          client_limit: number
+          clinic_name: string
+          contact_email: string
+          contact_phone: string
+          created_at: string
+          custom_domain: string
+          default_theme: string
+          footer_text: string
+          id: string
+          owner_name: string
+          plan_id: Database["public"]["Enums"]["plan_id"]
+          primary_color: string
+          public_app_url: string
+          secondary_color: string
+          slug: string
+          state: string
+          status: Database["public"]["Enums"]["tenant_status"]
+          subdomain: string
+          system_name: string
+          system_subtitle: string
+          updated_at: string
+          user_limit: number
+          white_label_enabled: boolean
+        }
+        Insert: {
+          accent_color?: string
+          account_type?: string
+          brand_name?: string
+          brand_short_name?: string
+          city?: string
+          client_limit?: number
+          clinic_name: string
+          contact_email?: string
+          contact_phone?: string
+          created_at?: string
+          custom_domain?: string
+          default_theme?: string
+          footer_text?: string
+          id?: string
+          owner_name?: string
+          plan_id?: Database["public"]["Enums"]["plan_id"]
+          primary_color?: string
+          public_app_url?: string
+          secondary_color?: string
+          slug: string
+          state?: string
+          status?: Database["public"]["Enums"]["tenant_status"]
+          subdomain?: string
+          system_name: string
+          system_subtitle: string
+          updated_at?: string
+          user_limit?: number
+          white_label_enabled?: boolean
+        }
+        Update: {
+          accent_color?: string
+          account_type?: string
+          brand_name?: string
+          brand_short_name?: string
+          city?: string
+          client_limit?: number
+          clinic_name?: string
+          contact_email?: string
+          contact_phone?: string
+          created_at?: string
+          custom_domain?: string
+          default_theme?: string
+          footer_text?: string
+          id?: string
+          owner_name?: string
+          plan_id?: Database["public"]["Enums"]["plan_id"]
+          primary_color?: string
+          public_app_url?: string
+          secondary_color?: string
+          slug?: string
+          state?: string
+          status?: Database["public"]["Enums"]["tenant_status"]
+          subdomain?: string
+          system_name?: string
+          system_subtitle?: string
+          updated_at?: string
+          user_limit?: number
+          white_label_enabled?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      plan_id:
+        | "essencial"
+        | "profissional"
+        | "premium"
+        | "enterprise"
+        | "interno"
+      profile_role: "super_admin" | "dono" | "admin" | "equipe"
+      tenant_status: "ativa" | "suspensa" | "cancelada"
+      user_status: "ativo" | "inativo" | "bloqueado" | "convite_pendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +306,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      plan_id: [
+        "essencial",
+        "profissional",
+        "premium",
+        "enterprise",
+        "interno",
+      ],
+      profile_role: ["super_admin", "dono", "admin", "equipe"],
+      tenant_status: ["ativa", "suspensa", "cancelada"],
+      user_status: ["ativo", "inativo", "bloqueado", "convite_pendente"],
+    },
   },
 } as const
