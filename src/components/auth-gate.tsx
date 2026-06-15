@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
 
-const PUBLIC_PATHS = ["/login", "/esqueci-senha", "/setup-admin"];
+const PUBLIC_PATHS = ["/login", "/esqueci-senha", "/reset-password"];
 
 export function AuthGate({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth();
