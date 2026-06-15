@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { ClientAppPreviewTab } from "@/components/client-app-preview";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — ThermoFit" }] }),
@@ -70,6 +71,7 @@ const TABS = [
   { value: "permissoes", label: "Permissões" },
   { value: "formularios", label: "Formulários" },
   { value: "integracoes", label: "Integrações" },
+  { value: "preview", label: "Preview do App" },
   { value: "conta", label: "Conta e Assinatura" },
 ];
 
@@ -120,6 +122,7 @@ function Page() {
           <TabsContent value="permissoes" className="mt-6"><PermissionsTab /></TabsContent>
           <TabsContent value="formularios" className="mt-6"><FormsTab /></TabsContent>
           <TabsContent value="integracoes" className="mt-6"><IntegrationsTab /></TabsContent>
+          <TabsContent value="preview" className="mt-6"><ClientAppPreviewTab /></TabsContent>
           <TabsContent value="conta" className="mt-6"><AccountTab /></TabsContent>
         </Tabs>
       </div>
