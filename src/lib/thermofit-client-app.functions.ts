@@ -132,3 +132,43 @@ export const listHelpMessages = createServerFn({ method: "GET" })
     if (error) throw error;
     return { messages: rows ?? [] };
   });
+
+export const getAppSettingsForClient = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const tenantId = client.tenant_id;
+    const admin = await getAdmin();
+    const [s, m, t] = await Promise.all([
+      admin.from("client_app_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
+      admin.from("app_module_settings").select("*").eq("tenant_id", tenantId),
+      admin.from("app_templates").select("*").eq("tenant_id", tenantId),
+    ]);
+    if (s.error) throw s.error;
+    if (m.error) throw m.error;
+    if (t.error) throw t.error;
+
+    const settings = s.data ?? {
+      tenant_id: tenantId,
+      app_name: "ThermoFit",
+      app_subtitle: "Plano de Voo da Transformação",
+      welcome_text: "Bem-vinda ao seu Plano de Voo!",
+      primary_color: "#5b6cff",
+      accent_color: "#7c83ff",
+      config: {},
+    };
+
+    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r.enabled]));
+    const modules = DEFAULT_MODULES.map((d) => ({
+      ...d,
+      enabled: moduleMap.has(d.key) ? !!moduleMap.get(d.key) : true,
+    }));
+
+    const quickTopics = (t.data ?? []).filter((r: any) => r.kind === "quick_topic");
+    const finalQuickTopics =
+      quickTopics.length > 0
+        ? quickTopics.map((r: any) => ({ key: r.key, label: r.label, creates_alert: r.creates_alert }))
+        : DEFAULT_QUICK_TOPICS;
+
+    return { settings, modules, quickTopics: finalQuickTopics, templates: t.data ?? [] };
+  });
