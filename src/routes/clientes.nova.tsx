@@ -51,13 +51,17 @@ function Page() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!form.name.trim()) {
+      setError("Informe o nome completo da cliente.");
+      return;
+    }
     setSaving(true);
     try {
       const r = await create({
         data: {
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
           birthDate: form.birthDate,
           startDate: form.startDate,
           plan: form.plan,
@@ -78,7 +82,14 @@ function Page() {
       await qc.invalidateQueries({ queryKey: ["clients"] });
       navigate({ to: "/clientes/$id", params: { id: r.client.id } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      console.error("[clientes.nova] create failed", err);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Erro ao salvar. Verifique os dados e tente novamente.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
