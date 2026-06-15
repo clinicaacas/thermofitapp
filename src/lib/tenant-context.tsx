@@ -34,6 +34,7 @@ export type Tenant = {
   clinicName: string;
   systemName: string;
   systemSubtitle: string;
+  publicAppUrl: string;
   ownerName: string;
   contactEmail: string;
   contactPhone: string;
@@ -72,8 +73,9 @@ export const DEFAULT_PLANS: Plan[] = [
 const DEFAULT_TENANT: Tenant = {
   id: "acas",
   clinicName: "Clínica Acas",
-  systemName: "ThermoFit",
-  systemSubtitle: "Clínica Acas",
+  systemName: "ThermoFit Acas",
+  systemSubtitle: "Plano de Voo da Transformação",
+  publicAppUrl: "https://thermofitapp.lovable.app",
   ownerName: "Dra. Cynara Acas",
   contactEmail: "contato@clinicaacas.com.br",
   contactPhone: "",
@@ -99,6 +101,40 @@ const DEFAULT_TENANT: Tenant = {
 
 };
 
+function normalizeTenant(raw?: Partial<Tenant>): Tenant {
+  const next: Tenant = { ...DEFAULT_TENANT, ...(raw ?? {}) };
+  next.publicAppUrl = (next.publicAppUrl || DEFAULT_TENANT.publicAppUrl).replace(/\/$/, "");
+  next.team = (next.team ?? []).map((user) => {
+    const email = user.email.toLowerCase();
+    if (email === "studioacass@gmail.com") {
+      return {
+        ...user,
+        name: user.name || "Dra. Cynara Acas",
+        role: "Super Admin",
+        profile: "super_admin",
+        status: "ativo",
+        tenantId: next.id,
+      };
+    }
+    if (email === "robsongesso26@gmail.com") {
+      return {
+        ...user,
+        name: user.name || "Robson",
+        role: user.role || "Equipe",
+        profile: "equipe",
+        status: "ativo",
+        tenantId: next.id,
+      };
+    }
+    return { ...user, tenantId: user.tenantId || next.id };
+  });
+  if (next.team.some((user) => user.email.toLowerCase() === "studioacass@gmail.com")) {
+    next.planId = "interno";
+    next.status = "ativa";
+  }
+  return next;
+}
+
 type Ctx = {
   tenant: Tenant;
   plans: Plan[];
@@ -121,7 +157,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE);
-      if (raw) setTenant({ ...DEFAULT_TENANT, ...JSON.parse(raw) });
+      if (raw) setTenant(normalizeTenant(JSON.parse(raw)));
       const rawP = localStorage.getItem(PLANS_STORAGE);
       if (rawP) setPlans(JSON.parse(rawP));
     } catch {}
