@@ -832,3 +832,43 @@ export const adminListClientMissionsToday = createServerFn({ method: "GET" })
     }));
   });
 
+// Cria uma missão para a cliente (default: para hoje).
+export const adminCreateMission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        title: z.string().min(1).max(120),
+        description: z.string().max(500).optional().nullable(),
+        miles: z.number().int().min(0).max(1000).optional(),
+        dueDate: z.string().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const dueDate = data.dueDate ?? adminTodayISO();
+    const { data: row, error } = await context.supabase
+      .from("client_missions")
+      .insert({
+        tenant_id: tenantId,
+        client_id: data.clientId,
+        title: data.title,
+        description: data.description ?? null,
+        miles: data.miles ?? 0,
+        due_date: dueDate,
+        created_by: context.userId,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await logAudit(context, tenantId, "mission.create", "client_mission", row.id, {
+      clientId: data.clientId,
+      dueDate,
+    });
+    return { ok: true, id: row.id };
+  });
+
+

@@ -1,9 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
-import { getClient, adminClientStats, adminListClientMissionsToday } from "@/lib/thermofit-data.functions";
-import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle } from "lucide-react";
+import {
+  getClient,
+  adminClientStats,
+  adminListClientMissionsToday,
+  adminCreateMission,
+} from "@/lib/thermofit-data.functions";
+import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus } from "lucide-react";
+
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Perfil da cliente — ThermoFit" }] }),
@@ -28,10 +34,29 @@ function Page() {
     queryFn: () => fetchMissions({ data: { clientId: id } }),
   });
 
+  const qc = useQueryClient();
+  const createMission = useServerFn(adminCreateMission);
+  const createMissionMut = useMutation({
+    mutationFn: (input: { title: string; description?: string | null; miles?: number }) =>
+      createMission({ data: { clientId: id, ...input } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["client-missions-today", id] });
+      qc.invalidateQueries({ queryKey: ["client-stats", id] });
+    },
+  });
+
+  function handleNewMission() {
+    const title = window.prompt("Título da missão (para hoje):");
+    if (!title || !title.trim()) return;
+    const milesStr = window.prompt("Milhas (opcional, ex: 5):", "5") ?? "0";
+    const miles = Math.max(0, parseInt(milesStr, 10) || 0);
+    createMissionMut.mutate({ title: title.trim(), miles });
+  }
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
   }
+
   if (error || !data) {
     return <AppShell><p className="text-sm text-red-600">Cliente não encontrada.</p></AppShell>;
   }
@@ -100,7 +125,20 @@ function Page() {
             <Row label="Notas clínicas" value={c.clinicalNotes || "—"} />
             <Row label="Hidratação" value={`${c.hydrationGoalMl} ml/dia`} />
           </Card>
-          <Card title="Missões de hoje">
+          <Card
+            title="Missões de hoje"
+            action={
+              <button
+                type="button"
+                onClick={handleNewMission}
+                disabled={createMissionMut.isPending}
+                className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                <Plus className="h-3 w-3" /> Nova
+              </button>
+            }
+          >
+
             {!missionsToday || missionsToday.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma missão atribuída hoje.</p>
             ) : (
@@ -199,14 +237,26 @@ function ActionLink({
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <section className="rounded-lg border border-border bg-card p-5">
-      <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {action}
+      </div>
       <div className="space-y-2">{children}</div>
     </section>
   );
 }
+
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
