@@ -126,6 +126,13 @@ export function ClientAppShell({
             >
               Adicione <code>?clientId=...</code> na URL para abrir como uma cliente.
             </div>
+          ) : moduleDisabled ? (
+            <div
+              className="rounded-2xl bg-white p-6 text-center text-sm"
+              style={{ border: "1px solid #E5E0D8", color: "#6B7280" }}
+            >
+              Este módulo está desativado para o seu workspace.
+            </div>
           ) : (
             children
           )}
