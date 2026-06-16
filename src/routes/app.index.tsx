@@ -29,11 +29,20 @@ function weekFrom(startDate?: string | null): number {
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
   const fetchHome = useServerFn(getClientHome);
+  const fetchMissions = useServerFn(listClientMissions);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
     enabled: !!clientId,
   });
+  const { data: missionsData } = useQuery({
+    queryKey: ["client-missions", clientId],
+    queryFn: () => fetchMissions({ data: { clientId } }),
+    enabled: !!clientId,
+  });
+  const missions = missionsData?.missions ?? [];
+  const missionsDone = missions.filter((m: any) => m.completed).length;
+  const missionsTotal = missions.length;
   const client = data?.client;
   const firstName = (client?.name ?? "").split(" ")[0] || "Cliente";
   const week = weekFrom(client?.startDate);
