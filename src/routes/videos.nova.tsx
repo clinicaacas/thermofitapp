@@ -37,10 +37,12 @@ const initial: Form = {
 function Page() {
   const navigate = useNavigate();
   const save = useServerFn(saveVideo);
+  const getTenant = useServerFn(getMyTenantId);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Form>(initial);
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof Form | "file", string>>>({});
