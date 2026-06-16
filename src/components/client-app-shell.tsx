@@ -66,6 +66,9 @@ export function ClientAppShell({
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
   const clientId = search?.clientId;
+  const { isEnabled } = useEnabledModules(clientId);
+  const currentModule = PATH_TO_MODULE[pathname];
+  const moduleDisabled = !!currentModule && !isEnabled(currentModule);
 
   return (
     <div className="min-h-screen w-full" style={{ background: "#F8F1E6" }}>
