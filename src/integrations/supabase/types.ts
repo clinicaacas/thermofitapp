@@ -238,6 +238,48 @@ export type Database = {
           },
         ]
       }
+      client_hydration_logs: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          log_date: string
+          ml: number
+          tenant_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          log_date?: string
+          ml: number
+          tenant_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          log_date?: string
+          ml?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_hydration_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_hydration_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_mission_completions: {
         Row: {
           client_id: string
