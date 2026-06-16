@@ -2,7 +2,7 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { getClientHome } from "@/lib/thermofit-client-app.functions";
+import { getClientHome, listClientMissions } from "@/lib/thermofit-client-app.functions";
 import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
@@ -29,11 +29,20 @@ function weekFrom(startDate?: string | null): number {
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
   const fetchHome = useServerFn(getClientHome);
+  const fetchMissions = useServerFn(listClientMissions);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
     enabled: !!clientId,
   });
+  const { data: missionsData } = useQuery({
+    queryKey: ["client-missions", clientId],
+    queryFn: () => fetchMissions({ data: { clientId } }),
+    enabled: !!clientId,
+  });
+  const missions = missionsData?.missions ?? [];
+  const missionsDone = missions.filter((m: any) => m.completed).length;
+  const missionsTotal = missions.length;
   const client = data?.client;
   const firstName = (client?.name ?? "").split(" ")[0] || "Cliente";
   const week = weekFrom(client?.startDate);
@@ -139,10 +148,14 @@ function Page() {
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              0 de 0 missões
+              {missionsDone} de {missionsTotal} missões
             </p>
             <p className="text-xs" style={{ color: "#6B7280" }}>
-              Nenhuma missão programada para hoje.
+              {missionsTotal === 0
+                ? "Nenhuma missão programada para hoje."
+                : missionsDone === missionsTotal
+                  ? "Tudo concluído!"
+                  : "Toque em Ver todas para concluir."}
             </p>
           </div>
         </div>
