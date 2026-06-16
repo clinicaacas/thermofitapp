@@ -41,6 +41,7 @@ import { Route as AppNutricaoRouteImport } from './routes/app.nutricao'
 import { Route as AppMissoesRouteImport } from './routes/app.missoes'
 import { Route as AppFotosRouteImport } from './routes/app.fotos'
 import { Route as AppFalarRouteImport } from './routes/app.falar'
+import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 
@@ -204,6 +205,11 @@ const AppFalarRoute = AppFalarRouteImport.update({
   path: '/falar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCartasRoute = AppCartasRouteImport.update({
+  id: '/cartas',
+  path: '/cartas',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAjudaRoute = AppAjudaRouteImport.update({
   id: '/ajuda',
   path: '/ajuda',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
   '/app/ajuda': typeof AppAjudaRoute
+  '/app/cartas': typeof AppCartasRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
   '/app/ajuda': typeof AppAjudaRoute
+  '/app/cartas': typeof AppCartasRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
   '/app/ajuda': typeof AppAjudaRoute
+  '/app/cartas': typeof AppCartasRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/trocar-senha'
     | '/app/agua'
     | '/app/ajuda'
+    | '/app/cartas'
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/trocar-senha'
     | '/app/agua'
     | '/app/ajuda'
+    | '/app/cartas'
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/trocar-senha'
     | '/app/agua'
     | '/app/ajuda'
+    | '/app/cartas'
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
@@ -682,6 +694,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFalarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/cartas': {
+      id: '/app/cartas'
+      path: '/cartas'
+      fullPath: '/app/cartas'
+      preLoaderRoute: typeof AppCartasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/ajuda': {
       id: '/app/ajuda'
       path: '/ajuda'
@@ -702,6 +721,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAguaRoute: typeof AppAguaRoute
   AppAjudaRoute: typeof AppAjudaRoute
+  AppCartasRoute: typeof AppCartasRoute
   AppFalarRoute: typeof AppFalarRoute
   AppFotosRoute: typeof AppFotosRoute
   AppMissoesRoute: typeof AppMissoesRoute
@@ -719,6 +739,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAguaRoute: AppAguaRoute,
   AppAjudaRoute: AppAjudaRoute,
+  AppCartasRoute: AppCartasRoute,
   AppFalarRoute: AppFalarRoute,
   AppFotosRoute: AppFotosRoute,
   AppMissoesRoute: AppMissoesRoute,
