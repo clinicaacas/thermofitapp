@@ -184,10 +184,30 @@ function Page() {
                         </div>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {m.miles} mi
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {m.miles} mi
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleMissionMut.mutate({ missionId: m.id, done: !m.done })
+                        }
+                        disabled={toggleMissionMut.isPending}
+                        className={
+                          "inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs disabled:opacity-50 " +
+                          (m.done
+                            ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600"
+                            : "border-input bg-card hover:bg-accent")
+                        }
+                        aria-label={m.done ? "Desfazer conclusão" : "Marcar como concluída"}
+                        title={m.done ? "Desfazer conclusão" : "Marcar como concluída"}
+                      >
+                        {m.done ? <Check className="h-3 w-3" /> : null}
+                      </button>
+                    </div>
                   </li>
+
                 ))}
               </ul>
             )}
