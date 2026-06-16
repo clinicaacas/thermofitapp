@@ -101,7 +101,7 @@ export const saveVideo = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerTenant(context);
-    const payload = {
+    const payload: any = {
       tenant_id: tenantId,
       title: data.patch.title.trim(),
       description: data.patch.description,
@@ -110,6 +110,13 @@ export const saveVideo = createServerFn({ method: "POST" })
       duration_seconds: data.patch.durationSeconds,
       category: data.patch.category,
       status: data.patch.status,
+      video_type: data.patch.videoType,
+      release_day: data.patch.releaseDay,
+      phase: data.patch.phase,
+      miles_on_complete: data.patch.milesOnComplete,
+      min_completion_pct: data.patch.minCompletionPct,
+      file_name: data.patch.fileName,
+      storage_key: data.patch.storageKey,
     };
     if (data.id) {
       const { data: row, error } = await context.supabase
