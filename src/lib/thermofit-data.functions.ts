@@ -59,10 +59,19 @@ function mapClient(row: any) {
     avatarInitial:
       row.avatar_initial ||
       (row.name?.trim()?.[0]?.toUpperCase() ?? "?"),
+    accessEmail: row.access_email ?? "",
+    accessStatus: (row.access_status ?? "sem_acesso") as
+      | "ativo"
+      | "inativo"
+      | "bloqueado"
+      | "sem_acesso",
+    authUserId: row.auth_user_id ?? null,
+    lastAccessAt: row.last_access_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
+
 
 function mapAlert(row: any) {
   return {
