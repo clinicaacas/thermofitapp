@@ -731,3 +731,67 @@ export const adminDeleteLetter = createServerFn({ method: "POST" })
     await logAudit(context, tenantId, "letter.delete", "client", data.clientId, { letterId: data.letterId });
     return { ok: true };
   });
+
+// ============ STATS DA CLIENTE (admin) ============
+
+function adminTodayISO() {
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  return d.toISOString().slice(0, 10);
+}
+
+export const adminClientStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const today = adminTodayISO();
+
+    const [missionsToday, completionsToday, milesAgg, lastPulse, unreadLetters, photosCount] =
+      await Promise.all([
+        context.supabase
+          .from("client_missions")
+          .select("id", { count: "exact", head: true })
+          .eq("client_id", data.clientId)
+          .eq("due_date", today),
+        context.supabase
+          .from("client_mission_completions")
+          .select("mission_id", { count: "exact", head: true })
+          .eq("client_id", data.clientId)
+          .gte("completed_at", `${today}T00:00:00`),
+        context.supabase
+          .from("client_mission_completions")
+          .select("miles_earned")
+          .eq("client_id", data.clientId),
+        context.supabase
+          .from("client_weekly_pulse")
+          .select("week_start, mood, energy")
+          .eq("client_id", data.clientId)
+          .order("week_start", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        context.supabase
+          .from("client_letters")
+          .select("id", { count: "exact", head: true })
+          .eq("client_id", data.clientId)
+          .is("read_at", null),
+        context.supabase
+          .from("client_progress_photos")
+          .select("id", { count: "exact", head: true })
+          .eq("client_id", data.clientId),
+      ]);
+
+    const milesTotal = (milesAgg.data ?? []).reduce(
+      (s: number, r: any) => s + (r.miles_earned ?? 0),
+      0,
+    );
+
+    return {
+      missionsToday: missionsToday.count ?? 0,
+      missionsDoneToday: completionsToday.count ?? 0,
+      miles: milesTotal,
+      lastPulse: lastPulse.data ?? null,
+      unreadLetters: unreadLetters.count ?? 0,
+      photosCount: photosCount.count ?? 0,
+    };
+  });

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
-import { getClient } from "@/lib/thermofit-data.functions";
+import { getClient, adminClientStats } from "@/lib/thermofit-data.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/clientes/$id")({
@@ -13,9 +13,14 @@ export const Route = createFileRoute("/clientes/$id")({
 function Page() {
   const { id } = Route.useParams();
   const fetcher = useServerFn(getClient);
+  const fetchStats = useServerFn(adminClientStats);
   const { data, isLoading, error } = useQuery({
     queryKey: ["client", id],
     queryFn: () => fetcher({ data: { id } }),
+  });
+  const { data: stats } = useQuery({
+    queryKey: ["client-stats", id],
+    queryFn: () => fetchStats({ data: { clientId: id } }),
   });
 
   if (isLoading) {
@@ -64,8 +69,8 @@ function Page() {
         <div className="grid gap-4 sm:grid-cols-4">
           <Stat label="Dias" value={days} />
           <Stat label="Semana" value={week} />
-          <Stat label="Milhas" value={0} />
-          <Stat label="Missões hoje" value={0} />
+          <Stat label="Milhas" value={stats?.miles ?? 0} />
+          <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5">
@@ -98,7 +103,7 @@ function Page() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
