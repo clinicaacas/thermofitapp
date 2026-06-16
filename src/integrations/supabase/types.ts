@@ -238,6 +238,101 @@ export type Database = {
           },
         ]
       }
+      client_mission_completions: {
+        Row: {
+          client_id: string
+          completed_at: string
+          created_at: string
+          id: string
+          miles_awarded: number
+          mission_id: string
+          tenant_id: string
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string
+          created_at?: string
+          id?: string
+          miles_awarded?: number
+          mission_id: string
+          tenant_id: string
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string
+          created_at?: string
+          id?: string
+          miles_awarded?: number
+          mission_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_mission_completions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_mission_completions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "client_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_missions: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string
+          id: string
+          miles: number
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          miles?: number
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          miles?: number
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_missions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           avatar_initial: string
