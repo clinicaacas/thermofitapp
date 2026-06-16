@@ -99,12 +99,12 @@ function Page() {
               {videos.length} vídeo{videos.length === 1 ? "" : "s"} na biblioteca
             </p>
           </div>
-          <button
-            onClick={openNew}
+          <Link
+            to="/videos/nova"
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Novo vídeo
-          </button>
+          </Link>
         </header>
 
         {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
