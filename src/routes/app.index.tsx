@@ -262,7 +262,7 @@ function Page() {
             <Link
               key={m.to}
               to={m.to as any}
-              search={{ clientId }}
+              search={{ clientId } as any}
               className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white px-2 py-3 text-center text-[11px] font-medium"
               style={{ border: "1px solid #E5E0D8", color: "#1F2933" }}
             >
