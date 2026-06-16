@@ -278,3 +278,64 @@ export const toggleMissionCompletion = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+// ============ HIDRATAÇÃO ============
+
+export const getHydrationToday = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const day = todayISO();
+    const { data: rows, error } = await admin
+      .from("client_hydration_logs")
+      .select("id, ml, created_at")
+      .eq("client_id", client.id)
+      .eq("log_date", day)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const total = (rows ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    return {
+      day,
+      total,
+      goal: client.hydration_goal_ml ?? 2000,
+      logs: rows ?? [],
+    };
+  });
+
+export const addHydration = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), ml: z.number().int().refine((n) => n !== 0) }).parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { error } = await admin.from("client_hydration_logs").insert({
+      tenant_id: client.tenant_id,
+      client_id: client.id,
+      ml: data.ml,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const undoLastHydration = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const day = todayISO();
+    const { data: last, error: lErr } = await admin
+      .from("client_hydration_logs")
+      .select("id")
+      .eq("client_id", client.id)
+      .eq("log_date", day)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lErr) throw lErr;
+    if (!last) return { ok: true, removed: false };
+    const { error } = await admin.from("client_hydration_logs").delete().eq("id", last.id);
+    if (error) throw error;
+    return { ok: true, removed: true };
+  });
