@@ -55,6 +55,17 @@ function Page() {
     createMissionMut.mutate({ title: title.trim(), miles });
   }
 
+  const toggleMission = useServerFn(adminToggleMissionCompletion);
+  const toggleMissionMut = useMutation({
+    mutationFn: (input: { missionId: string; done: boolean }) =>
+      toggleMission({ data: { clientId: id, ...input } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["client-missions-today", id] });
+      qc.invalidateQueries({ queryKey: ["client-stats", id] });
+    },
+  });
+
+
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
   }
