@@ -588,6 +588,66 @@ export type Database = {
           },
         ]
       }
+      client_workout_plans: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          duration_minutes: number | null
+          focus: string | null
+          frequency_per_week: number | null
+          id: string
+          notes: string | null
+          sessions: Json
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          duration_minutes?: number | null
+          focus?: string | null
+          frequency_per_week?: number | null
+          id?: string
+          notes?: string | null
+          sessions?: Json
+          tenant_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          duration_minutes?: number | null
+          focus?: string | null
+          frequency_per_week?: number | null
+          id?: string
+          notes?: string | null
+          sessions?: Json
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_workout_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_workout_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           avatar_initial: string

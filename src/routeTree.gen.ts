@@ -32,6 +32,7 @@ import { Route as ClientesNovaRouteImport } from './routes/clientes.nova'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as AppVideosRouteImport } from './routes/app.videos'
 import { Route as AppVacuumRouteImport } from './routes/app.vacuum'
+import { Route as AppTreinoRouteImport } from './routes/app.treino'
 import { Route as AppPulsoRouteImport } from './routes/app.pulso'
 import { Route as AppPrivacidadeRouteImport } from './routes/app.privacidade'
 import { Route as AppPremiosRouteImport } from './routes/app.premios'
@@ -158,6 +159,11 @@ const AppVacuumRoute = AppVacuumRouteImport.update({
   path: '/vacuum',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTreinoRoute = AppTreinoRouteImport.update({
+  id: '/treino',
+  path: '/treino',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPulsoRoute = AppPulsoRouteImport.update({
   id: '/pulso',
   path: '/pulso',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/treino'
     | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/treino'
     | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/treino'
     | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
@@ -607,6 +619,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/treino': {
+      id: '/app/treino'
+      path: '/treino'
+      fullPath: '/app/treino'
+      preLoaderRoute: typeof AppTreinoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/pulso': {
       id: '/app/pulso'
       path: '/pulso'
@@ -691,6 +710,7 @@ interface AppRouteChildren {
   AppPremiosRoute: typeof AppPremiosRoute
   AppPrivacidadeRoute: typeof AppPrivacidadeRoute
   AppPulsoRoute: typeof AppPulsoRoute
+  AppTreinoRoute: typeof AppTreinoRoute
   AppVacuumRoute: typeof AppVacuumRoute
   AppVideosRoute: typeof AppVideosRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -707,6 +727,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPremiosRoute: AppPremiosRoute,
   AppPrivacidadeRoute: AppPrivacidadeRoute,
   AppPulsoRoute: AppPulsoRoute,
+  AppTreinoRoute: AppTreinoRoute,
   AppVacuumRoute: AppVacuumRoute,
   AppVideosRoute: AppVideosRoute,
   AppIndexRoute: AppIndexRoute,
