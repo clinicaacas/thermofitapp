@@ -17,8 +17,13 @@ async function callerTenant(context: Ctx) {
 
 export const DEFAULT_MODULES = [
   { key: "inicio", label: "Início" },
+  { key: "missoes", label: "Missões" },
   { key: "videos", label: "Vídeos" },
   { key: "agua", label: "Hidratação" },
+  { key: "vacuum", label: "Vacuum" },
+  { key: "nutricao", label: "Nutrição" },
+  { key: "treino", label: "Treino" },
+  { key: "cartas", label: "Cartas" },
   { key: "premios", label: "Prêmios" },
   { key: "falar", label: "Falar com a equipe" },
   { key: "fotos", label: "Fotos" },
