@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, UploadCloud, Video } from "lucide-react";
-import { saveVideo } from "@/lib/thermofit-content.functions";
+import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/videos/nova")({
   head: () => ({ meta: [{ title: "Adicionar vídeo — ThermoFit" }] }),
@@ -36,10 +37,12 @@ const initial: Form = {
 function Page() {
   const navigate = useNavigate();
   const save = useServerFn(saveVideo);
+  const getTenant = useServerFn(getMyTenantId);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Form>(initial);
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof Form | "file", string>>>({});
@@ -66,12 +69,29 @@ function Page() {
     if (!validate()) return;
     setSaving(true);
     try {
+      let storageKey = "";
+      let publicUrl = "";
+      if (file) {
+        const { tenantId } = await getTenant();
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const key = `${tenantId}/${crypto.randomUUID()}-${safe}`;
+        setUploadPct(0);
+        const { error: upErr } = await supabase.storage
+          .from("videos")
+          .upload(key, file, { contentType: file.type || "video/mp4", upsert: false });
+        setUploadPct(100);
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        storageKey = key;
+        const { data: pub } = supabase.storage.from("videos").getPublicUrl(key);
+        publicUrl = pub?.publicUrl ?? "";
+      }
+
       await save({
         data: {
           patch: {
             title: form.title,
             description: form.description,
-            url: "",
+            url: publicUrl,
             thumbnailUrl: "",
             durationSeconds: 0,
             category: form.videoType,
@@ -82,7 +102,7 @@ function Page() {
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,
             fileName: file?.name ?? "",
-            storageKey: "",
+            storageKey,
           },
         },
       });
@@ -96,6 +116,7 @@ function Page() {
       );
     } finally {
       setSaving(false);
+      setUploadPct(null);
     }
   }
 
@@ -226,7 +247,7 @@ function Page() {
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Configure o armazenamento Cloudflare R2 antes de enviar vídeos.
+                  MP4, MOV, WEBM ou M4V. {uploadPct !== null && `Enviando… ${uploadPct}%`}
                 </p>
               </div>
             </div>

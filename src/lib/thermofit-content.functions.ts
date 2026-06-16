@@ -15,6 +15,13 @@ async function callerTenant(context: Ctx) {
   return { tenantId: data.tenant_id as string, role: data.profile as string };
 }
 
+export const getMyTenantId = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    return { tenantId };
+  });
+
 async function logAudit(
   context: Ctx,
   tenantId: string,
