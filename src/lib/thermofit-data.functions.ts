@@ -871,4 +871,60 @@ export const adminCreateMission = createServerFn({ method: "POST" })
     return { ok: true, id: row.id };
   });
 
+// Alterna o status de conclusão de uma missão (admin marca como concluída ou desfaz).
+export const adminToggleMissionCompletion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        missionId: z.string().uuid(),
+        done: z.boolean(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+
+    if (data.done) {
+      const { data: mission, error: mErr } = await context.supabase
+        .from("client_missions")
+        .select("id, miles, tenant_id, client_id")
+        .eq("id", data.missionId)
+        .eq("client_id", data.clientId)
+        .eq("tenant_id", tenantId)
+        .single();
+      if (mErr || !mission) throw mErr ?? new Error("Mission not found");
+      const { error } = await context.supabase
+        .from("client_mission_completions")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            client_id: data.clientId,
+            mission_id: data.missionId,
+            miles_awarded: mission.miles ?? 0,
+            completed_at: new Date().toISOString(),
+          },
+          { onConflict: "mission_id,client_id" },
+        );
+      if (error) throw error;
+      await logAudit(context, tenantId, "mission.complete", "client_mission", data.missionId, {
+        clientId: data.clientId,
+      });
+    } else {
+      const { error } = await context.supabase
+        .from("client_mission_completions")
+        .delete()
+        .eq("client_id", data.clientId)
+        .eq("mission_id", data.missionId);
+      if (error) throw error;
+      await logAudit(context, tenantId, "mission.uncomplete", "client_mission", data.missionId, {
+        clientId: data.clientId,
+      });
+    }
+    return { ok: true };
+  });
+
+
 
