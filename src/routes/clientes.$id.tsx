@@ -70,9 +70,9 @@ function Page() {
 
         <div className="grid gap-3 sm:grid-cols-5">
           <Action icon={<Camera className="h-4 w-4" />} label="Fotos" />
-          <Action icon={<Apple className="h-4 w-4" />} label="Nutrição" />
-          <Action icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
-          <Action icon={<Mail className="h-4 w-4" />} label="Cartas" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-4 w-4" />} label="Nutrição" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-4 w-4" />} label="Cartas" />
           <Action icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
         </div>
 
@@ -112,6 +112,28 @@ function Action({ icon, label }: { icon: React.ReactNode; label: string }) {
     <button className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent">
       {icon} {label}
     </button>
+  );
+}
+
+function ActionLink({
+  to,
+  params,
+  icon,
+  label,
+}: {
+  to: string;
+  params: Record<string, string>;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Link
+      to={to as any}
+      params={params as any}
+      className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+    >
+      {icon} {label}
+    </Link>
   );
 }
 
