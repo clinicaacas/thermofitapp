@@ -423,6 +423,63 @@ export type Database = {
           },
         ]
       }
+      client_weekly_pulse: {
+        Row: {
+          client_id: string
+          created_at: string
+          energy: number
+          hunger: number
+          id: string
+          mood: number
+          notes: string | null
+          sleep: number
+          tenant_id: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          energy: number
+          hunger: number
+          id?: string
+          mood: number
+          notes?: string | null
+          sleep: number
+          tenant_id: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          energy?: number
+          hunger?: number
+          id?: string
+          mood?: number
+          notes?: string | null
+          sleep?: number
+          tenant_id?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_weekly_pulse_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_weekly_pulse_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           avatar_initial: string
