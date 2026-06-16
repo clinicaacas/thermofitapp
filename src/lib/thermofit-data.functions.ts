@@ -753,7 +753,7 @@ export const adminClientStats = createServerFn({ method: "GET" })
           .from("client_missions")
           .select("id", { count: "exact", head: true })
           .eq("client_id", data.clientId)
-          .eq("date", today),
+          .eq("due_date", today),
         context.supabase
           .from("client_mission_completions")
           .select("mission_id", { count: "exact", head: true })
