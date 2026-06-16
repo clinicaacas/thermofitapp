@@ -673,3 +673,36 @@ export const getClientWorkoutPlan = createServerFn({ method: "GET" })
     if (error) throw error;
     return { plan: row ?? null };
   });
+
+// ============ CARTAS ============
+
+export const listClientLetters = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("client_letters")
+      .select("id, title, body, sent_at, read_at")
+      .eq("client_id", client.id)
+      .order("sent_at", { ascending: false });
+    if (error) throw error;
+    return { letters: rows ?? [] };
+  });
+
+export const markLetterRead = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), letterId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("client_letters")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", data.letterId)
+      .eq("client_id", client.id)
+      .is("read_at", null);
+    if (error) throw error;
+    return { ok: true };
+  });
