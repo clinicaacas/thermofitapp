@@ -262,7 +262,7 @@ function WorkoutTab({ clientId }: { clientId: string }) {
       setDur(p.duration_minutes ? String(p.duration_minutes) : "");
       setFocus(p.focus ?? "");
       setNotes(p.notes ?? "");
-      setSessions(Array.isArray(p.sessions) ? p.sessions : []);
+      setSessions(Array.isArray(p.sessions) ? (p.sessions as unknown as Session[]) : []);
     }
   }, [data]);
 
