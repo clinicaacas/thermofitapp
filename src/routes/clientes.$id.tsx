@@ -69,8 +69,8 @@ function Page() {
         <div className="grid gap-4 sm:grid-cols-4">
           <Stat label="Dias" value={days} />
           <Stat label="Semana" value={week} />
-          <Stat label="Milhas" value={0} />
-          <Stat label="Missões hoje" value={0} />
+          <Stat label="Milhas" value={stats?.miles ?? 0} />
+          <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5">
