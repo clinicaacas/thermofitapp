@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, UploadCloud, Video } from "lucide-react";
-import { saveVideo } from "@/lib/thermofit-content.functions";
+import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/videos/nova")({
   head: () => ({ meta: [{ title: "Adicionar vídeo — ThermoFit" }] }),
