@@ -761,7 +761,7 @@ export const adminClientStats = createServerFn({ method: "GET" })
           .gte("completed_at", `${today}T00:00:00`),
         context.supabase
           .from("client_mission_completions")
-          .select("miles_earned")
+          .select("miles_awarded")
           .eq("client_id", data.clientId),
         context.supabase
           .from("client_weekly_pulse")
@@ -782,9 +782,10 @@ export const adminClientStats = createServerFn({ method: "GET" })
       ]);
 
     const milesTotal = (milesAgg.data ?? []).reduce(
-      (s: number, r: any) => s + (r.miles_earned ?? 0),
+      (s: number, r: any) => s + (r.miles_awarded ?? 0),
       0,
     );
+
 
     return {
       missionsToday: missionsToday.count ?? 0,
