@@ -217,3 +217,12 @@ function Dialog({ children, title, onClose }: { children: React.ReactNode; title
     </div>
   );
 }
+
+function sourceOf(v: any): string {
+  if (v.storageKey) return "Upload";
+  const url: string = v.url ?? "";
+  if (/youtube\.com|youtu\.be/i.test(url)) return "YouTube";
+  if (/drive\.google\.com/i.test(url)) return "Drive";
+  if (url) return "Link externo";
+  return "—";
+}
