@@ -31,6 +31,8 @@ function weekFrom(startDate?: string | null): number {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
+  const { isEnabled } = useEnabledModules(clientId);
+  const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey));
   const fetchHome = useServerFn(getClientHome);
   const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
