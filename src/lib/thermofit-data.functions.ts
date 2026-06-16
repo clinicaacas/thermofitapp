@@ -504,3 +504,230 @@ export const dashboardSummary = createServerFn({ method: "GET" })
       recentAlerts: (recentAlertsRes.data ?? []).map(mapAlert),
     };
   });
+
+// ============ CONTEÚDOS DA CLIENTE (Nutrição / Treino / Cartas) ============
+
+async function assertClientInTenant(context: Ctx, tenantId: string, clientId: string) {
+  const { data, error } = await context.supabase
+    .from("clients")
+    .select("id, tenant_id")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.tenant_id !== tenantId) throw new Error("Cliente não encontrada.");
+}
+
+export const adminGetNutritionPlan = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const { data: row, error } = await context.supabase
+      .from("client_nutrition_plans")
+      .select("id, title, weekly_calories, water_ml, restrictions, notes, meals")
+      .eq("client_id", data.clientId)
+      .eq("active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { plan: row ?? null };
+  });
+
+export const adminSaveNutritionPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        title: z.string().trim().min(1).max(120),
+        weeklyCalories: z.number().int().min(0).max(20000).nullable().optional(),
+        waterMl: z.number().int().min(0).max(20000).nullable().optional(),
+        restrictions: z.string().trim().max(500).optional().nullable(),
+        notes: z.string().trim().max(2000).optional().nullable(),
+        meals: z
+          .array(
+            z.object({
+              name: z.string().trim().max(80).optional(),
+              time: z.string().trim().max(20).optional(),
+              items: z.string().trim().max(500).optional(),
+              calories: z.number().int().min(0).max(5000).optional(),
+            }),
+          )
+          .max(20)
+          .default([]),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    await context.supabase
+      .from("client_nutrition_plans")
+      .update({ active: false })
+      .eq("client_id", data.clientId)
+      .eq("active", true);
+    const { data: row, error } = await context.supabase
+      .from("client_nutrition_plans")
+      .insert({
+        tenant_id: tenantId,
+        client_id: data.clientId,
+        title: data.title,
+        weekly_calories: data.weeklyCalories ?? null,
+        water_ml: data.waterMl ?? null,
+        restrictions: data.restrictions ?? null,
+        notes: data.notes ?? null,
+        meals: data.meals,
+        active: true,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await logAudit(context, tenantId, "nutrition.save", "client", data.clientId, { planId: row.id });
+    return { ok: true, id: row.id };
+  });
+
+export const adminGetWorkoutPlan = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const { data: row, error } = await context.supabase
+      .from("client_workout_plans")
+      .select("id, title, frequency_per_week, duration_minutes, focus, notes, sessions")
+      .eq("client_id", data.clientId)
+      .eq("active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { plan: row ?? null };
+  });
+
+export const adminSaveWorkoutPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        title: z.string().trim().min(1).max(120),
+        frequencyPerWeek: z.number().int().min(0).max(14).nullable().optional(),
+        durationMinutes: z.number().int().min(0).max(600).nullable().optional(),
+        focus: z.string().trim().max(120).optional().nullable(),
+        notes: z.string().trim().max(2000).optional().nullable(),
+        sessions: z
+          .array(
+            z.object({
+              name: z.string().trim().max(80).optional(),
+              day: z.string().trim().max(40).optional(),
+              focus: z.string().trim().max(120).optional(),
+              exercises: z
+                .array(
+                  z.object({
+                    name: z.string().trim().max(120).optional(),
+                    sets: z.union([z.number().int(), z.string().max(20)]).optional(),
+                    reps: z.string().trim().max(40).optional(),
+                    rest: z.string().trim().max(40).optional(),
+                    notes: z.string().trim().max(200).optional(),
+                  }),
+                )
+                .max(30)
+                .optional(),
+            }),
+          )
+          .max(14)
+          .default([]),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    await context.supabase
+      .from("client_workout_plans")
+      .update({ active: false })
+      .eq("client_id", data.clientId)
+      .eq("active", true);
+    const { data: row, error } = await context.supabase
+      .from("client_workout_plans")
+      .insert({
+        tenant_id: tenantId,
+        client_id: data.clientId,
+        title: data.title,
+        frequency_per_week: data.frequencyPerWeek ?? null,
+        duration_minutes: data.durationMinutes ?? null,
+        focus: data.focus ?? null,
+        notes: data.notes ?? null,
+        sessions: data.sessions,
+        active: true,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await logAudit(context, tenantId, "workout.save", "client", data.clientId, { planId: row.id });
+    return { ok: true, id: row.id };
+  });
+
+export const adminListLetters = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const { data: rows, error } = await context.supabase
+      .from("client_letters")
+      .select("id, title, body, sent_at, read_at")
+      .eq("client_id", data.clientId)
+      .order("sent_at", { ascending: false });
+    if (error) throw error;
+    return { letters: rows ?? [] };
+  });
+
+export const adminSendLetter = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        title: z.string().trim().min(1).max(160),
+        body: z.string().trim().min(1).max(8000),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const { data: row, error } = await context.supabase
+      .from("client_letters")
+      .insert({
+        tenant_id: tenantId,
+        client_id: data.clientId,
+        title: data.title,
+        body: data.body,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await logAudit(context, tenantId, "letter.send", "client", data.clientId, { letterId: row.id });
+    return { ok: true, id: row.id };
+  });
+
+export const adminDeleteLetter = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), letterId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const { error } = await context.supabase
+      .from("client_letters")
+      .delete()
+      .eq("id", data.letterId)
+      .eq("client_id", data.clientId);
+    if (error) throw error;
+    await logAudit(context, tenantId, "letter.delete", "client", data.clientId, { letterId: data.letterId });
+    return { ok: true };
+  });

@@ -44,6 +44,7 @@ import { Route as AppFalarRouteImport } from './routes/app.falar'
 import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
+import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
@@ -220,6 +221,11 @@ const AppAguaRoute = AppAguaRouteImport.update({
   path: '/agua',
   getParentRoute: () => AppRoute,
 } as any)
+const ClientesIdConteudosRoute = ClientesIdConteudosRouteImport.update({
+  id: '/conteudos',
+  path: '/conteudos',
+  getParentRoute: () => ClientesIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -251,12 +257,13 @@ export interface FileRoutesByFullPath {
   '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
-  '/clientes/$id': typeof ClientesIdRoute
+  '/clientes/$id': typeof ClientesIdRouteWithChildren
   '/clientes/nova': typeof ClientesNovaRoute
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -287,12 +294,13 @@ export interface FileRoutesByTo {
   '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
-  '/clientes/$id': typeof ClientesIdRoute
+  '/clientes/$id': typeof ClientesIdRouteWithChildren
   '/clientes/nova': typeof ClientesNovaRoute
   '/videos/nova': typeof VideosNovaRoute
   '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/videos': typeof VideosIndexRoute
+  '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -325,12 +333,13 @@ export interface FileRoutesById {
   '/app/treino': typeof AppTreinoRoute
   '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
-  '/clientes/$id': typeof ClientesIdRoute
+  '/clientes/$id': typeof ClientesIdRouteWithChildren
   '/clientes/nova': typeof ClientesNovaRoute
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/clientes/'
     | '/videos/'
+    | '/clientes/$id/conteudos'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -406,6 +416,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/clientes'
     | '/videos'
+    | '/clientes/$id/conteudos'
   id:
     | '__root__'
     | '/'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/clientes/'
     | '/videos/'
+    | '/clientes/$id/conteudos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -461,7 +473,7 @@ export interface RootRouteChildren {
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
-  ClientesIdRoute: typeof ClientesIdRoute
+  ClientesIdRoute: typeof ClientesIdRouteWithChildren
   ClientesNovaRoute: typeof ClientesNovaRoute
   VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
@@ -715,6 +727,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAguaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/clientes/$id/conteudos': {
+      id: '/clientes/$id/conteudos'
+      path: '/conteudos'
+      fullPath: '/clientes/$id/conteudos'
+      preLoaderRoute: typeof ClientesIdConteudosRouteImport
+      parentRoute: typeof ClientesIdRoute
+    }
   }
 }
 
@@ -756,6 +775,18 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface ClientesIdRouteChildren {
+  ClientesIdConteudosRoute: typeof ClientesIdConteudosRoute
+}
+
+const ClientesIdRouteChildren: ClientesIdRouteChildren = {
+  ClientesIdConteudosRoute: ClientesIdConteudosRoute,
+}
+
+const ClientesIdRouteWithChildren = ClientesIdRoute._addFileChildren(
+  ClientesIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
@@ -772,7 +803,7 @@ const rootRouteChildren: RootRouteChildren = {
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
-  ClientesIdRoute: ClientesIdRoute,
+  ClientesIdRoute: ClientesIdRouteWithChildren,
   ClientesNovaRoute: ClientesNovaRoute,
   VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
