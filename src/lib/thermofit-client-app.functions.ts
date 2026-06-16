@@ -172,3 +172,81 @@ export const getAppSettingsForClient = createServerFn({ method: "GET" })
 
     return { settings, modules, quickTopics: finalQuickTopics, templates: t.data ?? [] };
   });
+
+// ============ MISSÕES ============
+
+function todayISO() {
+  // YYYY-MM-DD in São Paulo
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  return d.toISOString().slice(0, 10);
+}
+
+export const listClientMissions = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const day = todayISO();
+    const [{ data: missions, error: mErr }, { data: completions, error: cErr }] = await Promise.all([
+      admin
+        .from("client_missions")
+        .select("id, title, description, miles, due_date")
+        .eq("tenant_id", client.tenant_id)
+        .eq("client_id", client.id)
+        .eq("active", true)
+        .eq("due_date", day)
+        .order("created_at", { ascending: true }),
+      admin
+        .from("client_mission_completions")
+        .select("mission_id, completed_at, miles_awarded")
+        .eq("client_id", client.id),
+    ]);
+    if (mErr) throw mErr;
+    if (cErr) throw cErr;
+    const doneSet = new Map((completions ?? []).map((c: any) => [c.mission_id, c]));
+    return {
+      day,
+      missions: (missions ?? []).map((m: any) => ({
+        ...m,
+        completed: doneSet.has(m.id),
+      })),
+    };
+  });
+
+export const toggleMissionCompletion = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), missionId: z.string().uuid(), done: z.boolean() }).parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    if (data.done) {
+      const { data: mission, error: mErr } = await admin
+        .from("client_missions")
+        .select("id, miles, tenant_id, client_id")
+        .eq("id", data.missionId)
+        .eq("client_id", client.id)
+        .maybeSingle();
+      if (mErr) throw mErr;
+      if (!mission) throw new Error("Missão não encontrada.");
+      const { error } = await admin.from("client_mission_completions").upsert(
+        {
+          tenant_id: mission.tenant_id,
+          client_id: mission.client_id,
+          mission_id: mission.id,
+          miles_awarded: mission.miles ?? 0,
+        },
+        { onConflict: "mission_id,client_id" },
+      );
+      if (error) throw error;
+    } else {
+      const { error } = await admin
+        .from("client_mission_completions")
+        .delete()
+        .eq("mission_id", data.missionId)
+        .eq("client_id", client.id);
+      if (error) throw error;
+    }
+    return { ok: true };
+  });
+
