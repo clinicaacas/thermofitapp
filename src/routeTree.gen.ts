@@ -35,6 +35,7 @@ import { Route as AppPulsoRouteImport } from './routes/app.pulso'
 import { Route as AppPrivacidadeRouteImport } from './routes/app.privacidade'
 import { Route as AppPremiosRouteImport } from './routes/app.premios'
 import { Route as AppPassaporteRouteImport } from './routes/app.passaporte'
+import { Route as AppMissoesRouteImport } from './routes/app.missoes'
 import { Route as AppFotosRouteImport } from './routes/app.fotos'
 import { Route as AppFalarRouteImport } from './routes/app.falar'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
@@ -169,6 +170,11 @@ const AppPassaporteRoute = AppPassaporteRouteImport.update({
   path: '/passaporte',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMissoesRoute = AppMissoesRouteImport.update({
+  id: '/missoes',
+  path: '/missoes',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFotosRoute = AppFotosRouteImport.update({
   id: '/fotos',
   path: '/fotos',
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -580,6 +592,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPassaporteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/missoes': {
+      id: '/app/missoes'
+      path: '/missoes'
+      fullPath: '/app/missoes'
+      preLoaderRoute: typeof AppMissoesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/fotos': {
       id: '/app/fotos'
       path: '/fotos'
@@ -608,6 +627,7 @@ interface AppRouteChildren {
   AppAguaRoute: typeof AppAguaRoute
   AppFalarRoute: typeof AppFalarRoute
   AppFotosRoute: typeof AppFotosRoute
+  AppMissoesRoute: typeof AppMissoesRoute
   AppPassaporteRoute: typeof AppPassaporteRoute
   AppPremiosRoute: typeof AppPremiosRoute
   AppPrivacidadeRoute: typeof AppPrivacidadeRoute
@@ -620,6 +640,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAguaRoute: AppAguaRoute,
   AppFalarRoute: AppFalarRoute,
   AppFotosRoute: AppFotosRoute,
+  AppMissoesRoute: AppMissoesRoute,
   AppPassaporteRoute: AppPassaporteRoute,
   AppPremiosRoute: AppPremiosRoute,
   AppPrivacidadeRoute: AppPrivacidadeRoute,
