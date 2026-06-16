@@ -31,12 +31,15 @@ import { Route as VideosNovaRouteImport } from './routes/videos.nova'
 import { Route as ClientesNovaRouteImport } from './routes/clientes.nova'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as AppVideosRouteImport } from './routes/app.videos'
+import { Route as AppVacuumRouteImport } from './routes/app.vacuum'
 import { Route as AppPulsoRouteImport } from './routes/app.pulso'
 import { Route as AppPrivacidadeRouteImport } from './routes/app.privacidade'
 import { Route as AppPremiosRouteImport } from './routes/app.premios'
 import { Route as AppPassaporteRouteImport } from './routes/app.passaporte'
+import { Route as AppMissoesRouteImport } from './routes/app.missoes'
 import { Route as AppFotosRouteImport } from './routes/app.fotos'
 import { Route as AppFalarRouteImport } from './routes/app.falar'
+import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
@@ -149,6 +152,11 @@ const AppVideosRoute = AppVideosRouteImport.update({
   path: '/videos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVacuumRoute = AppVacuumRouteImport.update({
+  id: '/vacuum',
+  path: '/vacuum',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPulsoRoute = AppPulsoRouteImport.update({
   id: '/pulso',
   path: '/pulso',
@@ -169,6 +177,11 @@ const AppPassaporteRoute = AppPassaporteRouteImport.update({
   path: '/passaporte',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMissoesRoute = AppMissoesRouteImport.update({
+  id: '/missoes',
+  path: '/missoes',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFotosRoute = AppFotosRouteImport.update({
   id: '/fotos',
   path: '/fotos',
@@ -177,6 +190,11 @@ const AppFotosRoute = AppFotosRouteImport.update({
 const AppFalarRoute = AppFalarRouteImport.update({
   id: '/falar',
   path: '/falar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAjudaRoute = AppAjudaRouteImport.update({
+  id: '/ajuda',
+  path: '/ajuda',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAguaRoute = AppAguaRouteImport.update({
@@ -202,12 +220,15 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
+  '/app/ajuda': typeof AppAjudaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
@@ -232,12 +253,15 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
+  '/app/ajuda': typeof AppAjudaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
@@ -264,12 +288,15 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agua': typeof AppAguaRoute
+  '/app/ajuda': typeof AppAjudaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
+  '/app/missoes': typeof AppMissoesRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
+  '/app/vacuum': typeof AppVacuumRoute
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
@@ -297,12 +324,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/app/agua'
+    | '/app/ajuda'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
@@ -327,12 +357,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/app/agua'
+    | '/app/ajuda'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
@@ -358,12 +391,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/trocar-senha'
     | '/app/agua'
+    | '/app/ajuda'
     | '/app/falar'
     | '/app/fotos'
+    | '/app/missoes'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
     | '/app/pulso'
+    | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
@@ -552,6 +588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVideosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/vacuum': {
+      id: '/app/vacuum'
+      path: '/vacuum'
+      fullPath: '/app/vacuum'
+      preLoaderRoute: typeof AppVacuumRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/pulso': {
       id: '/app/pulso'
       path: '/pulso'
@@ -580,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPassaporteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/missoes': {
+      id: '/app/missoes'
+      path: '/missoes'
+      fullPath: '/app/missoes'
+      preLoaderRoute: typeof AppMissoesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/fotos': {
       id: '/app/fotos'
       path: '/fotos'
@@ -594,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFalarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/ajuda': {
+      id: '/app/ajuda'
+      path: '/ajuda'
+      fullPath: '/app/ajuda'
+      preLoaderRoute: typeof AppAjudaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/agua': {
       id: '/app/agua'
       path: '/agua'
@@ -606,24 +663,30 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAguaRoute: typeof AppAguaRoute
+  AppAjudaRoute: typeof AppAjudaRoute
   AppFalarRoute: typeof AppFalarRoute
   AppFotosRoute: typeof AppFotosRoute
+  AppMissoesRoute: typeof AppMissoesRoute
   AppPassaporteRoute: typeof AppPassaporteRoute
   AppPremiosRoute: typeof AppPremiosRoute
   AppPrivacidadeRoute: typeof AppPrivacidadeRoute
   AppPulsoRoute: typeof AppPulsoRoute
+  AppVacuumRoute: typeof AppVacuumRoute
   AppVideosRoute: typeof AppVideosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAguaRoute: AppAguaRoute,
+  AppAjudaRoute: AppAjudaRoute,
   AppFalarRoute: AppFalarRoute,
   AppFotosRoute: AppFotosRoute,
+  AppMissoesRoute: AppMissoesRoute,
   AppPassaporteRoute: AppPassaporteRoute,
   AppPremiosRoute: AppPremiosRoute,
   AppPrivacidadeRoute: AppPrivacidadeRoute,
   AppPulsoRoute: AppPulsoRoute,
+  AppVacuumRoute: AppVacuumRoute,
   AppVideosRoute: AppVideosRoute,
   AppIndexRoute: AppIndexRoute,
 }
@@ -655,13 +718,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
