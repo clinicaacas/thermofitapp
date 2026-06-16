@@ -34,10 +34,29 @@ function Page() {
     queryFn: () => fetchMissions({ data: { clientId: id } }),
   });
 
+  const qc = useQueryClient();
+  const createMission = useServerFn(adminCreateMission);
+  const createMissionMut = useMutation({
+    mutationFn: (input: { title: string; description?: string | null; miles?: number }) =>
+      createMission({ data: { clientId: id, ...input } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["client-missions-today", id] });
+      qc.invalidateQueries({ queryKey: ["client-stats", id] });
+    },
+  });
+
+  function handleNewMission() {
+    const title = window.prompt("Título da missão (para hoje):");
+    if (!title || !title.trim()) return;
+    const milesStr = window.prompt("Milhas (opcional, ex: 5):", "5") ?? "0";
+    const miles = Math.max(0, parseInt(milesStr, 10) || 0);
+    createMissionMut.mutate({ title: title.trim(), miles });
+  }
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
   }
+
   if (error || !data) {
     return <AppShell><p className="text-sm text-red-600">Cliente não encontrada.</p></AppShell>;
   }
