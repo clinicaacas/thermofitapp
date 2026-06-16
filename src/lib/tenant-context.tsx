@@ -35,6 +35,8 @@ export type TeamUser = {
   mustChangePassword: boolean;
   tenantId: string;
   lastAccess?: string;
+  kind?: "team" | "client";
+  clientId?: string;
 };
 
 export type Tenant = {
