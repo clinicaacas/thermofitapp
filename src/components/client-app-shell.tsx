@@ -146,9 +146,8 @@ export function ClientAppShell({
             {nav.map((item) => {
               const active = pathname === item.to;
               const Icon = item.icon;
-              return (
-                <li key={item.to}>
-                  <Link
+              const disabled = !isEnabled(item.key);
+              if (disabled) return <li key={item.to} />;
                     to={item.to}
                     search={(prev: Record<string, unknown>) => prev}
                     className="flex flex-col items-center gap-0.5 py-2 text-[11px]"
