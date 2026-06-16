@@ -115,6 +115,28 @@ function Action({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
+function ActionLink({
+  to,
+  params,
+  icon,
+  label,
+}: {
+  to: string;
+  params: Record<string, string>;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Link
+      to={to as any}
+      params={params as any}
+      className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+    >
+      {icon} {label}
+    </Link>
+  );
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border border-border bg-card p-5">
