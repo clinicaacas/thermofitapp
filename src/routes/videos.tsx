@@ -147,7 +147,8 @@ function Page() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
