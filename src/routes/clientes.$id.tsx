@@ -125,7 +125,20 @@ function Page() {
             <Row label="Notas clínicas" value={c.clinicalNotes || "—"} />
             <Row label="Hidratação" value={`${c.hydrationGoalMl} ml/dia`} />
           </Card>
-          <Card title="Missões de hoje">
+          <Card
+            title="Missões de hoje"
+            action={
+              <button
+                type="button"
+                onClick={handleNewMission}
+                disabled={createMissionMut.isPending}
+                className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                <Plus className="h-3 w-3" /> Nova
+              </button>
+            }
+          >
+
             {!missionsToday || missionsToday.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma missão atribuída hoje.</p>
             ) : (
