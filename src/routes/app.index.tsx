@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
-import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight } from "lucide-react";
+import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -12,6 +12,9 @@ export const Route = createFileRoute("/app/")({
 
 const PHASES = ["Check-in", "Decolagem", "Subida", "Altitude", "Ponto B"];
 const QUICK = [
+  { to: "/app/nutricao", label: "Nutrição", icon: Apple },
+  { to: "/app/treino", label: "Treino", icon: Dumbbell },
+  { to: "/app/cartas", label: "Cartas", icon: Mail },
   { to: "/app/premios", label: "Prêmios", icon: Gift },
   { to: "/app/fotos", label: "Fotos", icon: Camera },
   { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle },
