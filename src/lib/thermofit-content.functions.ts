@@ -49,6 +49,15 @@ const videoSchema = z.object({
   durationSeconds: z.number().int().min(0).max(86400).default(0),
   category: z.string().trim().max(60).default("geral"),
   status: z.enum(["ativo", "rascunho", "arquivado"]).default("ativo"),
+  videoType: z
+    .enum(["manha", "noite", "audio", "mensagem_especial", "educativo", "motivacional"])
+    .default("manha"),
+  releaseDay: z.number().int().min(0).max(3650).nullable().default(null),
+  phase: z.string().trim().max(60).default(""),
+  milesOnComplete: z.number().int().min(0).max(100000).default(5),
+  minCompletionPct: z.number().int().min(1).max(100).default(90),
+  fileName: z.string().trim().max(255).default(""),
+  storageKey: z.string().trim().max(500).default(""),
 });
 
 function mapVideo(row: any) {
@@ -61,6 +70,13 @@ function mapVideo(row: any) {
     durationSeconds: row.duration_seconds ?? 0,
     category: row.category ?? "geral",
     status: row.status,
+    videoType: row.video_type ?? "manha",
+    releaseDay: row.release_day ?? null,
+    phase: row.phase ?? "",
+    milesOnComplete: row.miles_on_complete ?? 5,
+    minCompletionPct: row.min_completion_pct ?? 90,
+    fileName: row.file_name ?? "",
+    storageKey: row.storage_key ?? "",
     createdAt: row.created_at,
   };
 }
