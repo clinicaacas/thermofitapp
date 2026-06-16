@@ -256,7 +256,7 @@ function Page() {
         ACESSO RÁPIDO
       </p>
       <section className="mt-2 grid grid-cols-4 gap-2">
-        {QUICK.map((m) => {
+        {quickItems.map((m) => {
           const Icon = m.icon;
           return (
             <Link
