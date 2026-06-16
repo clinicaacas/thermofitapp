@@ -18,7 +18,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      navigate({ to: "/dashboard" });
+      navigate({ to: user.kind === "client" ? "/app" : "/dashboard" });
     }
   }, [user, navigate]);
 
