@@ -852,13 +852,20 @@ export type Database = {
           created_by: string | null
           description: string
           duration_seconds: number
+          file_name: string | null
           id: string
+          miles_on_complete: number
+          min_completion_pct: number
+          phase: string | null
+          release_day: number | null
           status: string
+          storage_key: string | null
           tenant_id: string
           thumbnail_url: string
           title: string
           updated_at: string
           url: string
+          video_type: string
         }
         Insert: {
           category?: string
@@ -866,13 +873,20 @@ export type Database = {
           created_by?: string | null
           description?: string
           duration_seconds?: number
+          file_name?: string | null
           id?: string
+          miles_on_complete?: number
+          min_completion_pct?: number
+          phase?: string | null
+          release_day?: number | null
           status?: string
+          storage_key?: string | null
           tenant_id: string
           thumbnail_url?: string
           title: string
           updated_at?: string
           url?: string
+          video_type?: string
         }
         Update: {
           category?: string
@@ -880,13 +894,20 @@ export type Database = {
           created_by?: string | null
           description?: string
           duration_seconds?: number
+          file_name?: string | null
           id?: string
+          miles_on_complete?: number
+          min_completion_pct?: number
+          phase?: string | null
+          release_day?: number | null
           status?: string
+          storage_key?: string | null
           tenant_id?: string
           thumbnail_url?: string
           title?: string
           updated_at?: string
           url?: string
+          video_type?: string
         }
         Relationships: [
           {

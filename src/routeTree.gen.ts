@@ -27,6 +27,7 @@ import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as VideosNovaRouteImport } from './routes/videos.nova'
 import { Route as ClientesNovaRouteImport } from './routes/clientes.nova'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as AppVideosRouteImport } from './routes/app.videos'
@@ -128,6 +129,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const VideosNovaRoute = VideosNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => VideosRoute,
+} as any)
 const ClientesNovaRoute = ClientesNovaRouteImport.update({
   id: '/clientes/nova',
   path: '/clientes/nova',
@@ -195,7 +201,7 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
 }
@@ -224,7 +231,7 @@ export interface FileRoutesByTo {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByTo {
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/videos/nova': typeof VideosNovaRoute
   '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
 }
@@ -255,7 +263,7 @@ export interface FileRoutesById {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nova': typeof ClientesNovaRoute
+  '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
 }
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/videos/nova'
     | '/app/'
     | '/clientes/'
   fileRoutesByTo: FileRoutesByTo
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/videos/nova'
     | '/app'
     | '/clientes'
   id:
@@ -357,6 +368,7 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
+    | '/videos/nova'
     | '/app/'
     | '/clientes/'
   fileRoutesById: FileRoutesById
@@ -377,7 +389,7 @@ export interface RootRouteChildren {
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
-  VideosRoute: typeof VideosRoute
+  VideosRoute: typeof VideosRouteWithChildren
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNovaRoute: typeof ClientesNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
@@ -511,6 +523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/videos/nova': {
+      id: '/videos/nova'
+      path: '/nova'
+      fullPath: '/videos/nova'
+      preLoaderRoute: typeof VideosNovaRouteImport
+      parentRoute: typeof VideosRoute
+    }
     '/clientes/nova': {
       id: '/clientes/nova'
       path: '/clientes/nova'
@@ -610,6 +629,17 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface VideosRouteChildren {
+  VideosNovaRoute: typeof VideosNovaRoute
+}
+
+const VideosRouteChildren: VideosRouteChildren = {
+  VideosNovaRoute: VideosNovaRoute,
+}
+
+const VideosRouteWithChildren =
+  VideosRoute._addFileChildren(VideosRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
@@ -626,7 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
-  VideosRoute: VideosRoute,
+  VideosRoute: VideosRouteWithChildren,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNovaRoute: ClientesNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
@@ -634,13 +664,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
