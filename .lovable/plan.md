@@ -1,99 +1,94 @@
-## ThermoFit Acas — Plano de Implementação por Fases
+## Objetivo
 
-Esta é uma reconstrução grande dos módulos operacionais. Vou trabalhar em **5 fases independentes**, validando cada uma antes de avançar. Nenhuma fase mexe em login, Super Admin, autenticação ou Configurações já corrigidas.
-
-### Princípios
-- **Banco como fonte da verdade** — nada de localStorage/mock como destino final.
-- **Tudo via `createServerFn`** (RPC tipado) + RLS por `tenant_id`.
-- **Reaproveitar** componentes da área da cliente no preview do admin.
-- **Não tocar**: `/login`, `/setup-admin`, `auth-gate`, `auth-context`, Super Admin, white label.
+Separar com segurança **equipe interna** (painel admin) e **cliente final** (app de acompanhamento). Hoje só existe o papel `profile_role = super_admin|dono|admin|equipe` e o app da cliente é acessado por `?clientId=` (preview), sem login da cliente. Vamos adicionar um papel **cliente** real, com login próprio, criado dentro do perfil da cliente, com redirecionamento e guards corretos.
 
 ---
 
-### FASE 1 — Painel Administrativo Básico
+## 1. Banco de dados (migração)
 
-**Migração de banco (uma migração só):**
-- `clients` (tenant_id, name, email, phone, birth_date, start_date, plan, goal, complaint, clinical_notes, hydration_goal_ml, status, days_in_program, …)
-- `risk_alerts` (tenant_id, client_id, type, description, severity, resolved_at, …)
-- `messages` (tenant_id, client_id?, template, body, channel='manual', sent_by, …)
-- `approvals` (tenant_id, client_id, type, status, responsible_id, …)
-- `consents` (tenant_id, client_id, terms, privacy, data_processing, photos_internal, photos_marketing)
-- `audit_logs` (tenant_id, actor_id, action, entity, entity_id, metadata)
-- GRANTs + RLS via `is_profile_manager(auth.uid(), tenant_id)`.
+- Adicionar enum value `cliente` em `public.profile_role` (`ALTER TYPE ... ADD VALUE 'cliente'`).
+- Tabela `clients`: adicionar
+  - `auth_user_id uuid UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL`
+  - `access_email text`
+  - `access_status text DEFAULT 'sem_acesso'` (`ativo|inativo|bloqueado|sem_acesso`)
+  - `last_access_at timestamptz`
+- Function SECURITY DEFINER `public.client_id_for_user(uuid)` → retorna `clients.id` do `auth_user_id`.
+- RLS nas tabelas do app da cliente (`client_missions`, `client_mission_completions`, `client_hydration_logs`, `client_letters`, `client_progress_photos`, `client_vacuum_sessions`, `client_weekly_pulse`, `client_nutrition_plans`, `client_workout_plans`): adicionar policy `SELECT/INSERT/UPDATE` para o próprio usuário cliente via `client_id_for_user(auth.uid()) = client_id`.
+- Manter policies existentes da equipe (via `is_tenant_member`).
 
-**Server fns:** `clients.list/create/get/update/resetPassword`, `alerts.list/resolve`, `messages.list/create`, `approvals.list/approve/reject`.
+## 2. Auth / criação de acesso
 
-**Rotas:**
-- `/dashboard` — cards reais (ativas, alertas, aprovações) + alertas recentes
-- `/clientes` — listagem + botão Nova
-- `/clientes/nova` — formulário completo (dados, plano, hidratação, LGPD) → cria cliente + consents + audit log
-- `/clientes/$id` — perfil (topo, cards, ações). Botão WhatsApp abre apenas template (sem envio real)
-- `/alertas`, `/mensagens` (templates rápidos, contador, salva manual), `/aprovacoes`
+Novas server functions em `src/lib/thermofit-data.functions.ts` (auth + admin):
 
-**Teste:** criar cliente, atualizar página, ver persistência.
+- `adminCreateClientAccess({ clientId, email, password })` — usa `supabaseAdmin.auth.admin.createUser` com `email_confirm: true` e `user_metadata: { profile: 'cliente', client_id }`, cria/atualiza `profiles` com `profile='cliente'`, atualiza `clients.auth_user_id/access_email/access_status='ativo'`.
+- `adminResetClientPassword({ clientId, password })` — gera senha temporária via `auth.admin.updateUserById`.
+- `adminSetClientAccessStatus({ clientId, status })` — atualiza status (`ativo|inativo|bloqueado`); `bloqueado` chama `auth.admin.updateUserById` com `ban_duration` ou `app_metadata.banned`.
+- Todas com `requireSupabaseAuth` + checagem `is_profile_manager` do tenant da cliente.
 
----
+## 3. Login e redirecionamento
 
-### FASE 2 — Conteúdos e Relatórios
+`src/lib/thermofit-auth.functions.ts > getCurrentUserProfile`:
 
-**Migração:**
-- `videos` (title, type, release_day, phase, miles_on_complete, min_pct, description, file_url, active)
-- `exercises` (category, name, description, instructions, active)
-- `rewards` (name, description, type, miles_cost, stock, status, rules, image_url)
-- `reward_redemptions` (client_id, reward_id, status)
-- Seed inicial: categorias e exercícios listados no prompt.
+- Se `profiles.profile === 'cliente'`, retornar `{ kind: 'client', clientId, tenantId }` em vez do `TeamUser` interno.
 
-**Rotas:** `/videos`, `/videos/nova`, `/exercicios`, `/premios`, `/premios/catalogo`, `/relatorios` (filtros 7/30/Tudo + tabela engajamento), `/lgpd` (consents + audit_logs).
+`src/lib/auth-context.tsx`:
 
-Aviso amigável quando upload R2 não configurado (não quebra a tela).
+- Estado `user` ganha discriminador `kind: 'team' | 'client'`.
+- Após `signIn` bem-sucedido, retornar também `kind` para o login decidir destino.
 
----
+`src/routes/login.tsx`: após `signIn` ok, `navigate({ to: kind === 'client' ? '/app' : '/dashboard' })`.
 
-### FASE 3 — App da Cliente (Mobile)
+`src/components/auth-gate.tsx`:
 
-- Layout mobile-first separado (`/app/*` ou subdomínio interno), header ThermoFit, bottom nav.
-- Módulos: Início, Missões, Vídeos, Água, Vacuum, Fotos, Pulso, Milhas, Passaporte, Prêmios, Nutrição, Treino, Cartas, Ajuda, Privacidade.
-- Tela **Falar com a equipe** completa conforme print (botões rápidos, textarea 500, envio salva em `help_messages` + cria alerta quando aplicável).
-- Sem WhatsApp real.
+- Se `user.kind === 'client'` e pathname não começa com `/app` → redirecionar para `/app`.
+- Se `user.kind === 'team'` e pathname começa com `/app` sem `?previewClientId` → redirecionar para `/dashboard`.
+- Manter rotas públicas atuais.
 
-**Migração:** `help_messages`, regras de criação de alerta.
+## 4. App da cliente sem `?clientId`
 
----
+Hoje todas as rotas `/app/*` recebem `clientId` pela URL. Vamos:
 
-### FASE 4 — Preview do App no Admin
+- Novo hook `useCurrentClientId()` que devolve, na ordem:
+  1. `previewClientId` da query (apenas se `user.kind === 'team'` e is_profile_manager — modo preview admin)
+  2. `clientId` do `user` quando `kind === 'client'`
+- Trocar `useSearch({ from: '/app/' }).clientId` por esse hook em todas as rotas `/app/*` (mantendo compat: a rota ainda aceita `clientId`/`previewClientId` no `validateSearch`).
 
-- Local: **Configurações → Preview do App da Cliente**.
-- Seletor de cliente, moldura mobile (iframe ou componente embutido), navegação entre módulos.
-- **Reaproveita** componentes da Fase 3 em modo somente-leitura.
-- Atualização em tempo real conforme a equipe edita textos (estado local → persistência ao salvar).
+## 5. UI — perfil da cliente (`src/routes/clientes.$id.tsx`)
 
----
+Novo card **"Acesso da Cliente"**:
 
-### FASE 5 — Configurações do App da Cliente
+- Mostra: email de acesso, status (badge), último acesso, link `/login`.
+- Botões: **Criar acesso** (dialog com email + senha + confirmar) · **Redefinir senha** · **Copiar dados de acesso** (gera o texto do brief) · **Inativar acesso** / **Reativar**.
+- Usa as server fns do passo 2 + invalida `['client', id]`.
 
-**Migração:**
-- `client_app_settings` (tenant_id, identity jsonb, colors jsonb, welcome_text, …)
-- `app_module_settings` (tenant_id, module_key, enabled)
-- `app_templates` (tenant_id, kind, key, content)
-- Regras de alerta por botão rápido.
+## 6. UI — Configurações > Usuários e Equipe
 
-**Nova aba "App da Cliente"** em Configurações:
-- Identidade (nome, subtítulo, cores, boas-vindas)
-- Toggle de módulos
-- Textos da tela "Falar com a equipe"
-- Templates (mensagem, ajuda, pulso, alertas)
-- Regras (botões → alerta de alta prioridade, máx caracteres, responsável padrão)
+- `src/routes/configuracoes.tsx` (modal Adicionar usuário): remover qualquer opção "cliente" do select; manter só perfis internos. Filtrar listagem por `profile != 'cliente'` (defensivo — server fn já deveria, mas conferir).
 
-App da cliente e Preview leem desses registros — nada hardcoded.
+## 7. Preview do App
+
+`src/components/client-app-preview.tsx`:
+
+- "Abrir em nova aba" passa a usar `?previewClientId=<id>` em vez de `?clientId=<id>` (combina com o guard no passo 3/4).
+- Iframe interno usa o mesmo parâmetro.
+
+## 8. Testes manuais (validar após)
+
+Os 10 cenários do pedido do usuário (criar interno, criar cliente, criar acesso, login da cliente vai para `/app`, cliente bloqueada de `/dashboard`, admin não cai em `/app`, preview abre cliente certa, etc.).
 
 ---
 
-### Auditoria / LGPD (transversal a todas as fases)
-`audit_logs` registrando: criar/editar cliente, ver dados sensíveis, alterar consentimentos, mensagens, alertas, aprovações, abrir preview, editar configurações/textos/templates/permissões.
+## Detalhes técnicos relevantes
 
----
+- `profile_role` é enum Postgres → `ADD VALUE 'cliente'` precisa ser feito antes de qualquer policy/função que faça cast para o tipo; rodar em migração isolada antes das policies (mesma migração funciona se a referência ao novo valor estiver em DO block).
+- `clients.auth_user_id` precisa ser nullable e único parcial (`UNIQUE` aceita múltiplos NULL no Postgres, ok).
+- `client_id_for_user` deve ser SECURITY DEFINER e SET search_path = public para não recursar nas policies.
+- Função `adminCreateClientAccess` precisa carregar `supabaseAdmin` dentro do `.handler()` (regra de import-graph).
+- `auth-context` atualmente assume `TeamUser`; será preciso ajustar tipos sem quebrar telas que leem `user.profile`/`user.name` (cliente também terá `name`/`email`, mas `profile = 'cliente'`).
+- Manter compat: rotas `/app/*` ainda funcionam com `?clientId=` para não quebrar links já abertos; só priorizar `previewClientId` quando admin logado.
 
-### Como avançar
-Cada fase = um lote de migração + servidor + rotas + teste. **Começo pela Fase 1**. Só vou para a Fase 2 quando você confirmar que clientes/alertas/mensagens/aprovações persistem corretamente.
+## Fora de escopo
 
-**Confirma para eu iniciar pela Fase 1 (migração + módulos do painel)?**
+- Trocar texto/branding do login para clientes.
+- Auto-envio de email com credenciais (continua sendo "copiar e enviar manualmente").
+- Tela `/app/login` separada (login único em `/login` redireciona por papel, conforme item 5 do pedido).
