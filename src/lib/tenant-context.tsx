@@ -10,7 +10,7 @@ import {
 } from "@/lib/thermofit-auth.functions";
 
 export type PlanId = "essencial" | "profissional" | "premium" | "enterprise" | "interno";
-export type ProfileRole = "super_admin" | "dono" | "admin" | "equipe";
+export type ProfileRole = "super_admin" | "dono" | "admin" | "equipe" | "cliente";
 export type TenantStatus = "ativa" | "suspensa" | "cancelada";
 export type UserStatus = "ativo" | "inativo" | "bloqueado" | "convite_pendente";
 
