@@ -44,12 +44,40 @@ export const listClientVideos = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("videos")
-      .select("*")
+      .select("id, title, description, url, thumbnail_url, duration_seconds, category, storage_key, video_type, phase, miles_on_complete")
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
       .order("created_at", { ascending: true });
     if (error) throw error;
     return { videos: rows ?? [] };
+  });
+
+export const getClientVideoPlayback = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid(), videoId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: v, error } = await admin
+      .from("videos")
+      .select("id, title, url, storage_key")
+      .eq("tenant_id", client.tenant_id)
+      .eq("id", data.videoId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!v) throw new Error("Vídeo não encontrado.");
+    let playUrl: string | null = v.url || null;
+    let kind: "youtube" | "file" | "external" = "external";
+    if (v.storage_key) {
+      const { data: signed, error: sErr } = await admin.storage
+        .from("videos")
+        .createSignedUrl(v.storage_key, 3600);
+      if (sErr) throw sErr;
+      playUrl = signed?.signedUrl ?? null;
+      kind = "file";
+    } else if (v.url && /youtube\.com|youtu\.be/i.test(v.url)) {
+      kind = "youtube";
+    }
+    return { id: v.id, title: v.title, kind, playUrl };
   });
 
 export const listClientRewards = createServerFn({ method: "GET" })
