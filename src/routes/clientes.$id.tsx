@@ -7,8 +7,10 @@ import {
   adminClientStats,
   adminListClientMissionsToday,
   adminCreateMission,
+  adminToggleMissionCompletion,
 } from "@/lib/thermofit-data.functions";
-import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus } from "lucide-react";
+import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/clientes/$id")({
