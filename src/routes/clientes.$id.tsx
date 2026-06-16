@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
-import { getClient } from "@/lib/thermofit-data.functions";
+import { getClient, adminClientStats } from "@/lib/thermofit-data.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/clientes/$id")({
