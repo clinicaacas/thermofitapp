@@ -70,9 +70,9 @@ function Page() {
 
         <div className="grid gap-3 sm:grid-cols-5">
           <Action icon={<Camera className="h-4 w-4" />} label="Fotos" />
-          <Action icon={<Apple className="h-4 w-4" />} label="Nutrição" />
-          <Action icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
-          <Action icon={<Mail className="h-4 w-4" />} label="Cartas" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-4 w-4" />} label="Nutrição" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-4 w-4" />} label="Cartas" />
           <Action icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
         </div>
 
