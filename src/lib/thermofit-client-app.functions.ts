@@ -514,3 +514,77 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
     if (dErr) throw dErr;
     return { ok: true };
   });
+
+// ============ PULSO SEMANAL ============
+
+function weekStartISO(): string {
+  // Monday-start week in São Paulo
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+const pulseSchema = z.object({
+  clientId: z.string().uuid(),
+  mood: z.number().int().min(1).max(5),
+  energy: z.number().int().min(1).max(5),
+  hunger: z.number().int().min(1).max(5),
+  sleep: z.number().int().min(1).max(5),
+  notes: z.string().trim().max(500).optional().nullable(),
+});
+
+export const getCurrentPulse = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const week = weekStartISO();
+    const { data: row, error } = await admin
+      .from("client_weekly_pulse")
+      .select("*")
+      .eq("client_id", client.id)
+      .eq("week_start", week)
+      .maybeSingle();
+    if (error) throw error;
+    return { weekStart: week, pulse: row };
+  });
+
+export const submitPulse = createServerFn({ method: "POST" })
+  .inputValidator((i) => pulseSchema.parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const week = weekStartISO();
+    const { error } = await admin.from("client_weekly_pulse").upsert(
+      {
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        week_start: week,
+        mood: data.mood,
+        energy: data.energy,
+        hunger: data.hunger,
+        sleep: data.sleep,
+        notes: data.notes ?? null,
+      },
+      { onConflict: "client_id,week_start" },
+    );
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listPulseHistory = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("client_weekly_pulse")
+      .select("id, week_start, mood, energy, hunger, sleep, notes")
+      .eq("client_id", client.id)
+      .order("week_start", { ascending: false })
+      .limit(12);
+    if (error) throw error;
+    return { history: rows ?? [] };
+  });
