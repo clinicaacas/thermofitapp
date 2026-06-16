@@ -937,3 +937,160 @@ export const adminToggleMissionCompletion = createServerFn({ method: "POST" })
 
 
 
+
+// ---------------------------------------------------------------------------
+// Client portal access (login da cliente final)
+// ---------------------------------------------------------------------------
+
+async function assertProfileManager(context: Ctx) {
+  const { tenantId, role } = await callerTenant(context);
+  if (!["super_admin", "dono", "admin"].includes(role)) {
+    throw new Error("Apenas administradores podem gerenciar o acesso da cliente.");
+  }
+  return { tenantId };
+}
+
+async function assertClientBelongsToCaller(context: Ctx, clientId: string) {
+  const { tenantId } = await assertProfileManager(context);
+  const { data, error } = await context.supabase
+    .from("clients")
+    .select("id, tenant_id, name, auth_user_id, access_email, access_status")
+    .eq("id", clientId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Cliente não encontrada.");
+  return { tenantId, client: data };
+}
+
+function generateTempPassword(len = 10) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(len));
+  return Array.from(bytes, (n) => chars[n % chars.length]).join("");
+}
+
+export const adminCreateClientAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        email: z.string().trim().email().max(255),
+        password: z.string().min(6).max(72).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId, client } = await assertClientBelongsToCaller(context, data.clientId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = data.email.toLowerCase();
+    const password = data.password && data.password.length >= 6 ? data.password : generateTempPassword(10);
+
+    // find or create auth user
+    let authUserId = client.auth_user_id as string | null;
+    if (!authUserId) {
+      // search existing auth user with this email
+      let found: any = null;
+      for (let page = 1; page <= 10 && !found; page += 1) {
+        const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+        if (error) throw error;
+        found = list.users.find((u) => u.email?.toLowerCase() === email);
+        if (list.users.length < 1000) break;
+      }
+      if (found) {
+        authUserId = found.id;
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(found.id, {
+          password,
+          email_confirm: true,
+          user_metadata: { name: client.name, client_id: client.id, tenant_id: tenantId, kind: "cliente" },
+        });
+        if (error) throw error;
+      } else {
+        const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name: client.name, client_id: client.id, tenant_id: tenantId, kind: "cliente" },
+        });
+        if (error) throw error;
+        authUserId = created.user.id;
+      }
+    } else {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (error) throw error;
+    }
+
+    const { data: row, error: upErr } = await supabaseAdmin
+      .from("clients")
+      .update({
+        auth_user_id: authUserId,
+        access_email: email,
+        access_status: "ativo",
+      })
+      .eq("id", client.id)
+      .select("*")
+      .single();
+    if (upErr) throw upErr;
+
+    await logAudit(context, tenantId, "client_access_created", "client", client.id, { email });
+    return { client: mapClient(row), temporaryPassword: password };
+  });
+
+export const adminResetClientPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        password: z.string().min(6).max(72).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId, client } = await assertClientBelongsToCaller(context, data.clientId);
+    if (!client.auth_user_id) throw new Error("Cliente não possui acesso criado.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const password = data.password && data.password.length >= 6 ? data.password : generateTempPassword(10);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(client.auth_user_id, { password });
+    if (error) throw error;
+    await logAudit(context, tenantId, "client_access_reset", "client", client.id, {});
+    return { temporaryPassword: password };
+  });
+
+export const adminSetClientAccessStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        status: z.enum(["ativo", "inativo", "bloqueado"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId, client } = await assertClientBelongsToCaller(context, data.clientId);
+    if (!client.auth_user_id) throw new Error("Cliente não possui acesso criado.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.status === "bloqueado" || data.status === "inativo") {
+      await supabaseAdmin.auth.admin.updateUserById(client.auth_user_id, {
+        ban_duration: "876000h", // ~100y
+      } as any);
+    } else {
+      await supabaseAdmin.auth.admin.updateUserById(client.auth_user_id, {
+        ban_duration: "none",
+      } as any);
+    }
+    const { data: row, error } = await supabaseAdmin
+      .from("clients")
+      .update({ access_status: data.status })
+      .eq("id", client.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    await logAudit(context, tenantId, "client_access_status_changed", "client", client.id, { status: data.status });
+    return { client: mapClient(row) };
+  });
