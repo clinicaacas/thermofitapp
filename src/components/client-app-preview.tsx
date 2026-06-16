@@ -15,13 +15,13 @@ import { ExternalLink, RefreshCw, Smartphone } from "lucide-react";
 
 const SCREENS = [
   { path: "/app", label: "Início" },
+  { path: "/app/missoes", label: "Missões" },
   { path: "/app/videos", label: "Vídeos" },
-  { path: "/app/agua", label: "Hidratação" },
+  { path: "/app/agua", label: "Água" },
+  { path: "/app/vacuum", label: "Vacuum" },
   { path: "/app/premios", label: "Prêmios" },
-  { path: "/app/falar", label: "Falar com a equipe" },
   { path: "/app/fotos", label: "Fotos" },
-  { path: "/app/pulso", label: "Pulso" },
-  { path: "/app/passaporte", label: "Passaporte" },
+  { path: "/app/ajuda", label: "Ajuda" },
   { path: "/app/privacidade", label: "Privacidade" },
 ];
 
