@@ -237,14 +237,26 @@ function ActionLink({
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <section className="rounded-lg border border-border bg-card p-5">
-      <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {action}
+      </div>
       <div className="space-y-2">{children}</div>
     </section>
   );
 }
+
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
