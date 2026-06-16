@@ -13,6 +13,24 @@ const nav = [
   { to: "/app/vacuum", key: "vacuum", label: "Vacuum", icon: Activity },
 ] as const;
 
+const PATH_TO_MODULE: Record<string, string> = {
+  "/app": "inicio",
+  "/app/missoes": "missoes",
+  "/app/videos": "videos",
+  "/app/agua": "agua",
+  "/app/vacuum": "vacuum",
+  "/app/nutricao": "nutricao",
+  "/app/treino": "treino",
+  "/app/cartas": "cartas",
+  "/app/premios": "premios",
+  "/app/fotos": "fotos",
+  "/app/pulso": "pulso",
+  "/app/passaporte": "passaporte",
+  "/app/ajuda": "falar",
+  "/app/falar": "falar",
+  "/app/privacidade": "privacidade",
+};
+
 export function useAppSettings(clientId?: string) {
   const fetchAll = useServerFn(getAppSettingsForClient);
   return useQuery({
@@ -20,6 +38,15 @@ export function useAppSettings(clientId?: string) {
     queryFn: () => fetchAll({ data: { clientId: clientId! } }),
     enabled: !!clientId,
   });
+}
+
+export function useEnabledModules(clientId?: string) {
+  const { data } = useAppSettings(clientId);
+  const map = new Map<string, boolean>();
+  for (const m of data?.modules ?? []) map.set(m.key, m.enabled);
+  return {
+    isEnabled: (key: string) => (map.has(key) ? !!map.get(key) : true),
+  };
 }
 
 function formatDate() {
