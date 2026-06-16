@@ -30,6 +30,7 @@ function Page() {
   const { clientId } = useSearch({ from: "/app/" });
   const fetchHome = useServerFn(getClientHome);
   const fetchMissions = useServerFn(listClientMissions);
+  const fetchHydration = useServerFn(getHydrationToday);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
@@ -38,6 +39,11 @@ function Page() {
   const { data: missionsData } = useQuery({
     queryKey: ["client-missions", clientId],
     queryFn: () => fetchMissions({ data: { clientId } }),
+    enabled: !!clientId,
+  });
+  const { data: hydrationData } = useQuery({
+    queryKey: ["client-hydration", clientId],
+    queryFn: () => fetchHydration({ data: { clientId } }),
     enabled: !!clientId,
   });
   const missions = missionsData?.missions ?? [];
@@ -49,8 +55,8 @@ function Page() {
   const miles = 35;
   const milesNext = 100;
   const currentPhase = "Check-in";
-  const hydration = 0;
-  const hydrationGoal = client?.hydrationGoalMl ?? 2000;
+  const hydration = hydrationData?.total ?? 0;
+  const hydrationGoal = hydrationData?.goal ?? client?.hydrationGoalMl ?? 2000;
 
   return (
     <ClientAppShell>
