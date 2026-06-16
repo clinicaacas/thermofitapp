@@ -69,6 +69,35 @@ function Page() {
     },
   });
 
+  const createAccess = useServerFn(adminCreateClientAccess);
+  const resetAccess = useServerFn(adminResetClientPassword);
+  const setAccessStatus = useServerFn(adminSetClientAccessStatus);
+  const [accessForm, setAccessForm] = useState<{ open: boolean; email: string; password: string }>({ open: false, email: "", password: "" });
+  const [accessResult, setAccessResult] = useState<{ email: string; password: string } | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+
+  const createAccessMut = useMutation({
+    mutationFn: (input: { email: string; password?: string }) => createAccess({ data: { clientId: id, ...input } }),
+    onSuccess: (r: any) => {
+      setAccessResult({ email: r.client.accessEmail || accessForm.email, password: r.temporaryPassword });
+      setAccessForm({ open: false, email: "", password: "" });
+      setAccessError(null);
+      qc.invalidateQueries({ queryKey: ["client", id] });
+    },
+    onError: (e: any) => setAccessError(e?.message ?? "Falha ao criar acesso."),
+  });
+  const resetAccessMut = useMutation({
+    mutationFn: () => resetAccess({ data: { clientId: id } }),
+    onSuccess: (r: any) => {
+      setAccessResult({ email: (data as any)?.client?.accessEmail ?? "", password: r.temporaryPassword });
+      qc.invalidateQueries({ queryKey: ["client", id] });
+    },
+  });
+  const statusMut = useMutation({
+    mutationFn: (status: "ativo" | "inativo" | "bloqueado") => setAccessStatus({ data: { clientId: id, status } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["client", id] }),
+  });
+
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
