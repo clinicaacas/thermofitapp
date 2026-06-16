@@ -228,12 +228,40 @@ export const getCurrentUserProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1) Is this an end-client user?
-    const { data: clientRow } = await supabaseAdmin
-      .from("clients")
-      .select("id, tenant_id, name, access_email, access_status, last_access_at, tenants(*)")
-      .eq("auth_user_id", context.userId)
-      .maybeSingle();
+    // 1) Is this an end-client user? Look up by auth_user_id, then fallback by email.
+    let clientRow: any = null;
+    {
+      const { data, error } = await supabaseAdmin
+        .from("clients")
+        .select("id, tenant_id, name, access_email, access_status, last_access_at")
+        .eq("auth_user_id", context.userId)
+        .maybeSingle();
+      if (error) console.error("getCurrentUserProfile: clients by auth_user_id error", error);
+      clientRow = data ?? null;
+    }
+    if (!clientRow) {
+      // Fallback: find the auth user's email, then match clients by access_email or email and self-heal the link.
+      const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const email = authUserData?.user?.email?.toLowerCase()?.trim();
+      if (email) {
+        const { data: byAccess } = await supabaseAdmin
+          .from("clients")
+          .select("id, tenant_id, name, access_email, access_status, last_access_at")
+          .or(`access_email.eq.${email},email.eq.${email}`)
+          .is("auth_user_id", null)
+          .limit(1)
+          .maybeSingle();
+        if (byAccess) {
+          const { data: linked } = await supabaseAdmin
+            .from("clients")
+            .update({ auth_user_id: context.userId, access_email: email, access_status: byAccess.access_status ?? "ativo" })
+            .eq("id", byAccess.id)
+            .select("id, tenant_id, name, access_email, access_status, last_access_at")
+            .single();
+          clientRow = linked ?? byAccess;
+        }
+      }
+    }
     if (clientRow) {
       if (clientRow.access_status && ["inativo", "bloqueado"].includes(clientRow.access_status)) {
         return { ok: false as const, reason: "Seu acesso ao app está desativado. Fale com a clínica." };
@@ -242,7 +270,11 @@ export const getCurrentUserProfile = createServerFn({ method: "GET" })
         .from("clients")
         .update({ last_access_at: new Date().toISOString() })
         .eq("id", clientRow.id);
-      const tenants: any = (clientRow as any).tenants;
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("*")
+        .eq("id", clientRow.tenant_id)
+        .maybeSingle();
       return {
         ok: true as const,
         user: {
@@ -259,9 +291,10 @@ export const getCurrentUserProfile = createServerFn({ method: "GET" })
           kind: "client" as const,
           clientId: clientRow.id,
         },
-        tenant: tenants ? mapTenant(tenants) : undefined,
+        tenant: tenantRow ? mapTenant(tenantRow) : undefined,
       };
     }
+
 
     // 2) Internal team member.
     const { data: profile, error } = await supabaseAdmin
