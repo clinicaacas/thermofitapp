@@ -36,6 +36,7 @@ import { Route as AppPulsoRouteImport } from './routes/app.pulso'
 import { Route as AppPrivacidadeRouteImport } from './routes/app.privacidade'
 import { Route as AppPremiosRouteImport } from './routes/app.premios'
 import { Route as AppPassaporteRouteImport } from './routes/app.passaporte'
+import { Route as AppNutricaoRouteImport } from './routes/app.nutricao'
 import { Route as AppMissoesRouteImport } from './routes/app.missoes'
 import { Route as AppFotosRouteImport } from './routes/app.fotos'
 import { Route as AppFalarRouteImport } from './routes/app.falar'
@@ -177,6 +178,11 @@ const AppPassaporteRoute = AppPassaporteRouteImport.update({
   path: '/passaporte',
   getParentRoute: () => AppRoute,
 } as any)
+const AppNutricaoRoute = AppNutricaoRouteImport.update({
+  id: '/nutricao',
+  path: '/nutricao',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppMissoesRoute = AppMissoesRouteImport.update({
   id: '/missoes',
   path: '/missoes',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
+  '/app/nutricao': typeof AppNutricaoRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -257,6 +264,7 @@ export interface FileRoutesByTo {
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
+  '/app/nutricao': typeof AppNutricaoRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -292,6 +300,7 @@ export interface FileRoutesById {
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
   '/app/missoes': typeof AppMissoesRoute
+  '/app/nutricao': typeof AppNutricaoRoute
   '/app/passaporte': typeof AppPassaporteRoute
   '/app/premios': typeof AppPremiosRoute
   '/app/privacidade': typeof AppPrivacidadeRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
+    | '/app/nutricao'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
+    | '/app/nutricao'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/app/falar'
     | '/app/fotos'
     | '/app/missoes'
+    | '/app/nutricao'
     | '/app/passaporte'
     | '/app/premios'
     | '/app/privacidade'
@@ -623,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPassaporteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/nutricao': {
+      id: '/app/nutricao'
+      path: '/nutricao'
+      fullPath: '/app/nutricao'
+      preLoaderRoute: typeof AppNutricaoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/missoes': {
       id: '/app/missoes'
       path: '/missoes'
@@ -667,6 +686,7 @@ interface AppRouteChildren {
   AppFalarRoute: typeof AppFalarRoute
   AppFotosRoute: typeof AppFotosRoute
   AppMissoesRoute: typeof AppMissoesRoute
+  AppNutricaoRoute: typeof AppNutricaoRoute
   AppPassaporteRoute: typeof AppPassaporteRoute
   AppPremiosRoute: typeof AppPremiosRoute
   AppPrivacidadeRoute: typeof AppPrivacidadeRoute
@@ -682,6 +702,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFalarRoute: AppFalarRoute,
   AppFotosRoute: AppFotosRoute,
   AppMissoesRoute: AppMissoesRoute,
+  AppNutricaoRoute: AppNutricaoRoute,
   AppPassaporteRoute: AppPassaporteRoute,
   AppPremiosRoute: AppPremiosRoute,
   AppPrivacidadeRoute: AppPrivacidadeRoute,
