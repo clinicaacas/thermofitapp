@@ -423,6 +423,54 @@ export type Database = {
           },
         ]
       }
+      client_vacuum_sessions: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          performed_at: string
+          rounds: number
+          tenant_id: string
+          total_seconds: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performed_at?: string
+          rounds: number
+          tenant_id: string
+          total_seconds: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          performed_at?: string
+          rounds?: number
+          tenant_id?: string
+          total_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_vacuum_sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_vacuum_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_weekly_pulse: {
         Row: {
           client_id: string
