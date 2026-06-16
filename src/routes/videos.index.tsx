@@ -12,7 +12,7 @@ import {
   deleteVideo,
 } from "@/lib/thermofit-content.functions";
 
-export const Route = createFileRoute("/videos")({
+export const Route = createFileRoute("/videos/")({
   head: () => ({ meta: [{ title: "Vídeos — ThermoFit" }] }),
   component: Page,
 });

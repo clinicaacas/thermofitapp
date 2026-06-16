@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
@@ -25,6 +24,7 @@ import { Route as AprovacoesRouteImport } from './routes/aprovacoes'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as VideosNovaRouteImport } from './routes/videos.nova'
@@ -39,11 +39,6 @@ import { Route as AppFotosRouteImport } from './routes/app.fotos'
 import { Route as AppFalarRouteImport } from './routes/app.falar'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 
-const VideosRoute = VideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
   path: '/trocar-senha',
@@ -119,6 +114,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VideosIndexRoute = VideosIndexRouteImport.update({
+  id: '/videos/',
+  path: '/videos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -130,9 +130,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const VideosNovaRoute = VideosNovaRouteImport.update({
-  id: '/nova',
-  path: '/nova',
-  getParentRoute: () => VideosRoute,
+  id: '/videos/nova',
+  path: '/videos/nova',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesNovaRoute = ClientesNovaRouteImport.update({
   id: '/clientes/nova',
@@ -201,7 +201,6 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -215,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -231,7 +231,6 @@ export interface FileRoutesByTo {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -245,6 +244,7 @@ export interface FileRoutesByTo {
   '/videos/nova': typeof VideosNovaRoute
   '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
+  '/videos': typeof VideosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -263,7 +263,6 @@ export interface FileRoutesById {
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/trocar-senha': typeof TrocarSenhaRoute
-  '/videos': typeof VideosRouteWithChildren
   '/app/agua': typeof AppAguaRoute
   '/app/falar': typeof AppFalarRoute
   '/app/fotos': typeof AppFotosRoute
@@ -277,6 +276,7 @@ export interface FileRoutesById {
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/videos/': typeof VideosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -296,7 +296,6 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/reset-password'
     | '/trocar-senha'
-    | '/videos'
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
@@ -310,6 +309,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app/'
     | '/clientes/'
+    | '/videos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -326,7 +326,6 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/reset-password'
     | '/trocar-senha'
-    | '/videos'
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
@@ -340,6 +339,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app'
     | '/clientes'
+    | '/videos'
   id:
     | '__root__'
     | '/'
@@ -357,7 +357,6 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/reset-password'
     | '/trocar-senha'
-    | '/videos'
     | '/app/agua'
     | '/app/falar'
     | '/app/fotos'
@@ -371,6 +370,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app/'
     | '/clientes/'
+    | '/videos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -389,21 +389,15 @@ export interface RootRouteChildren {
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
-  VideosRoute: typeof VideosRouteWithChildren
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNovaRoute: typeof ClientesNovaRoute
+  VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
+  VideosIndexRoute: typeof VideosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/videos': {
-      id: '/videos'
-      path: '/videos'
-      fullPath: '/videos'
-      preLoaderRoute: typeof VideosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/trocar-senha': {
       id: '/trocar-senha'
       path: '/trocar-senha'
@@ -509,6 +503,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/videos/': {
+      id: '/videos/'
+      path: '/videos'
+      fullPath: '/videos/'
+      preLoaderRoute: typeof VideosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clientes/': {
       id: '/clientes/'
       path: '/clientes'
@@ -525,10 +526,10 @@ declare module '@tanstack/react-router' {
     }
     '/videos/nova': {
       id: '/videos/nova'
-      path: '/nova'
+      path: '/videos/nova'
       fullPath: '/videos/nova'
       preLoaderRoute: typeof VideosNovaRouteImport
-      parentRoute: typeof VideosRoute
+      parentRoute: typeof rootRouteImport
     }
     '/clientes/nova': {
       id: '/clientes/nova'
@@ -629,17 +630,6 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface VideosRouteChildren {
-  VideosNovaRoute: typeof VideosNovaRoute
-}
-
-const VideosRouteChildren: VideosRouteChildren = {
-  VideosNovaRoute: VideosNovaRoute,
-}
-
-const VideosRouteWithChildren =
-  VideosRoute._addFileChildren(VideosRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
@@ -656,21 +646,12 @@ const rootRouteChildren: RootRouteChildren = {
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
-  VideosRoute: VideosRouteWithChildren,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNovaRoute: ClientesNovaRoute,
+  VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
+  VideosIndexRoute: VideosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
