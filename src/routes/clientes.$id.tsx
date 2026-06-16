@@ -8,8 +8,12 @@ import {
   adminListClientMissionsToday,
   adminCreateMission,
   adminToggleMissionCompletion,
+  adminCreateClientAccess,
+  adminResetClientPassword,
+  adminSetClientAccessStatus,
 } from "@/lib/thermofit-data.functions";
-import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check } from "lucide-react";
+import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check, Copy, UserPlus, Lock, Unlock } from "lucide-react";
+import { useState } from "react";
 
 
 
