@@ -339,3 +339,87 @@ export const undoLastHydration = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true, removed: true };
   });
+
+// ============ MILHAS / PRÊMIOS ============
+
+export const getClientMiles = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const [{ data: earnedRows, error: eErr }, { data: spentRows, error: sErr }] = await Promise.all([
+      admin
+        .from("client_mission_completions")
+        .select("miles_awarded")
+        .eq("client_id", client.id),
+      admin
+        .from("reward_redemptions")
+        .select("cost_miles, status")
+        .eq("client_id", client.id)
+        .in("status", ["pendente", "aprovado", "entregue"]),
+    ]);
+    if (eErr) throw eErr;
+    if (sErr) throw sErr;
+    const earned = (earnedRows ?? []).reduce((s: number, r: any) => s + (r.miles_awarded ?? 0), 0);
+    const spent = (spentRows ?? []).reduce((s: number, r: any) => s + (r.cost_miles ?? 0), 0);
+    return { earned, spent, balance: earned - spent };
+  });
+
+export const requestRewardRedemption = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), rewardId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: reward, error: rErr } = await admin
+      .from("rewards")
+      .select("id, cost_miles, stock, status, tenant_id")
+      .eq("id", data.rewardId)
+      .eq("tenant_id", client.tenant_id)
+      .maybeSingle();
+    if (rErr) throw rErr;
+    if (!reward) throw new Error("Prêmio não encontrado.");
+    if (reward.status !== "ativo") throw new Error("Prêmio indisponível.");
+    if ((reward.stock ?? 0) <= 0) throw new Error("Sem estoque.");
+
+    const [{ data: earnedRows }, { data: spentRows }] = await Promise.all([
+      admin.from("client_mission_completions").select("miles_awarded").eq("client_id", client.id),
+      admin
+        .from("reward_redemptions")
+        .select("cost_miles")
+        .eq("client_id", client.id)
+        .in("status", ["pendente", "aprovado", "entregue"]),
+    ]);
+    const earned = (earnedRows ?? []).reduce((s: number, r: any) => s + (r.miles_awarded ?? 0), 0);
+    const spent = (spentRows ?? []).reduce((s: number, r: any) => s + (r.cost_miles ?? 0), 0);
+    const balance = earned - spent;
+    if (balance < (reward.cost_miles ?? 0)) {
+      throw new Error("Milhas insuficientes para este prêmio.");
+    }
+
+    const { error } = await admin.from("reward_redemptions").insert({
+      tenant_id: client.tenant_id,
+      client_id: client.id,
+      reward_id: reward.id,
+      cost_miles: reward.cost_miles,
+      status: "pendente",
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listClientRedemptions = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("reward_redemptions")
+      .select("id, status, cost_miles, created_at, reward_id, rewards(name)")
+      .eq("client_id", client.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return { redemptions: rows ?? [] };
+  });
