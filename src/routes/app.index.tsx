@@ -2,7 +2,7 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { getClientHome, listClientMissions, getHydrationToday } from "@/lib/thermofit-client-app.functions";
+import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
@@ -31,6 +31,7 @@ function Page() {
   const fetchHome = useServerFn(getClientHome);
   const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
+  const fetchMiles = useServerFn(getClientMiles);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
@@ -46,14 +47,19 @@ function Page() {
     queryFn: () => fetchHydration({ data: { clientId } }),
     enabled: !!clientId,
   });
+  const { data: milesData } = useQuery({
+    queryKey: ["client-miles", clientId],
+    queryFn: () => fetchMiles({ data: { clientId } }),
+    enabled: !!clientId,
+  });
   const missions = missionsData?.missions ?? [];
   const missionsDone = missions.filter((m: any) => m.completed).length;
   const missionsTotal = missions.length;
   const client = data?.client;
   const firstName = (client?.name ?? "").split(" ")[0] || "Cliente";
   const week = weekFrom(client?.startDate);
-  const miles = 35;
-  const milesNext = 100;
+  const miles = milesData?.balance ?? 0;
+  const milesNext = miles < 100 ? 100 : miles < 300 ? 300 : miles < 600 ? 600 : miles < 1000 ? 1000 : Math.ceil((miles + 1) / 500) * 500;
   const currentPhase = "Check-in";
   const hydration = hydrationData?.total ?? 0;
   const hydrationGoal = hydrationData?.goal ?? client?.hydrationGoalMl ?? 2000;
