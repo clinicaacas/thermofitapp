@@ -423,3 +423,94 @@ export const listClientRedemptions = createServerFn({ method: "GET" })
     if (error) throw error;
     return { redemptions: rows ?? [] };
   });
+
+// ============ FOTOS DE EVOLUÇÃO ============
+
+export const listClientPhotos = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("client_progress_photos")
+      .select("id, storage_key, taken_at, week, notes")
+      .eq("client_id", client.id)
+      .order("taken_at", { ascending: false });
+    if (error) throw error;
+    const items = await Promise.all(
+      (rows ?? []).map(async (r: any) => {
+        const { data: signed } = await admin.storage
+          .from("client-photos")
+          .createSignedUrl(r.storage_key, 3600);
+        return { ...r, url: signed?.signedUrl ?? null };
+      }),
+    );
+    return { photos: items };
+  });
+
+export const uploadClientPhoto = createServerFn({ method: "POST" })
+  .inputValidator((d) => {
+    if (!(d instanceof FormData)) throw new Error("FormData esperado");
+    const clientId = String(d.get("clientId") || "");
+    const file = d.get("file");
+    const notes = String(d.get("notes") || "");
+    const weekRaw = d.get("week");
+    if (!clientId) throw new Error("clientId obrigatório");
+    if (!(file instanceof File)) throw new Error("Arquivo obrigatório");
+    return {
+      clientId,
+      file,
+      notes: notes || null,
+      week: weekRaw ? Number(weekRaw) || null : null,
+    };
+  })
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const file = data.file as File;
+    if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
+    if (!file.type.startsWith("image/")) throw new Error("Envie uma imagem.");
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const key = `${client.tenant_id}/${client.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from("client-photos")
+      .upload(key, buf, { contentType: file.type, upsert: false });
+    if (upErr) throw upErr;
+    const { error: insErr } = await admin.from("client_progress_photos").insert({
+      tenant_id: client.tenant_id,
+      client_id: client.id,
+      storage_key: key,
+      week: data.week,
+      notes: data.notes,
+    });
+    if (insErr) {
+      await admin.storage.from("client-photos").remove([key]);
+      throw insErr;
+    }
+    return { ok: true };
+  });
+
+export const deleteClientPhoto = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z.object({ clientId: z.string().uuid(), photoId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: row, error } = await admin
+      .from("client_progress_photos")
+      .select("id, storage_key")
+      .eq("id", data.photoId)
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) return { ok: true };
+    await admin.storage.from("client-photos").remove([row.storage_key]);
+    const { error: dErr } = await admin
+      .from("client_progress_photos")
+      .delete()
+      .eq("id", row.id);
+    if (dErr) throw dErr;
+    return { ok: true };
+  });

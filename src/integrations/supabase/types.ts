@@ -375,6 +375,54 @@ export type Database = {
           },
         ]
       }
+      client_progress_photos: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          storage_key: string
+          taken_at: string
+          tenant_id: string
+          week: number | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          storage_key: string
+          taken_at?: string
+          tenant_id: string
+          week?: number | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          storage_key?: string
+          taken_at?: string
+          tenant_id?: string
+          week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_progress_photos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_progress_photos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           avatar_initial: string
