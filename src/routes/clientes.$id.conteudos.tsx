@@ -109,7 +109,7 @@ function NutritionTab({ clientId }: { clientId: string }) {
       setWater(p.water_ml ? String(p.water_ml) : "");
       setRestrictions(p.restrictions ?? "");
       setNotes(p.notes ?? "");
-      setMeals(Array.isArray(p.meals) ? p.meals : []);
+      setMeals(Array.isArray(p.meals) ? (p.meals as unknown as Meal[]) : []);
     }
   }, [data]);
 
