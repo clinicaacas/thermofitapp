@@ -69,12 +69,29 @@ function Page() {
     if (!validate()) return;
     setSaving(true);
     try {
+      let storageKey = "";
+      let publicUrl = "";
+      if (file) {
+        const { tenantId } = await getTenant();
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const key = `${tenantId}/${crypto.randomUUID()}-${safe}`;
+        setUploadPct(0);
+        const { error: upErr } = await supabase.storage
+          .from("videos")
+          .upload(key, file, { contentType: file.type || "video/mp4", upsert: false });
+        setUploadPct(100);
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        storageKey = key;
+        const { data: pub } = supabase.storage.from("videos").getPublicUrl(key);
+        publicUrl = pub?.publicUrl ?? "";
+      }
+
       await save({
         data: {
           patch: {
             title: form.title,
             description: form.description,
-            url: "",
+            url: publicUrl,
             thumbnailUrl: "",
             durationSeconds: 0,
             category: form.videoType,
@@ -85,7 +102,7 @@ function Page() {
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,
             fileName: file?.name ?? "",
-            storageKey: "",
+            storageKey,
           },
         },
       });
@@ -99,6 +116,7 @@ function Page() {
       );
     } finally {
       setSaving(false);
+      setUploadPct(null);
     }
   }
 
