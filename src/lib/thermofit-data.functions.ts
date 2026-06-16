@@ -796,3 +796,39 @@ export const adminClientStats = createServerFn({ method: "GET" })
       photosCount: photosCount.count ?? 0,
     };
   });
+
+// Lista as missões do dia para o painel admin (com status de conclusão).
+export const adminListClientMissionsToday = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    await assertClientInTenant(context, tenantId, data.clientId);
+    const today = adminTodayISO();
+
+    const [missionsRes, completionsRes] = await Promise.all([
+      context.supabase
+        .from("client_missions")
+        .select("id, title, description, miles, active")
+        .eq("client_id", data.clientId)
+        .eq("due_date", today)
+        .order("created_at", { ascending: true }),
+      context.supabase
+        .from("client_mission_completions")
+        .select("mission_id")
+        .eq("client_id", data.clientId)
+        .gte("completed_at", `${today}T00:00:00`),
+    ]);
+
+    if (missionsRes.error) throw missionsRes.error;
+    const done = new Set((completionsRes.data ?? []).map((r: any) => r.mission_id));
+    return (missionsRes.data ?? []).map((m: any) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description ?? null,
+      miles: m.miles ?? 0,
+      active: m.active,
+      done: done.has(m.id),
+    }));
+  });
+
