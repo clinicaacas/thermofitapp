@@ -2,7 +2,7 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { getClientHome, listClientMissions } from "@/lib/thermofit-client-app.functions";
+import { getClientHome, listClientMissions, getHydrationToday } from "@/lib/thermofit-client-app.functions";
 import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
