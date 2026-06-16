@@ -375,6 +375,66 @@ export type Database = {
           },
         ]
       }
+      client_nutrition_plans: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          id: string
+          meals: Json
+          notes: string | null
+          restrictions: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          water_ml: number | null
+          weekly_calories: number | null
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          id?: string
+          meals?: Json
+          notes?: string | null
+          restrictions?: string | null
+          tenant_id: string
+          title?: string
+          updated_at?: string
+          water_ml?: number | null
+          weekly_calories?: number | null
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          id?: string
+          meals?: Json
+          notes?: string | null
+          restrictions?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          water_ml?: number | null
+          weekly_calories?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_nutrition_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_nutrition_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_progress_photos: {
         Row: {
           client_id: string

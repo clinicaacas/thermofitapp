@@ -635,3 +635,22 @@ export const listVacuumSessions = createServerFn({ method: "GET" })
     );
     return { sessions: rows ?? [], totalRounds, totalSeconds };
   });
+
+// ============ NUTRIÇÃO ============
+
+export const getClientNutritionPlan = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: row, error } = await admin
+      .from("client_nutrition_plans")
+      .select("id, title, weekly_calories, water_ml, restrictions, notes, meals, updated_at")
+      .eq("client_id", client.id)
+      .eq("active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { plan: row ?? null };
+  });
