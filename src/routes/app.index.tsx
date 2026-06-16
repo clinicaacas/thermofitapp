@@ -11,15 +11,15 @@ export const Route = createFileRoute("/app/")({
 });
 
 const PHASES = ["Check-in", "Decolagem", "Subida", "Altitude", "Ponto B"];
-const QUICK = [
-  { to: "/app/nutricao", label: "Nutrição", icon: Apple },
-  { to: "/app/treino", label: "Treino", icon: Dumbbell },
-  { to: "/app/cartas", label: "Cartas", icon: Mail },
-  { to: "/app/premios", label: "Prêmios", icon: Gift },
-  { to: "/app/fotos", label: "Fotos", icon: Camera },
-  { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle },
-  { to: "/app/privacidade", label: "Privacidade", icon: Shield },
-] as const;
+const QUICK: { to: string; label: string; icon: any; moduleKey: string }[] = [
+  { to: "/app/nutricao", label: "Nutrição", icon: Apple, moduleKey: "nutricao" },
+  { to: "/app/treino", label: "Treino", icon: Dumbbell, moduleKey: "treino" },
+  { to: "/app/cartas", label: "Cartas", icon: Mail, moduleKey: "cartas" },
+  { to: "/app/premios", label: "Prêmios", icon: Gift, moduleKey: "premios" },
+  { to: "/app/fotos", label: "Fotos", icon: Camera, moduleKey: "fotos" },
+  { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle, moduleKey: "falar" },
+  { to: "/app/privacidade", label: "Privacidade", icon: Shield, moduleKey: "privacidade" },
+];
 
 function weekFrom(startDate?: string | null): number {
   if (!startDate) return 1;
