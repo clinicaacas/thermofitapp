@@ -14,6 +14,7 @@ function Page() {
   const { id } = Route.useParams();
   const fetcher = useServerFn(getClient);
   const fetchStats = useServerFn(adminClientStats);
+  const fetchMissions = useServerFn(adminListClientMissionsToday);
   const { data, isLoading, error } = useQuery({
     queryKey: ["client", id],
     queryFn: () => fetcher({ data: { id } }),
@@ -22,6 +23,11 @@ function Page() {
     queryKey: ["client-stats", id],
     queryFn: () => fetchStats({ data: { clientId: id } }),
   });
+  const { data: missionsToday } = useQuery({
+    queryKey: ["client-missions-today", id],
+    queryFn: () => fetchMissions({ data: { clientId: id } }),
+  });
+
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
