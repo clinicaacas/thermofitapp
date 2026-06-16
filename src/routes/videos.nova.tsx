@@ -14,6 +14,8 @@ export const Route = createFileRoute("/videos/nova")({
   component: Page,
 });
 
+type SourceType = "upload" | "youtube" | "external_link";
+
 type Form = {
   title: string;
   videoType: "manha" | "noite" | "audio" | "mensagem_especial" | "educativo" | "motivacional";
@@ -22,6 +24,8 @@ type Form = {
   milesOnComplete: string;
   minCompletionPct: string;
   description: string;
+  sourceType: SourceType;
+  externalUrl: string;
 };
 
 const initial: Form = {
@@ -32,7 +36,12 @@ const initial: Form = {
   milesOnComplete: "5",
   minCompletionPct: "90",
   description: "",
+  sourceType: "upload",
+  externalUrl: "",
 };
+
+const YT_RE =
+  /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]+/i;
 
 function Page() {
   const navigate = useNavigate();
@@ -45,18 +54,30 @@ function Page() {
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Partial<Record<keyof Form | "file", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   function validate() {
-    const e: typeof errors = {};
+    const e: Record<string, string> = {};
     if (!form.title.trim()) e.title = "Informe o título.";
     const miles = Number(form.milesOnComplete);
     if (Number.isNaN(miles) || miles < 0) e.milesOnComplete = "Milhas inválidas.";
     const pct = Number(form.minCompletionPct);
-    if (Number.isNaN(pct) || pct < 1 || pct > 100) e.minCompletionPct = "Use um valor entre 1 e 100.";
+    if (Number.isNaN(pct) || pct < 1 || pct > 100)
+      e.minCompletionPct = "Use um valor entre 1 e 100.";
     if (form.releaseDay !== "") {
       const d = Number(form.releaseDay);
       if (Number.isNaN(d) || d < 0) e.releaseDay = "Dia inválido.";
+    }
+    if (form.sourceType === "upload") {
+      if (!file) e.file = "Selecione um arquivo de vídeo.";
+    } else if (form.sourceType === "youtube") {
+      if (!YT_RE.test(form.externalUrl.trim())) e.externalUrl = "URL do YouTube inválida.";
+    } else {
+      try {
+        new URL(form.externalUrl.trim());
+      } catch {
+        e.externalUrl = "URL inválida.";
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -70,8 +91,10 @@ function Page() {
     setSaving(true);
     try {
       let storageKey = "";
-      let publicUrl = "";
-      if (file) {
+      let publicUrl = form.externalUrl.trim();
+      let fileName = "";
+
+      if (form.sourceType === "upload" && file) {
         const { tenantId } = await getTenant();
         const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const key = `${tenantId}/${crypto.randomUUID()}-${safe}`;
@@ -84,8 +107,14 @@ function Page() {
         storageKey = key;
         const { data: pub } = supabase.storage.from("videos").getPublicUrl(key);
         publicUrl = pub?.publicUrl ?? "";
+        fileName = file.name;
       }
 
+      // Encode sourceType in phase prefix-free; we use a dedicated marker in fileName when empty
+      // Simpler: store sourceType marker in description-independent fields:
+      // - storageKey present => upload
+      // - YT_RE matches url => youtube
+      // - otherwise => external_link
       await save({
         data: {
           patch: {
@@ -101,7 +130,7 @@ function Page() {
             phase: form.phase,
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,
-            fileName: file?.name ?? "",
+            fileName,
             storageKey,
           },
         },
@@ -120,6 +149,8 @@ function Page() {
     }
   }
 
+  const isDrive = /drive\.google\.com/i.test(form.externalUrl);
+
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
@@ -133,7 +164,9 @@ function Page() {
           </Link>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Adicionar vídeo</h1>
-            <p className="text-sm text-muted-foreground">Upload via Cloudflare R2</p>
+            <p className="text-sm text-muted-foreground">
+              Upload, YouTube ou link compartilhável
+            </p>
           </div>
         </header>
 
@@ -223,34 +256,94 @@ function Page() {
               />
             </Field>
 
-            <div>
-              <Label className="mb-1.5 block text-xs font-medium">Arquivo de vídeo</Label>
-              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background/40 px-6 py-10 text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-                  <UploadCloud className="h-6 w-6" />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {file ? file.name : "Selecione o arquivo de vídeo"}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
-                >
-                  Escolher arquivo
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.mp4,.mov,.webm,.m4v"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  MP4, MOV, WEBM ou M4V. {uploadPct !== null && `Enviando… ${uploadPct}%`}
-                </p>
+            <Field label="Origem do vídeo *">
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    { v: "upload", label: "Upload do computador" },
+                    { v: "youtube", label: "Link do YouTube" },
+                    { v: "external_link", label: "Link externo / Google Drive" },
+                  ] as { v: SourceType; label: string }[]
+                ).map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.v}
+                    onClick={() => setForm({ ...form, sourceType: opt.v })}
+                    className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
+                      form.sourceType === opt.v
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input bg-background text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-            </div>
+            </Field>
+
+            {form.sourceType === "upload" && (
+              <div>
+                <Label className="mb-1.5 block text-xs font-medium">Arquivo de vídeo</Label>
+                <div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background/40 px-6 py-10 text-center">
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {file
+                      ? `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`
+                      : "Selecione o arquivo de vídeo"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+                  >
+                    Escolher arquivo
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.mp4,.mov,.webm,.m4v"
+                    className="hidden"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    MP4, MOV, WEBM ou M4V.{" "}
+                    {uploadPct !== null && `Enviando… ${uploadPct}%`}
+                  </p>
+                </div>
+                {errors.file && <p className="mt-1 text-xs text-red-600">{errors.file}</p>}
+              </div>
+            )}
+
+            {form.sourceType === "youtube" && (
+              <Field label="URL do YouTube *" error={errors.externalUrl}>
+                <Input
+                  value={form.externalUrl}
+                  onChange={(e) => setForm({ ...form, externalUrl: e.target.value })}
+                  placeholder="Cole aqui o link do YouTube"
+                />
+              </Field>
+            )}
+
+            {form.sourceType === "external_link" && (
+              <Field label="URL do vídeo *" error={errors.externalUrl}>
+                <Input
+                  value={form.externalUrl}
+                  onChange={(e) => setForm({ ...form, externalUrl: e.target.value })}
+                  placeholder="Cole aqui o link compartilhável do Google Drive ou outro link externo"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Para links do Google Drive, use um arquivo com permissão de visualização
+                  liberada para quem tiver o link.
+                </p>
+                {isDrive && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Verifique se o link está compartilhado corretamente para visualização.
+                  </p>
+                )}
+              </Field>
+            )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-emerald-600">{success}</p>}
