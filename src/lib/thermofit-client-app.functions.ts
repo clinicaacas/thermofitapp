@@ -654,3 +654,22 @@ export const getClientNutritionPlan = createServerFn({ method: "GET" })
     if (error) throw error;
     return { plan: row ?? null };
   });
+
+// ============ TREINO ============
+
+export const getClientWorkoutPlan = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: row, error } = await admin
+      .from("client_workout_plans")
+      .select("id, title, frequency_per_week, duration_minutes, focus, notes, sessions, updated_at")
+      .eq("client_id", client.id)
+      .eq("active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { plan: row ?? null };
+  });
