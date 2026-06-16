@@ -13,9 +13,14 @@ export const Route = createFileRoute("/clientes/$id")({
 function Page() {
   const { id } = Route.useParams();
   const fetcher = useServerFn(getClient);
+  const fetchStats = useServerFn(adminClientStats);
   const { data, isLoading, error } = useQuery({
     queryKey: ["client", id],
     queryFn: () => fetcher({ data: { id } }),
+  });
+  const { data: stats } = useQuery({
+    queryKey: ["client-stats", id],
+    queryFn: () => fetchStats({ data: { clientId: id } }),
   });
 
   if (isLoading) {
