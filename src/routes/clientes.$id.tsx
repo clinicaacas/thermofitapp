@@ -141,12 +141,24 @@ function Page() {
               </ul>
             )}
           </Card>
-
+          <Card title="Atividade recente">
+            <Row
+              label="Último pulso"
+              value={
+                stats?.lastPulse
+                  ? `${stats.lastPulse.week_start} · humor ${stats.lastPulse.mood ?? "—"} · energia ${stats.lastPulse.energy ?? "—"}`
+                  : "Nenhum pulso registrado"
+              }
+            />
+            <Row label="Cartas não lidas" value={String(stats?.unreadLetters ?? 0)} />
+            <Row label="Fotos enviadas" value={String(stats?.photosCount ?? 0)} />
+          </Card>
         </div>
       </div>
     </AppShell>
   );
 }
+
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
