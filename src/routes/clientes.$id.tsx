@@ -1,9 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
-import { getClient, adminClientStats, adminListClientMissionsToday } from "@/lib/thermofit-data.functions";
-import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle } from "lucide-react";
+import {
+  getClient,
+  adminClientStats,
+  adminListClientMissionsToday,
+  adminCreateMission,
+} from "@/lib/thermofit-data.functions";
+import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus } from "lucide-react";
+
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Perfil da cliente — ThermoFit" }] }),
