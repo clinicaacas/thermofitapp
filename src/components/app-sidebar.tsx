@@ -38,7 +38,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const displayName = user?.name ?? tenant.ownerName;
   const displayRole = user
-    ? ({ super_admin: "Super Admin", dono: "Dono da Clínica", admin: "Admin da Clínica", equipe: "Equipe" } as const)[user.profile]
+    ? ({ super_admin: "Super Admin", dono: "Dono da Clínica", admin: "Admin da Clínica", equipe: "Equipe", cliente: "Cliente" } as const)[user.profile]
     : "Super Admin";
   const initials = displayName
     .split(" ")

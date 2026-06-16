@@ -227,20 +227,58 @@ export const getCurrentUserProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1) Is this an end-client user?
+    const { data: clientRow } = await supabaseAdmin
+      .from("clients")
+      .select("id, tenant_id, name, access_email, access_status, last_access_at, tenants(*)")
+      .eq("auth_user_id", context.userId)
+      .maybeSingle();
+    if (clientRow) {
+      if (clientRow.access_status && ["inativo", "bloqueado"].includes(clientRow.access_status)) {
+        return { ok: false as const, reason: "Seu acesso ao app está desativado. Fale com a clínica." };
+      }
+      await supabaseAdmin
+        .from("clients")
+        .update({ last_access_at: new Date().toISOString() })
+        .eq("id", clientRow.id);
+      const tenants: any = (clientRow as any).tenants;
+      return {
+        ok: true as const,
+        user: {
+          id: context.userId,
+          tenantId: clientRow.tenant_id,
+          name: clientRow.name,
+          email: clientRow.access_email ?? "",
+          phone: "",
+          role: "Cliente",
+          profile: "cliente",
+          status: "ativo",
+          mustChangePassword: false,
+          lastAccess: "",
+          kind: "client" as const,
+          clientId: clientRow.id,
+        },
+        tenant: tenants ? mapTenant(tenants) : undefined,
+      };
+    }
+
+    // 2) Internal team member.
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
       .select("*, tenants(*)")
       .eq("id", context.userId)
       .maybeSingle();
     if (error) throw error;
-    if (!profile) return { ok: false, reason: "Usuário sem perfil vinculado. Entre em contato com o administrador." };
-    if (profile.status !== "ativo") return { ok: false, reason: "Seu acesso está inativo. Entre em contato com o administrador." };
+    if (!profile) return { ok: false as const, reason: "Usuário sem perfil vinculado. Entre em contato com o administrador." };
+    if (profile.status !== "ativo") return { ok: false as const, reason: "Seu acesso está inativo. Entre em contato com o administrador." };
     if (!profile.tenants || profile.tenants.status !== "ativa") {
-      return { ok: false, reason: "Usuário sem clínica ativa vinculada. Entre em contato com o administrador." };
+      return { ok: false as const, reason: "Usuário sem clínica ativa vinculada. Entre em contato com o administrador." };
     }
     await supabaseAdmin.from("profiles").update({ last_access: new Date().toISOString() }).eq("id", context.userId);
-    return { ok: true, user: mapProfile(profile), tenant: mapTenant(profile.tenants) };
+    return { ok: true as const, user: { ...mapProfile(profile), kind: "team" as const }, tenant: mapTenant(profile.tenants) };
   });
+
 
 export const markPasswordChanged = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -495,6 +495,7 @@ function profileLabel(p: ProfileRole) {
     dono: "Dono da Clínica",
     admin: "Admin da Clínica",
     equipe: "Equipe",
+    cliente: "Cliente",
   }[p];
 }
 

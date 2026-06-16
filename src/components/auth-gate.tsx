@@ -10,15 +10,30 @@ export function AuthGate({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
 
   const isPublic = PUBLIC_PATHS.includes(pathname);
+  const isClientApp = pathname === "/app" || pathname.startsWith("/app/");
 
   useEffect(() => {
     if (loading) return;
     if (!user && !isPublic) {
       navigate({ to: "/login" });
-    } else if (user && isPublic) {
-      navigate({ to: "/dashboard" });
+      return;
     }
-  }, [user, loading, pathname, isPublic, navigate]);
+    if (user && isPublic) {
+      navigate({ to: user.kind === "client" ? "/app" : "/dashboard" });
+      return;
+    }
+    if (user?.kind === "client" && !isClientApp) {
+      navigate({ to: "/app" });
+      return;
+    }
+    if (user && user.kind !== "client" && isClientApp) {
+      // admin/equipe can only stay in /app if explicitly previewing
+      const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+      if (!params.get("previewClientId") && !params.get("clientId")) {
+        navigate({ to: "/dashboard" });
+      }
+    }
+  }, [user, loading, pathname, isPublic, isClientApp, navigate]);
 
   if (loading) return null;
   if (!user && !isPublic) return null;

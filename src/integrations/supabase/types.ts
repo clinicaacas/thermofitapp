@@ -698,6 +698,9 @@ export type Database = {
       }
       clients: {
         Row: {
+          access_email: string | null
+          access_status: string
+          auth_user_id: string | null
           avatar_initial: string
           birth_date: string | null
           clinical_notes: string
@@ -708,6 +711,7 @@ export type Database = {
           goal: string
           hydration_goal_ml: number
           id: string
+          last_access_at: string | null
           name: string
           phone: string
           plan: string
@@ -717,6 +721,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_email?: string | null
+          access_status?: string
+          auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
           clinical_notes?: string
@@ -727,6 +734,7 @@ export type Database = {
           goal?: string
           hydration_goal_ml?: number
           id?: string
+          last_access_at?: string | null
           name: string
           phone?: string
           plan?: string
@@ -736,6 +744,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_email?: string | null
+          access_status?: string
+          auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
           clinical_notes?: string
@@ -746,6 +757,7 @@ export type Database = {
           goal?: string
           hydration_goal_ml?: number
           id?: string
+          last_access_at?: string | null
           name?: string
           phone?: string
           plan?: string
@@ -1382,6 +1394,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      client_id_for_user: { Args: { _user_id: string }; Returns: string }
       is_profile_manager: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
@@ -1391,6 +1404,7 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      tenant_id_for_client_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       plan_id:
