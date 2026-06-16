@@ -101,8 +101,47 @@ function Page() {
             <Row label="Hidratação" value={`${c.hydrationGoalMl} ml/dia`} />
           </Card>
           <Card title="Missões de hoje">
-            <p className="text-sm text-muted-foreground">Nenhuma missão atribuída hoje.</p>
+            {!missionsToday || missionsToday.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma missão atribuída hoje.</p>
+            ) : (
+              <ul className="space-y-2">
+                {missionsToday.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-start justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            "inline-block h-2 w-2 rounded-full " +
+                            (m.done ? "bg-emerald-500" : "bg-muted-foreground/40")
+                          }
+                        />
+                        <span
+                          className={
+                            "truncate font-medium " +
+                            (m.done ? "text-muted-foreground line-through" : "text-foreground")
+                          }
+                        >
+                          {m.title}
+                        </span>
+                      </div>
+                      {m.description ? (
+                        <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                          {m.description}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {m.miles} mi
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
+
         </div>
       </div>
     </AppShell>
