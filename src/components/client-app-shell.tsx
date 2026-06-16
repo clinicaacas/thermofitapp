@@ -148,6 +148,9 @@ export function ClientAppShell({
               const Icon = item.icon;
               const disabled = !isEnabled(item.key);
               if (disabled) return <li key={item.to} />;
+              return (
+                <li key={item.to}>
+                  <Link
                     to={item.to}
                     search={(prev: Record<string, unknown>) => prev}
                     className="flex flex-col items-center gap-0.5 py-2 text-[11px]"
