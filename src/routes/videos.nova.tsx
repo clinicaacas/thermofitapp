@@ -247,7 +247,7 @@ function Page() {
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Configure o armazenamento Cloudflare R2 antes de enviar vídeos.
+                  MP4, MOV, WEBM ou M4V. {uploadPct !== null && `Enviando… ${uploadPct}%`}
                 </p>
               </div>
             </div>
