@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ClientAppShell } from "@/components/client-app-shell";
+import { ClientAppShell, useEnabledModules } from "@/components/client-app-shell";
 import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
 
@@ -11,15 +11,15 @@ export const Route = createFileRoute("/app/")({
 });
 
 const PHASES = ["Check-in", "Decolagem", "Subida", "Altitude", "Ponto B"];
-const QUICK = [
-  { to: "/app/nutricao", label: "Nutrição", icon: Apple },
-  { to: "/app/treino", label: "Treino", icon: Dumbbell },
-  { to: "/app/cartas", label: "Cartas", icon: Mail },
-  { to: "/app/premios", label: "Prêmios", icon: Gift },
-  { to: "/app/fotos", label: "Fotos", icon: Camera },
-  { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle },
-  { to: "/app/privacidade", label: "Privacidade", icon: Shield },
-] as const;
+const QUICK: { to: string; label: string; icon: any; moduleKey: string }[] = [
+  { to: "/app/nutricao", label: "Nutrição", icon: Apple, moduleKey: "nutricao" },
+  { to: "/app/treino", label: "Treino", icon: Dumbbell, moduleKey: "treino" },
+  { to: "/app/cartas", label: "Cartas", icon: Mail, moduleKey: "cartas" },
+  { to: "/app/premios", label: "Prêmios", icon: Gift, moduleKey: "premios" },
+  { to: "/app/fotos", label: "Fotos", icon: Camera, moduleKey: "fotos" },
+  { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle, moduleKey: "falar" },
+  { to: "/app/privacidade", label: "Privacidade", icon: Shield, moduleKey: "privacidade" },
+];
 
 function weekFrom(startDate?: string | null): number {
   if (!startDate) return 1;
@@ -31,6 +31,8 @@ function weekFrom(startDate?: string | null): number {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
+  const { isEnabled } = useEnabledModules(clientId);
+  const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey));
   const fetchHome = useServerFn(getClientHome);
   const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
@@ -254,13 +256,13 @@ function Page() {
         ACESSO RÁPIDO
       </p>
       <section className="mt-2 grid grid-cols-4 gap-2">
-        {QUICK.map((m) => {
+        {quickItems.map((m) => {
           const Icon = m.icon;
           return (
             <Link
               key={m.to}
-              to={m.to}
-              search={{ clientId }}
+              to={m.to as any}
+              search={{ clientId } as any}
               className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white px-2 py-3 text-center text-[11px] font-medium"
               style={{ border: "1px solid #E5E0D8", color: "#1F2933" }}
             >

@@ -13,6 +13,24 @@ const nav = [
   { to: "/app/vacuum", key: "vacuum", label: "Vacuum", icon: Activity },
 ] as const;
 
+const PATH_TO_MODULE: Record<string, string> = {
+  "/app": "inicio",
+  "/app/missoes": "missoes",
+  "/app/videos": "videos",
+  "/app/agua": "agua",
+  "/app/vacuum": "vacuum",
+  "/app/nutricao": "nutricao",
+  "/app/treino": "treino",
+  "/app/cartas": "cartas",
+  "/app/premios": "premios",
+  "/app/fotos": "fotos",
+  "/app/pulso": "pulso",
+  "/app/passaporte": "passaporte",
+  "/app/ajuda": "falar",
+  "/app/falar": "falar",
+  "/app/privacidade": "privacidade",
+};
+
 export function useAppSettings(clientId?: string) {
   const fetchAll = useServerFn(getAppSettingsForClient);
   return useQuery({
@@ -20,6 +38,15 @@ export function useAppSettings(clientId?: string) {
     queryFn: () => fetchAll({ data: { clientId: clientId! } }),
     enabled: !!clientId,
   });
+}
+
+export function useEnabledModules(clientId?: string) {
+  const { data } = useAppSettings(clientId);
+  const map = new Map<string, boolean>();
+  for (const m of data?.modules ?? []) map.set(m.key, m.enabled);
+  return {
+    isEnabled: (key: string) => (map.has(key) ? !!map.get(key) : true),
+  };
 }
 
 function formatDate() {
@@ -39,6 +66,9 @@ export function ClientAppShell({
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
   const clientId = search?.clientId;
+  const { isEnabled } = useEnabledModules(clientId);
+  const currentModule = PATH_TO_MODULE[pathname];
+  const moduleDisabled = !!currentModule && !isEnabled(currentModule);
 
   return (
     <div className="min-h-screen w-full" style={{ background: "#F8F1E6" }}>
@@ -96,6 +126,13 @@ export function ClientAppShell({
             >
               Adicione <code>?clientId=...</code> na URL para abrir como uma cliente.
             </div>
+          ) : moduleDisabled ? (
+            <div
+              className="rounded-2xl bg-white p-6 text-center text-sm"
+              style={{ border: "1px solid #E5E0D8", color: "#6B7280" }}
+            >
+              Este módulo está desativado para o seu workspace.
+            </div>
           ) : (
             children
           )}
@@ -109,6 +146,8 @@ export function ClientAppShell({
             {nav.map((item) => {
               const active = pathname === item.to;
               const Icon = item.icon;
+              const disabled = !isEnabled(item.key);
+              if (disabled) return <li key={item.to} />;
               return (
                 <li key={item.to}>
                   <Link
