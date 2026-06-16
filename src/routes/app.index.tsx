@@ -148,10 +148,14 @@ function Page() {
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              0 de 0 missões
+              {missionsDone} de {missionsTotal} missões
             </p>
             <p className="text-xs" style={{ color: "#6B7280" }}>
-              Nenhuma missão programada para hoje.
+              {missionsTotal === 0
+                ? "Nenhuma missão programada para hoje."
+                : missionsDone === missionsTotal
+                  ? "Tudo concluído!"
+                  : "Toque em Ver todas para concluir."}
             </p>
           </div>
         </div>
