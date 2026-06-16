@@ -588,3 +588,50 @@ export const listPulseHistory = createServerFn({ method: "GET" })
     if (error) throw error;
     return { history: rows ?? [] };
   });
+
+// ============ VACUUM (CINTURA ATIVA) ============
+
+export const logVacuumSession = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        rounds: z.number().int().min(1).max(50),
+        totalSeconds: z.number().int().min(0).max(60 * 60),
+        notes: z.string().trim().max(300).optional().nullable(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { error } = await admin.from("client_vacuum_sessions").insert({
+      tenant_id: client.tenant_id,
+      client_id: client.id,
+      rounds: data.rounds,
+      total_seconds: data.totalSeconds,
+      notes: data.notes ?? null,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listVacuumSessions = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("client_vacuum_sessions")
+      .select("id, performed_at, rounds, total_seconds")
+      .eq("client_id", client.id)
+      .order("performed_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    const totalRounds = (rows ?? []).reduce((s: number, r: any) => s + (r.rounds ?? 0), 0);
+    const totalSeconds = (rows ?? []).reduce(
+      (s: number, r: any) => s + (r.total_seconds ?? 0),
+      0,
+    );
+    return { sessions: rows ?? [], totalRounds, totalSeconds };
+  });
