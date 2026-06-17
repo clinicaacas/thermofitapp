@@ -159,7 +159,8 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.update", "video", row.id, {});
-      return { video: mapVideo(row) };
+      const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
+      return { video: mapVideo(row, sig) };
     } else {
       const { data: row, error } = await context.supabase
         .from("videos")
@@ -168,8 +169,10 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.create", "video", row.id, {});
-      return { video: mapVideo(row) };
+      const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
+      return { video: mapVideo(row, sig) };
     }
+
   });
 
 export const deleteVideo = createServerFn({ method: "POST" })
