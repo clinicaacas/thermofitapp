@@ -44,13 +44,26 @@ export const listClientVideos = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("videos")
-      .select("id, title, description, url, thumbnail_url, duration_seconds, category, storage_key, video_type, phase, miles_on_complete")
+      .select("id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, miles_on_complete")
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
       .order("created_at", { ascending: true });
     if (error) throw error;
-    return { videos: rows ?? [] };
+    const list = rows ?? [];
+    const signed = await Promise.all(
+      list.map(async (r: any) => {
+        if (!r.thumbnail_storage_key) return r.thumbnail_url ?? "";
+        const { data: s } = await admin.storage
+          .from("video-thumbnails")
+          .createSignedUrl(r.thumbnail_storage_key, 3600);
+        return s?.signedUrl ?? r.thumbnail_url ?? "";
+      }),
+    );
+    return {
+      videos: list.map((r: any, i: number) => ({ ...r, thumbnail_url: signed[i] })),
+    };
   });
+
 
 export const getClientVideoPlayback = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid(), videoId: z.string().uuid() }).parse(i))
