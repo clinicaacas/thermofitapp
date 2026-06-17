@@ -13,7 +13,7 @@ import {
   FileText,
   ShieldCheck,
   Settings,
-  Flame,
+  Plane,
   LogOut,
 } from "lucide-react";
 
