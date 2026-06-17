@@ -246,6 +246,11 @@ function Page() {
                   onChange={setThumb}
                   tenantId={tenantId}
                   videoIdHint={editing.id}
+                  videoSrcUrl={
+                    form.url && !/youtube\.com|youtu\.be|drive\.google\.com/i.test(form.url)
+                      ? form.url
+                      : undefined
+                  }
                   youtubeUrl={
                     form.url && /youtube\.com|youtu\.be/i.test(form.url) ? form.url : undefined
                   }
