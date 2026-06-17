@@ -53,6 +53,10 @@ const videoSchema = z.object({
   description: z.string().trim().max(2000).default(""),
   url: z.string().trim().max(500).default(""),
   thumbnailUrl: z.string().trim().max(500).default(""),
+  thumbnailStorageKey: z.string().trim().max(500).default(""),
+  thumbnailSource: z
+    .enum(["auto_video_frame", "manual_upload", "youtube", "external_default", "none"])
+    .default("none"),
   durationSeconds: z.number().int().min(0).max(86400).default(0),
   category: z.string().trim().max(60).default("geral"),
   status: z.enum(["ativo", "rascunho", "arquivado"]).default("ativo"),
@@ -66,6 +70,7 @@ const videoSchema = z.object({
   fileName: z.string().trim().max(255).default(""),
   storageKey: z.string().trim().max(500).default(""),
 });
+
 
 function mapVideo(row: any) {
   return {
