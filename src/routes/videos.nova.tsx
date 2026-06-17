@@ -61,6 +61,23 @@ function Page() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [tenantId, setTenantId] = useState<string>("");
+  const [thumb, setThumb] = useState<ThumbState>({ url: "", storageKey: "", source: "none" });
+
+  useEffect(() => {
+    getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
+  }, [getTenant]);
+
+  // Auto-set youtube thumbnail when URL changes and no manual thumb set
+  useEffect(() => {
+    if (form.sourceType !== "youtube") return;
+    if (thumb.source !== "none" && thumb.source !== "youtube") return;
+    const t = youtubeThumb(form.externalUrl.trim());
+    if (t && t !== thumb.url) {
+      setThumb({ url: t, storageKey: "", source: "youtube" });
+    }
+  }, [form.sourceType, form.externalUrl]);
+
 
   function validate() {
     const e: Record<string, string> = {};
