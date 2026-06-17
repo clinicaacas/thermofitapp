@@ -1,94 +1,49 @@
-## Objetivo
+# Plano — Vacuum / Cintura Ativa
 
-Separar com segurança **equipe interna** (painel admin) e **cliente final** (app de acompanhamento). Hoje só existe o papel `profile_role = super_admin|dono|admin|equipe` e o app da cliente é acessado por `?clientId=` (preview), sem login da cliente. Vamos adicionar um papel **cliente** real, com login próprio, criado dentro do perfil da cliente, com redirecionamento e guards corretos.
+Escopo grande. Vou dividir em 4 fases entregáveis em sequência, cada uma testável.
 
----
+## Fase A — Banco + Storage
 
-## 1. Banco de dados (migração)
+Novas tabelas (mantendo `client_vacuum_sessions` existente):
 
-- Adicionar enum value `cliente` em `public.profile_role` (`ALTER TYPE ... ADD VALUE 'cliente'`).
-- Tabela `clients`: adicionar
-  - `auth_user_id uuid UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL`
-  - `access_email text`
-  - `access_status text DEFAULT 'sem_acesso'` (`ativo|inativo|bloqueado|sem_acesso`)
-  - `last_access_at timestamptz`
-- Function SECURITY DEFINER `public.client_id_for_user(uuid)` → retorna `clients.id` do `auth_user_id`.
-- RLS nas tabelas do app da cliente (`client_missions`, `client_mission_completions`, `client_hydration_logs`, `client_letters`, `client_progress_photos`, `client_vacuum_sessions`, `client_weekly_pulse`, `client_nutrition_plans`, `client_workout_plans`): adicionar policy `SELECT/INSERT/UPDATE` para o próprio usuário cliente via `client_id_for_user(auth.uid()) = client_id`.
-- Manter policies existentes da equipe (via `is_tenant_member`).
+- `vacuum_settings` (por tenant): title, subtitle, practice_tab_label, guide_tab_label, card_eyebrow, card_title, card_subtitle, estimated_time, button_text, skip_guide_text.
+- `vacuum_exercises` (por tenant): order_index, name, short_description, prescription_text, thumbnail_url, status.
+- `vacuum_guide_pages` (por tenant): order_index, title, image_url, alt_text, status.
+- `client_vacuum_events` (por tenant + client): event_type, metadata, created_at.
 
-## 2. Auth / criação de acesso
+Bucket de storage `vacuum-assets` (público) para miniaturas dos exercícios e imagens das páginas do guia. RLS: leitura pública; escrita só para `admin/dono/super_admin` do tenant.
 
-Novas server functions em `src/lib/thermofit-data.functions.ts` (auth + admin):
+Seed automático na primeira leitura por tenant: 5 exercícios e 12 páginas (com `image_url` vazia até admin subir).
 
-- `adminCreateClientAccess({ clientId, email, password })` — usa `supabaseAdmin.auth.admin.createUser` com `email_confirm: true` e `user_metadata: { profile: 'cliente', client_id }`, cria/atualiza `profiles` com `profile='cliente'`, atualiza `clients.auth_user_id/access_email/access_status='ativo'`.
-- `adminResetClientPassword({ clientId, password })` — gera senha temporária via `auth.admin.updateUserById`.
-- `adminSetClientAccessStatus({ clientId, status })` — atualiza status (`ativo|inativo|bloqueado`); `bloqueado` chama `auth.admin.updateUserById` com `ban_duration` ou `app_metadata.banned`.
-- Todas com `requireSupabaseAuth` + checagem `is_profile_manager` do tenant da cliente.
+## Fase B — App da Cliente `/app/vacuum`
 
-## 3. Login e redirecionamento
+Reescrever a rota com a paleta bege/dourada existente (`ClientAppShell` já usa essa paleta):
 
-`src/lib/thermofit-auth.functions.ts > getCurrentUserProfile`:
+- Header "MÉTODO THERMOFIT" + "Cintura" (preto) + "Ativa" (dourado) + subtítulo.
+- Tabs: **Praticar** | **Guia Completo**.
+- **Praticar**: card protocolo + lista dos 5 exercícios (vindos do banco) + botão "Começar Treino" que registra `client_vacuum_events { event_type: 'treino_iniciado' }` e mostra feedback "Treino iniciado."
+- **Guia Completo**: visualizador paginado 1/12 com barra de progresso dourada, imagem central, botões Anterior/Próximo (último vira "Começar a Praticar" e troca aba), dots indicadores, link "Pular guia e ir direto para a prática".
 
-- Se `profiles.profile === 'cliente'`, retornar `{ kind: 'client', clientId, tenantId }` em vez do `TeamUser` interno.
+## Fase C — Admin (Configurações > App da Cliente > Vacuum / Cintura Ativa)
 
-`src/lib/auth-context.tsx`:
+Nova sub-seção dentro de `app-client-settings.tsx`:
 
-- Estado `user` ganha discriminador `kind: 'team' | 'client'`.
-- Após `signIn` bem-sucedido, retornar também `kind` para o login decidir destino.
+- Bloco **Praticar**: editar textos + CRUD/reordenar/ativar exercícios + upload de thumbnail.
+- Bloco **Guia Completo**: lista das 12 páginas, editar título/alt, substituir imagem (upload), reordenar, ativar/inativar. Aviso de fallback para upload de imagens individuais (sem conversão automática de PDF nesta fase).
 
-`src/routes/login.tsx`: após `signIn` ok, `navigate({ to: kind === 'client' ? '/app' : '/dashboard' })`.
+## Fase D — Preview do App
 
-`src/components/auth-gate.tsx`:
+Garantir que o componente Preview renderize a mesma rota `/app/vacuum` (mesmo componente). Atualizar lista de telas do preview para incluir "Vacuum" se ainda não estiver.
 
-- Se `user.kind === 'client'` e pathname não começa com `/app` → redirecionar para `/app`.
-- Se `user.kind === 'team'` e pathname começa com `/app` sem `?previewClientId` → redirecionar para `/dashboard`.
-- Manter rotas públicas atuais.
+## Detalhes técnicos
 
-## 4. App da cliente sem `?clientId`
+- Server fns em `src/lib/thermofit-vacuum.functions.ts` (público de leitura via publishable client; mutações via `requireSupabaseAuth` + check de papel).
+- RLS: leitura por `is_tenant_member` ou pelo cliente vinculado (`tenant_id_for_client_user`); escrita por `is_profile_manager`.
+- Eventos: insert via `requireSupabaseAuth` validando que o `auth.uid()` corresponde ao `client_id`.
+- Não toco no menu lateral nem crio rota nova; apenas reescrevo `src/routes/app.vacuum.tsx`.
 
-Hoje todas as rotas `/app/*` recebem `clientId` pela URL. Vamos:
+## Confirmações antes de começar
 
-- Novo hook `useCurrentClientId()` que devolve, na ordem:
-  1. `previewClientId` da query (apenas se `user.kind === 'team'` e is_profile_manager — modo preview admin)
-  2. `clientId` do `user` quando `kind === 'client'`
-- Trocar `useSearch({ from: '/app/' }).clientId` por esse hook em todas as rotas `/app/*` (mantendo compat: a rota ainda aceita `clientId`/`previewClientId` no `validateSearch`).
-
-## 5. UI — perfil da cliente (`src/routes/clientes.$id.tsx`)
-
-Novo card **"Acesso da Cliente"**:
-
-- Mostra: email de acesso, status (badge), último acesso, link `/login`.
-- Botões: **Criar acesso** (dialog com email + senha + confirmar) · **Redefinir senha** · **Copiar dados de acesso** (gera o texto do brief) · **Inativar acesso** / **Reativar**.
-- Usa as server fns do passo 2 + invalida `['client', id]`.
-
-## 6. UI — Configurações > Usuários e Equipe
-
-- `src/routes/configuracoes.tsx` (modal Adicionar usuário): remover qualquer opção "cliente" do select; manter só perfis internos. Filtrar listagem por `profile != 'cliente'` (defensivo — server fn já deveria, mas conferir).
-
-## 7. Preview do App
-
-`src/components/client-app-preview.tsx`:
-
-- "Abrir em nova aba" passa a usar `?previewClientId=<id>` em vez de `?clientId=<id>` (combina com o guard no passo 3/4).
-- Iframe interno usa o mesmo parâmetro.
-
-## 8. Testes manuais (validar após)
-
-Os 10 cenários do pedido do usuário (criar interno, criar cliente, criar acesso, login da cliente vai para `/app`, cliente bloqueada de `/dashboard`, admin não cai em `/app`, preview abre cliente certa, etc.).
-
----
-
-## Detalhes técnicos relevantes
-
-- `profile_role` é enum Postgres → `ADD VALUE 'cliente'` precisa ser feito antes de qualquer policy/função que faça cast para o tipo; rodar em migração isolada antes das policies (mesma migração funciona se a referência ao novo valor estiver em DO block).
-- `clients.auth_user_id` precisa ser nullable e único parcial (`UNIQUE` aceita múltiplos NULL no Postgres, ok).
-- `client_id_for_user` deve ser SECURITY DEFINER e SET search_path = public para não recursar nas policies.
-- Função `adminCreateClientAccess` precisa carregar `supabaseAdmin` dentro do `.handler()` (regra de import-graph).
-- `auth-context` atualmente assume `TeamUser`; será preciso ajustar tipos sem quebrar telas que leem `user.profile`/`user.name` (cliente também terá `name`/`email`, mas `profile = 'cliente'`).
-- Manter compat: rotas `/app/*` ainda funcionam com `?clientId=` para não quebrar links já abertos; só priorizar `previewClientId` quando admin logado.
-
-## Fora de escopo
-
-- Trocar texto/branding do login para clientes.
-- Auto-envio de email com credenciais (continua sendo "copiar e enviar manualmente").
-- Tela `/app/login` separada (login único em `/login` redireciona por papel, conforme item 5 do pedido).
+1. Posso seguir com **4 PRs internos** (A→D) nesta mesma conversa, em sequência? Cada fase deixa o sistema funcional.
+2. **Conversão automática de PDF**: confirmo que NÃO será implementada agora (runtime serverless não suporta libs nativas). Admin sobe as 12 imagens manualmente — ok?
+3. Posso criar o bucket `vacuum-assets` como **público** (leitura)? É o padrão para imagens de guia exibidas no app.
