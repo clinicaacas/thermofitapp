@@ -35,10 +35,6 @@ function youtubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-function youtubeThumb(url: string): string | null {
-  const id = youtubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-}
 
 function fmtDuration(sec: number): string {
   if (!sec) return "—";
