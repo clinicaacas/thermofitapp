@@ -531,6 +531,48 @@ export type Database = {
           },
         ]
       }
+      client_vacuum_events: {
+        Row: {
+          client_id: string
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          tenant_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          tenant_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_vacuum_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_vacuum_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_vacuum_sessions: {
         Row: {
           client_id: string
@@ -1314,6 +1356,165 @@ export type Database = {
           white_label_enabled?: boolean
         }
         Relationships: []
+      }
+      vacuum_exercises: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          prescription_text: string | null
+          short_description: string | null
+          status: string
+          tenant_id: string
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          prescription_text?: string | null
+          short_description?: string | null
+          status?: string
+          tenant_id: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          prescription_text?: string | null
+          short_description?: string | null
+          status?: string
+          tenant_id?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacuum_exercises_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vacuum_guide_pages: {
+        Row: {
+          alt_text: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          order_index: number
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          order_index?: number
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          order_index?: number
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacuum_guide_pages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vacuum_settings: {
+        Row: {
+          button_text: string
+          card_eyebrow: string
+          card_subtitle: string
+          card_title: string
+          created_at: string
+          estimated_time: string
+          eyebrow: string
+          finish_guide_text: string
+          guide_tab_label: string
+          id: string
+          practice_tab_label: string
+          skip_guide_text: string
+          subtitle: string
+          tenant_id: string
+          title_first: string
+          title_second: string
+          updated_at: string
+        }
+        Insert: {
+          button_text?: string
+          card_eyebrow?: string
+          card_subtitle?: string
+          card_title?: string
+          created_at?: string
+          estimated_time?: string
+          eyebrow?: string
+          finish_guide_text?: string
+          guide_tab_label?: string
+          id?: string
+          practice_tab_label?: string
+          skip_guide_text?: string
+          subtitle?: string
+          tenant_id: string
+          title_first?: string
+          title_second?: string
+          updated_at?: string
+        }
+        Update: {
+          button_text?: string
+          card_eyebrow?: string
+          card_subtitle?: string
+          card_title?: string
+          created_at?: string
+          estimated_time?: string
+          eyebrow?: string
+          finish_guide_text?: string
+          guide_tab_label?: string
+          id?: string
+          practice_tab_label?: string
+          skip_guide_text?: string
+          subtitle?: string
+          tenant_id?: string
+          title_first?: string
+          title_second?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacuum_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       videos: {
         Row: {
