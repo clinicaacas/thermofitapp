@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { listClientVideos, getClientVideoPlayback } from "@/lib/thermofit-client-app.functions";
 import { PlayCircle, X, Clock } from "lucide-react";
+import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
+
 
 export const Route = createFileRoute("/app/videos")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
