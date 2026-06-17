@@ -11,6 +11,7 @@ import {
   adminCreateClientAccess,
   adminResetClientPassword,
   adminSetClientAccessStatus,
+  updateClient,
 } from "@/lib/thermofit-data.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check, Copy, UserPlus, Lock, Unlock } from "lucide-react";
 import { useState } from "react";
@@ -98,6 +99,40 @@ function Page() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["client", id] }),
   });
 
+  const updateClientFn = useServerFn(updateClient);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const updateMut = useMutation({
+    mutationFn: (patch: any) => updateClientFn({ data: { id, patch } }),
+    onSuccess: () => {
+      setEditOpen(false);
+      setEditError(null);
+      qc.invalidateQueries({ queryKey: ["client", id] });
+    },
+    onError: (e: any) => setEditError(e?.message ?? "Falha ao salvar."),
+  });
+
+  function openEdit() {
+    const cli = (data as any)?.client;
+    if (!cli) return;
+    setEditForm({
+      name: cli.name ?? "",
+      email: cli.email ?? "",
+      phone: cli.phone ?? "",
+      birthDate: cli.birthDate ?? "",
+      startDate: cli.startDate ?? "",
+      plan: cli.plan ?? "",
+      goal: cli.goal ?? "",
+      complaint: cli.complaint ?? "",
+      clinicalNotes: cli.clinicalNotes ?? "",
+      hydrationGoalMl: cli.hydrationGoalMl ?? 2000,
+      status: cli.status ?? "ativo",
+    });
+    setEditError(null);
+    setEditOpen(true);
+  }
+
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
@@ -134,9 +169,14 @@ function Page() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
+            <button
+              type="button"
+              onClick={openEdit}
+              className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+            >
               <Edit className="h-4 w-4" /> Editar
             </button>
+
             <button className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
               <KeyRound className="h-4 w-4" /> Reset senha
             </button>
@@ -409,7 +449,65 @@ Importante: este acesso é pessoal e não deve ser compartilhado.`}</pre>
         </section>
 
       </div>
+
+      {editOpen && editForm && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          onClick={() => setEditOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-lg border border-border bg-card p-5 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-4 text-base font-semibold text-foreground">Editar cliente</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Nome" value={editForm.name} onChange={(v) => setEditForm((f: any) => ({ ...f, name: v }))} />
+              <Field label="E-mail" type="email" value={editForm.email} onChange={(v) => setEditForm((f: any) => ({ ...f, email: v }))} />
+              <Field label="Telefone" value={editForm.phone} onChange={(v) => setEditForm((f: any) => ({ ...f, phone: v }))} />
+              <Field label="Nascimento" type="date" value={editForm.birthDate} onChange={(v) => setEditForm((f: any) => ({ ...f, birthDate: v }))} />
+              <Field label="Início" type="date" value={editForm.startDate} onChange={(v) => setEditForm((f: any) => ({ ...f, startDate: v }))} />
+              <Field label="Plano" value={editForm.plan} onChange={(v) => setEditForm((f: any) => ({ ...f, plan: v }))} />
+              <Field label="Objetivo" value={editForm.goal} onChange={(v) => setEditForm((f: any) => ({ ...f, goal: v }))} />
+              <Field label="Queixa" value={editForm.complaint} onChange={(v) => setEditForm((f: any) => ({ ...f, complaint: v }))} />
+              <Field
+                label="Hidratação (ml/dia)"
+                type="number"
+                value={String(editForm.hydrationGoalMl)}
+                onChange={(v) => setEditForm((f: any) => ({ ...f, hydrationGoalMl: parseInt(v, 10) || 0 }))}
+              />
+              <label className="text-xs sm:col-span-2">
+                <span className="mb-1 block text-muted-foreground">Notas clínicas</span>
+                <textarea
+                  rows={3}
+                  value={editForm.clinicalNotes}
+                  onChange={(e) => setEditForm((f: any) => ({ ...f, clinicalNotes: e.target.value }))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            {editError && <p className="mt-3 text-xs text-red-600">{editError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={updateMut.isPending}
+                onClick={() => updateMut.mutate(editForm)}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {updateMut.isPending ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
+
   );
 }
 
@@ -480,5 +578,29 @@ function Row({ label, value }: { label: string; value: string }) {
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="text-foreground">{value}</div>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="text-xs">
+      <span className="mb-1 block text-muted-foreground">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+    </label>
   );
 }
