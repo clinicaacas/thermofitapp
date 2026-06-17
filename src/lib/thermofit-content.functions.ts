@@ -135,6 +135,8 @@ export const saveVideo = createServerFn({ method: "POST" })
       description: data.patch.description,
       url: data.patch.url,
       thumbnail_url: data.patch.thumbnailUrl,
+      thumbnail_storage_key: data.patch.thumbnailStorageKey || null,
+      thumbnail_source: data.patch.thumbnailSource,
       duration_seconds: data.patch.durationSeconds,
       category: data.patch.category,
       status: data.patch.status,
@@ -146,6 +148,7 @@ export const saveVideo = createServerFn({ method: "POST" })
       file_name: data.patch.fileName,
       storage_key: data.patch.storageKey,
     };
+
     if (data.id) {
       const { data: row, error } = await context.supabase
         .from("videos")
