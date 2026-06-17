@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { listClientVideos, getClientVideoPlayback } from "@/lib/thermofit-client-app.functions";
-import { PlayCircle, X, Clock } from "lucide-react";
+import { X, Clock } from "lucide-react";
 import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
 
 
