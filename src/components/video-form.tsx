@@ -326,10 +326,11 @@ export function VideoForm({
 
         <Field label="Descrição">
           <Textarea
-            rows={4}
+            rows={3}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Contexto ou instrução para a cliente"
+            className="min-h-[72px]"
           />
         </Field>
 

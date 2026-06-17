@@ -61,11 +61,11 @@ function Page() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Vídeos</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl font-semibold text-foreground">Vídeos</h1>
+            <p className="text-xs text-muted-foreground">
               {videos.length} vídeo{videos.length === 1 ? "" : "s"} na biblioteca
             </p>
           </div>
@@ -91,34 +91,50 @@ function Page() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
+        >
           {videos.map((v) => {
             const source = sourceOf(v);
             return (
-              <div key={v.id} className="overflow-hidden rounded-lg border border-border bg-card">
+              <div
+                key={v.id}
+                className="flex flex-col overflow-hidden rounded-md border border-border bg-card"
+              >
                 <div className="aspect-video w-full">
-                  <VideoThumbnail src={v.thumbnailUrl} alt={v.title} className="h-full w-full rounded-none" />
+                  <VideoThumbnail
+                    src={v.thumbnailUrl}
+                    alt={v.title}
+                    className="h-full w-full rounded-none"
+                  />
                 </div>
-                <div className="p-4">
-                  <div className="truncate text-sm font-semibold text-foreground">{v.title}</div>
-                  <div className="text-xs text-muted-foreground">
+                <div className="flex flex-1 flex-col gap-1 p-2.5">
+                  <div className="line-clamp-2 text-[13px] font-semibold leading-tight text-foreground">
+                    {v.title}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">
                     {v.category} • {source} • {v.status}
                   </div>
                   {v.description && (
-                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{v.description}</p>
+                    <p className="line-clamp-1 text-[11px] text-muted-foreground">
+                      {v.description}
+                    </p>
                   )}
-                  <div className="mt-3 flex justify-end gap-2">
+                  <div className="mt-auto flex justify-end gap-1 pt-1.5">
                     <button
                       onClick={() => openEdit(v)}
-                      className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent"
+                      aria-label="Editar"
+                      className="inline-flex items-center gap-1 rounded border border-input px-1.5 py-0.5 text-[11px] hover:bg-accent"
                     >
                       <Pencil className="h-3 w-3" /> Editar
                     </button>
                     <button
                       onClick={() => onDelete(v.id)}
-                      className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      aria-label="Excluir"
+                      className="inline-flex items-center gap-1 rounded border border-red-200 px-1.5 py-0.5 text-[11px] text-red-600 hover:bg-red-50"
                     >
-                      <Trash2 className="h-3 w-3" /> Excluir
+                      <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
