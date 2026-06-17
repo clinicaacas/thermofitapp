@@ -1,22 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
 import {
   listVideos,
-  saveVideo,
   deleteVideo,
-  getMyTenantId,
 } from "@/lib/thermofit-content.functions";
 import { VideoThumbnail } from "@/components/video-thumbnail";
-import {
-  VideoThumbnailPicker,
-  type ThumbState,
-} from "@/components/video-thumbnail-picker";
+import type { ThumbState } from "@/components/video-thumbnail-picker";
+import { VideoForm, type VideoFormInitial } from "@/components/video-form";
 
 export const Route = createFileRoute("/videos/")({
   head: () => ({ meta: [{ title: "Vídeos — ThermoFit" }] }),
@@ -46,74 +40,15 @@ type V = {
 function Page() {
   const qc = useQueryClient();
   const fetchAll = useServerFn(listVideos);
-  const save = useServerFn(saveVideo);
   const remove = useServerFn(deleteVideo);
-  const getTenant = useServerFn(getMyTenantId);
   const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: () => fetchAll() });
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<V | null>(null);
-  const [form, setForm] = useState<Partial<V>>({});
-  const [thumb, setThumb] = useState<ThumbState>({ url: "", storageKey: "", source: "none" });
-  const [tenantId, setTenantId] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
-  }, [getTenant]);
 
   function openEdit(v: V) {
     setEditing(v);
-    setForm({ ...v });
-    setThumb({
-      url: v.thumbnailUrl ?? "",
-      storageKey: v.thumbnailStorageKey ?? "",
-      source: (v.thumbnailSource as ThumbState["source"]) ?? "none",
-    });
-    setError(null);
-    setOpen(true);
   }
   function close() {
-    setOpen(false);
     setEditing(null);
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editing) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await save({
-        data: {
-          id: editing.id,
-          patch: {
-            title: form.title ?? editing.title,
-            description: form.description ?? "",
-            url: form.url ?? "",
-            thumbnailUrl: thumb.source === "youtube" || !thumb.storageKey ? thumb.url : "",
-            thumbnailStorageKey: thumb.storageKey,
-            thumbnailSource: thumb.source,
-            durationSeconds: Number(form.durationSeconds) || 0,
-            category: form.category ?? "geral",
-            status: (form.status as "ativo" | "rascunho" | "arquivado") ?? "ativo",
-            videoType: (form.videoType as any) ?? "manha",
-            releaseDay: form.releaseDay == null ? null : Number(form.releaseDay),
-            phase: form.phase ?? "",
-            milesOnComplete: Number(form.milesOnComplete) || 0,
-            minCompletionPct: Number(form.minCompletionPct) || 90,
-            fileName: form.fileName ?? "",
-            storageKey: form.storageKey ?? "",
-          },
-        },
-      });
-      await qc.invalidateQueries({ queryKey: ["videos"] });
-      close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function onDelete(id: string) {
