@@ -135,7 +135,7 @@ export const logVacuumEvent = createServerFn({ method: "POST" })
       .object({
         clientId: z.string().uuid(),
         eventType: z.string().trim().min(1).max(60),
-        metadata: z.record(z.string(), z.any()).optional(),
+        metadata: z.any().optional(),
       })
       .parse(i),
   )
