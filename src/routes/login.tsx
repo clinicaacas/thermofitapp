@@ -112,8 +112,8 @@ function LoginPage() {
 
             <button
               type="submit"
-              className="h-12 w-full rounded-md text-[15px] font-semibold text-white transition-colors hover:bg-[#1D4FD8]"
-              style={{ background: "#2563EB" }}
+              className="h-12 w-full rounded-md text-[15px] font-semibold text-white transition-colors hover:bg-[#151A22] active:bg-black disabled:bg-[#9CA3AF]"
+              style={{ background: "#0B0F14" }}
             >
               Entrar
             </button>
