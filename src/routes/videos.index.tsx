@@ -1,16 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Pencil, X, Video } from "lucide-react";
+import { Plus, Trash2, Pencil, X } from "lucide-react";
 import {
   listVideos,
   saveVideo,
   deleteVideo,
+  getMyTenantId,
 } from "@/lib/thermofit-content.functions";
+import { VideoThumbnail } from "@/components/video-thumbnail";
+import {
+  VideoThumbnailPicker,
+  type ThumbState,
+} from "@/components/video-thumbnail-picker";
 
 export const Route = createFileRoute("/videos/")({
   head: () => ({ meta: [{ title: "Vídeos — ThermoFit" }] }),
@@ -23,19 +29,18 @@ type V = {
   description: string;
   url: string;
   thumbnailUrl: string;
+  thumbnailStorageKey: string;
+  thumbnailSource: ThumbState["source"];
   durationSeconds: number;
   category: string;
   status: string;
-};
-
-const empty: Omit<V, "id"> = {
-  title: "",
-  description: "",
-  url: "",
-  thumbnailUrl: "",
-  durationSeconds: 0,
-  category: "geral",
-  status: "ativo",
+  videoType: string;
+  releaseDay: number | null;
+  phase: string;
+  milesOnComplete: number;
+  minCompletionPct: number;
+  fileName: string;
+  storageKey: string;
 };
 
 function Page() {
@@ -43,35 +48,65 @@ function Page() {
   const fetchAll = useServerFn(listVideos);
   const save = useServerFn(saveVideo);
   const remove = useServerFn(deleteVideo);
+  const getTenant = useServerFn(getMyTenantId);
   const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: () => fetchAll() });
   const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<V, "id">>(empty);
+  const [editing, setEditing] = useState<V | null>(null);
+  const [form, setForm] = useState<Partial<V>>({});
+  const [thumb, setThumb] = useState<ThumbState>({ url: "", storageKey: "", source: "none" });
+  const [tenantId, setTenantId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function openNew() {
-    setEditingId(null);
-    setForm(empty);
-    setError(null);
-    setOpen(true);
-  }
+  useEffect(() => {
+    getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
+  }, [getTenant]);
+
   function openEdit(v: V) {
-    setEditingId(v.id);
+    setEditing(v);
     setForm({ ...v });
+    setThumb({
+      url: v.thumbnailUrl ?? "",
+      storageKey: v.thumbnailStorageKey ?? "",
+      source: (v.thumbnailSource as ThumbState["source"]) ?? "none",
+    });
     setError(null);
     setOpen(true);
   }
   function close() {
     setOpen(false);
+    setEditing(null);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!editing) return;
     setSaving(true);
     setError(null);
     try {
-      await save({ data: { id: editingId ?? undefined, patch: form as any } });
+      await save({
+        data: {
+          id: editing.id,
+          patch: {
+            title: form.title ?? editing.title,
+            description: form.description ?? "",
+            url: form.url ?? "",
+            thumbnailUrl: thumb.source === "youtube" || !thumb.storageKey ? thumb.url : "",
+            thumbnailStorageKey: thumb.storageKey,
+            thumbnailSource: thumb.source,
+            durationSeconds: Number(form.durationSeconds) || 0,
+            category: form.category ?? "geral",
+            status: (form.status as "ativo" | "rascunho" | "arquivado") ?? "ativo",
+            videoType: (form.videoType as any) ?? "manha",
+            releaseDay: form.releaseDay == null ? null : Number(form.releaseDay),
+            phase: form.phase ?? "",
+            milesOnComplete: Number(form.milesOnComplete) || 0,
+            minCompletionPct: Number(form.minCompletionPct) || 90,
+            fileName: form.fileName ?? "",
+            storageKey: form.storageKey ?? "",
+          },
+        },
+      });
       await qc.invalidateQueries({ queryKey: ["videos"] });
       close();
     } catch (err) {
@@ -125,55 +160,106 @@ function Page() {
           {videos.map((v) => {
             const source = sourceOf(v);
             return (
-            <div key={v.id} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                  <Video className="h-5 w-5" />
+              <div key={v.id} className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="aspect-video w-full">
+                  <VideoThumbnail src={v.thumbnailUrl} alt={v.title} className="h-full w-full rounded-none" />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="p-4">
                   <div className="truncate text-sm font-semibold text-foreground">{v.title}</div>
-                  <div className="text-xs text-muted-foreground">{v.category} • {source} • {v.status}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {v.category} • {source} • {v.status}
+                  </div>
+                  {v.description && (
+                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{v.description}</p>
+                  )}
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button
+                      onClick={() => openEdit(v)}
+                      className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent"
+                    >
+                      <Pencil className="h-3 w-3" /> Editar
+                    </button>
+                    <button
+                      onClick={() => onDelete(v.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" /> Excluir
+                    </button>
+                  </div>
                 </div>
               </div>
-              {v.description && (
-                <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">{v.description}</p>
-              )}
-              <div className="mt-3 flex justify-end gap-2">
-                <button onClick={() => openEdit(v)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
-                  <Pencil className="h-3 w-3" /> Editar
-                </button>
-                <button onClick={() => onDelete(v.id)} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
-                  <Trash2 className="h-3 w-3" /> Excluir
-                </button>
-              </div>
-            </div>
             );
           })}
         </div>
       </div>
 
-      {open && (
-        <Dialog onClose={close} title={editingId ? "Editar vídeo" : "Novo vídeo"}>
+      {open && editing && (
+        <Dialog onClose={close} title="Editar vídeo">
           <form onSubmit={onSubmit} className="space-y-4">
             <Field label="Título *">
-              <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </Field>
-            <Field label="URL do vídeo">
-              <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." />
+              <Input
+                required
+                value={form.title ?? ""}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Categoria">
-                <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+              <Field label="Tipo">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={form.videoType ?? "manha"}
+                  onChange={(e) => setForm({ ...form, videoType: e.target.value })}
+                >
+                  <option value="manha">Manhã</option>
+                  <option value="noite">Noite</option>
+                  <option value="audio">Áudio</option>
+                  <option value="mensagem_especial">Mensagem especial</option>
+                  <option value="educativo">Educativo</option>
+                  <option value="motivacional">Motivacional</option>
+                </select>
               </Field>
-              <Field label="Duração (s)">
-                <Input type="number" min={0} value={form.durationSeconds} onChange={(e) => setForm({ ...form, durationSeconds: Number(e.target.value) || 0 })} />
+              <Field label="Categoria">
+                <Input
+                  value={form.category ?? ""}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                />
               </Field>
             </div>
+            <Field label="URL do vídeo">
+              <Input
+                value={form.url ?? ""}
+                onChange={(e) => setForm({ ...form, url: e.target.value })}
+                placeholder="https://..."
+              />
+            </Field>
             <Field label="Descrição">
-              <textarea className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <textarea
+                className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm"
+                value={form.description ?? ""}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </Field>
+            <Field label="Capa do vídeo">
+              {tenantId ? (
+                <VideoThumbnailPicker
+                  value={thumb}
+                  onChange={setThumb}
+                  tenantId={tenantId}
+                  videoIdHint={editing.id}
+                  youtubeUrl={
+                    form.url && /youtube\.com|youtu\.be/i.test(form.url) ? form.url : undefined
+                  }
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando…</p>
+              )}
             </Field>
             <Field label="Status">
-              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.status ?? "ativo"}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
                 <option value="ativo">Ativo</option>
                 <option value="rascunho">Rascunho</option>
                 <option value="arquivado">Arquivado</option>
@@ -181,8 +267,18 @@ function Page() {
             </Field>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={close} className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">Cancelar</button>
-              <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
                 {saving ? "Salvando…" : "Salvar"}
               </button>
             </div>
@@ -202,10 +298,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Dialog({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
+function Dialog({
+  children,
+  title,
+  onClose,
+}: {
+  children: React.ReactNode;
+  title: string;
+  onClose: () => void;
+}) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-lg bg-card p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-card p-5 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
