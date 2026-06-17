@@ -370,6 +370,26 @@ function Page() {
               </Field>
             )}
 
+            <Field label="Capa do vídeo">
+              {tenantId ? (
+                <VideoThumbnailPicker
+                  value={thumb}
+                  onChange={setThumb}
+                  tenantId={tenantId}
+                  videoFile={form.sourceType === "upload" ? file : null}
+                  youtubeUrl={form.sourceType === "youtube" ? form.externalUrl.trim() : undefined}
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando…</p>
+              )}
+              {form.sourceType === "external_link" && !thumb.url && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Para vídeos do Google Drive ou links externos, envie uma imagem de capa para melhorar a visualização no app.
+                </p>
+              )}
+            </Field>
+
+
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-emerald-600">{success}</p>}
 
