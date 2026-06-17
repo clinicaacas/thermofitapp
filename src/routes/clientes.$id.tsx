@@ -169,9 +169,14 @@ function Page() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
+            <button
+              type="button"
+              onClick={openEdit}
+              className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+            >
               <Edit className="h-4 w-4" /> Editar
             </button>
+
             <button className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
               <KeyRound className="h-4 w-4" /> Reset senha
             </button>
