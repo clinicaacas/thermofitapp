@@ -128,12 +128,12 @@ export function VideoThumbnailPicker({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-input bg-background p-3">
+    <div className="space-y-2 rounded-lg border border-input bg-background p-2.5">
       <div className="flex gap-3">
-        <div className="aspect-video w-40 shrink-0">
+        <div className="aspect-video w-32 shrink-0">
           <VideoThumbnail src={previewUrl ?? ""} className="h-full w-full" />
         </div>
-        <div className="flex flex-1 flex-wrap items-start gap-2">
+        <div className="flex flex-1 flex-wrap items-start gap-1.5">
           <button
             type="button"
             onClick={() => {
@@ -150,7 +150,7 @@ export function VideoThumbnailPicker({
               onClick={onUseYoutube}
               className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
             >
-              <Sparkles className="h-3 w-3" /> Usar capa do YouTube
+              <Sparkles className="h-3 w-3" /> YouTube
             </button>
           )}
           {(value.url || value.storageKey) && (
@@ -159,15 +159,15 @@ export function VideoThumbnailPicker({
               onClick={onClear}
               className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
             >
-              <Trash2 className="h-3 w-3" /> Remover capa
+              <Trash2 className="h-3 w-3" /> Remover
             </button>
           )}
-          <p className="w-full text-[11px] text-muted-foreground">
-            Capa em 16:9 (JPG, PNG ou WebP, até 5MB). Use "Editar capa" para recortar, dar zoom
-            ou capturar um frame do vídeo.
+          <p className="w-full text-[11px] leading-snug text-muted-foreground">
+            16:9 (JPG/PNG/WebP, até 5MB). Recorte, zoom ou frame do vídeo.
           </p>
         </div>
       </div>
+
       {busy && <p className="text-xs text-muted-foreground">{busy}</p>}
       {err && <p className="text-xs text-red-600">{err}</p>}
 

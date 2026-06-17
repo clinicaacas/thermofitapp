@@ -245,7 +245,7 @@ export function VideoForm({
         </h2>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Field label="Título *" error={errors.title}>
           <Input
             value={form.title}
@@ -326,10 +326,11 @@ export function VideoForm({
 
         <Field label="Descrição">
           <Textarea
-            rows={4}
+            rows={3}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Contexto ou instrução para a cliente"
+            className="min-h-[72px]"
           />
         </Field>
 
@@ -361,23 +362,29 @@ export function VideoForm({
         {form.sourceType === "upload" && (
           <div>
             <Label className="mb-1.5 block text-xs font-medium">Arquivo de vídeo</Label>
-            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background/40 px-6 py-10 text-center">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-                <UploadCloud className="h-6 w-6" />
+            <div className="flex items-center gap-3 rounded-lg border-2 border-dashed border-border bg-background/40 px-4 py-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                <UploadCloud className="h-5 w-5" />
               </div>
-              <div className="text-sm text-muted-foreground">
-                {file
-                  ? `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`
-                  : existingFileName
-                    ? `Atual: ${existingFileName}`
-                    : "Selecione o arquivo de vídeo"}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs text-muted-foreground">
+                  {file
+                    ? `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`
+                    : existingFileName
+                      ? `Atual: ${existingFileName}`
+                      : "Selecione o arquivo de vídeo"}
+                </div>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  MP4, MOV, WEBM ou M4V.{" "}
+                  {uploadPct !== null && `Enviando… ${uploadPct}%`}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+                className="shrink-0 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
               >
-                {existingStorageKey ? "Substituir arquivo" : "Escolher arquivo"}
+                {existingStorageKey ? "Substituir" : "Escolher"}
               </button>
               <input
                 ref={fileRef}
@@ -386,14 +393,11 @@ export function VideoForm({
                 className="hidden"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
-              <p className="text-xs text-muted-foreground">
-                MP4, MOV, WEBM ou M4V.{" "}
-                {uploadPct !== null && `Enviando… ${uploadPct}%`}
-              </p>
             </div>
             {errors.file && <p className="mt-1 text-xs text-red-600">{errors.file}</p>}
           </div>
         )}
+
 
         {form.sourceType === "youtube" && (
           <Field label="URL do YouTube *" error={errors.externalUrl}>
