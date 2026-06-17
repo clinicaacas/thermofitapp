@@ -1,7 +1,7 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { getVacuumDataForClient, logVacuumEvent } from "@/lib/thermofit-vacuum.functions";
 import { Play, ChevronLeft, ChevronRight, CheckCircle2, Image as ImageIcon } from "lucide-react";
@@ -11,13 +11,20 @@ export const Route = createFileRoute("/app/vacuum")({
   component: Page,
 });
 
+const FIFTEEN_MIN = 15 * 60 * 1000;
+
 function Page() {
   const { clientId } = useSearch({ from: "/app/vacuum" });
   const fetchData = useServerFn(getVacuumDataForClient);
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["vacuum-client", clientId],
     queryFn: () => fetchData({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: FIFTEEN_MIN,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    placeholderData: keepPreviousData,
   });
 
   const [tab, setTab] = useState<"praticar" | "guia">("praticar");
@@ -28,6 +35,24 @@ function Page() {
   const titleSecond = s?.title_second ?? "Ativa";
   const subtitle = s?.subtitle ?? "Core de dentro pra fora — protocolo completo";
 
+  // Preload all guide images + exercise thumbs once data arrives (background)
+  useEffect(() => {
+    if (!data) return;
+    const urls: string[] = [];
+    for (const p of data.pages ?? []) if (p.image_signed_url) urls.push(p.image_signed_url);
+    for (const e of data.exercises ?? []) if (e.thumbnail_signed_url) urls.push(e.thumbnail_signed_url);
+    const schedule =
+      (typeof window !== "undefined" && (window as any).requestIdleCallback) ||
+      ((cb: () => void) => setTimeout(cb, 1));
+    schedule(() => {
+      for (const u of urls) {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = u;
+      }
+    });
+  }, [data]);
+
   return (
     <ClientAppShell>
       <div className="space-y-4">
@@ -36,8 +61,7 @@ function Page() {
             {eyebrow}
           </p>
           <h1 className="mt-1 text-3xl font-bold leading-tight" style={{ color: "#1F2933" }}>
-            {titleFirst}{" "}
-            <span style={{ color: "#C9A24A" }}>{titleSecond}</span>
+            {titleFirst} <span style={{ color: "#C9A24A" }}>{titleSecond}</span>
           </h1>
           <p className="mt-1 text-xs" style={{ color: "#6B7280" }}>
             {subtitle}
@@ -49,11 +73,13 @@ function Page() {
           <TabButton active={tab === "guia"} onClick={() => setTab("guia")} label={s?.guide_tab_label ?? "Guia Completo"} />
         </div>
 
-        {tab === "praticar" ? (
-          <Practice data={data} clientId={clientId} />
-        ) : (
-          <Guide data={data} onSkip={() => setTab("praticar")} />
-        )}
+        {/* Mount both, keep one hidden, to avoid remount/refetch when switching */}
+        <div hidden={tab !== "praticar"}>
+          <Practice data={data} clientId={clientId} loading={isLoading} />
+        </div>
+        <div hidden={tab !== "guia"}>
+          <Guide data={data} onSkip={() => setTab("praticar")} loading={isLoading} />
+        </div>
       </div>
     </ClientAppShell>
   );
@@ -64,17 +90,26 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       onClick={onClick}
       className="flex-1 rounded-full py-2 text-sm font-medium transition"
-      style={{
-        background: active ? "#8A6A3D" : "transparent",
-        color: active ? "#FFFFFF" : "#5C4528",
-      }}
+      style={{ background: active ? "#8A6A3D" : "transparent", color: active ? "#FFFFFF" : "#5C4528" }}
     >
       {label}
     </button>
   );
 }
 
-function Practice({ data, clientId }: { data: any; clientId: string }) {
+function ExerciseSkeleton() {
+  return (
+    <li className="flex items-center gap-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
+      <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl" style={{ background: "#F3E8D2" }} />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="h-3 w-2/3 animate-pulse rounded" style={{ background: "#F3E8D2" }} />
+        <div className="h-2 w-1/2 animate-pulse rounded" style={{ background: "#F3E8D2" }} />
+      </div>
+    </li>
+  );
+}
+
+function Practice({ data, clientId, loading }: { data: any; clientId: string; loading: boolean }) {
   const qc = useQueryClient();
   const log = useServerFn(logVacuumEvent);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -105,71 +140,68 @@ function Practice({ data, clientId }: { data: any; clientId: string }) {
               {s?.card_subtitle ?? "5 exercícios · 3 séries cada"}
             </p>
           </div>
-          <span
-            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ background: "#C9A24A", color: "#3D2E1C" }}
-          >
+          <span className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "#C9A24A", color: "#3D2E1C" }}>
             {s?.estimated_time ?? "~10 min"}
           </span>
         </div>
       </div>
 
       <ul className="space-y-2">
-        {exercises.map((ex: any, i: number) => (
-          <li
-            key={ex.id}
-            className="flex items-center gap-3 rounded-2xl bg-white p-3"
-            style={{ border: "1px solid #E5D6BD" }}
-          >
-            <div
-              className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl"
-              style={{ background: "#F3E8D2" }}
-            >
-              {ex.thumbnail_signed_url ? (
-                <img
-                  src={ex.thumbnail_signed_url}
-                  alt={ex.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <ImageIcon className="h-5 w-5" style={{ color: "#8A6A3D" }} />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-                {ex.name}
-              </p>
-              <p className="text-xs" style={{ color: "#6B7280" }}>
-                {[ex.short_description, ex.prescription_text].filter(Boolean).join(" · ")}
-              </p>
-            </div>
-            <span
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold"
-              style={{ background: "#F3E8D2", color: "#8A6A3D" }}
-            >
-              {i + 1}
-            </span>
-          </li>
-        ))}
-        {exercises.length === 0 && (
+        {loading && exercises.length === 0 ? (
+          <>
+            <ExerciseSkeleton />
+            <ExerciseSkeleton />
+            <ExerciseSkeleton />
+            <ExerciseSkeleton />
+            <ExerciseSkeleton />
+          </>
+        ) : exercises.length === 0 ? (
           <li className="rounded-2xl bg-white p-4 text-center text-xs" style={{ color: "#6B7280", border: "1px solid #E5D6BD" }}>
             Nenhum exercício configurado.
           </li>
+        ) : (
+          exercises.map((ex: any, i: number) => (
+            <li key={ex.id} className="flex items-center gap-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
+              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl" style={{ background: "#F3E8D2" }}>
+                {ex.thumbnail_signed_url ? (
+                  <img
+                    src={ex.thumbnail_signed_url}
+                    alt={ex.name}
+                    width={48}
+                    height={48}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="h-5 w-5" style={{ color: "#8A6A3D" }} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                  {ex.name}
+                </p>
+                <p className="text-xs" style={{ color: "#6B7280" }}>
+                  {[ex.short_description, ex.prescription_text].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
+                {i + 1}
+              </span>
+            </li>
+          ))
         )}
       </ul>
 
       {feedback && (
-        <div
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
-          style={{ background: "#E8F5E9", color: "#1B5E20" }}
-        >
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm" style={{ background: "#E8F5E9", color: "#1B5E20" }}>
           <CheckCircle2 className="h-4 w-4" /> {feedback}
         </div>
       )}
 
       <button
         onClick={() => startMut.mutate()}
-        disabled={startMut.isPending}
+        disabled={startMut.isPending || loading}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold disabled:opacity-60"
         style={{ background: "#8A6A3D", color: "#FFFFFF" }}
       >
@@ -179,7 +211,7 @@ function Practice({ data, clientId }: { data: any; clientId: string }) {
   );
 }
 
-function Guide({ data, onSkip }: { data: any; onSkip: () => void }) {
+function Guide({ data, onSkip, loading }: { data: any; onSkip: () => void; loading: boolean }) {
   const pages = data?.pages ?? [];
   const s = data?.settings;
   const [idx, setIdx] = useState(0);
@@ -187,6 +219,45 @@ function Guide({ data, onSkip }: { data: any; onSkip: () => void }) {
   const current = pages[idx];
   const isLast = idx === total - 1;
   const pct = total > 0 ? ((idx + 1) / total) * 100 : 0;
+
+  // Track per-image natural ratio to avoid forcing every page into 3/4.
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const ratio = current?.image_signed_url ? ratios[current.image_signed_url] : undefined;
+
+  // Track which urls have finished loading (for skeleton + button enabling)
+  const loadedRef = useRef<Set<string>>(new Set());
+  const [, forceRerender] = useState(0);
+  const currentLoaded = current?.image_signed_url ? loadedRef.current.has(current.image_signed_url) : false;
+
+  // Preload neighbors aggressively when idx changes
+  useEffect(() => {
+    const neighbors = [pages[idx + 1]?.image_signed_url, pages[idx - 1]?.image_signed_url].filter(Boolean) as string[];
+    for (const u of neighbors) {
+      if (loadedRef.current.has(u)) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => {
+        loadedRef.current.add(u);
+      };
+      img.src = u;
+    }
+  }, [idx, pages]);
+
+  const containerStyle = useMemo<React.CSSProperties>(() => {
+    // Use intrinsic ratio when known; otherwise fall back to a portrait default.
+    const ar = ratio && ratio > 0 ? ratio : 3 / 4;
+    return { aspectRatio: `${ar}`, background: "#F8F1E6" };
+  }, [ratio]);
+
+  if (loading && total === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="h-3 w-1/3 animate-pulse rounded" style={{ background: "#F3E8D2" }} />
+        <div className="h-1.5 w-full animate-pulse rounded-full" style={{ background: "#F3E8D2" }} />
+        <div className="w-full animate-pulse rounded-2xl" style={{ aspectRatio: "3/4", background: "#F3E8D2" }} />
+      </div>
+    );
+  }
 
   if (total === 0) {
     return (
@@ -216,23 +287,36 @@ function Guide({ data, onSkip }: { data: any; onSkip: () => void }) {
       </div>
 
       <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: "#C9A24A" }}
-        />
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
 
-      <div
-        className="overflow-hidden rounded-2xl bg-white"
-        style={{ border: "1px solid #E5D6BD" }}
-      >
-        <div className="grid aspect-[3/4] w-full place-items-center" style={{ background: "#F8F1E6" }}>
+      <div className="overflow-hidden rounded-2xl bg-white" style={{ border: "1px solid #E5D6BD" }}>
+        <div className="relative grid w-full place-items-center" style={containerStyle}>
           {current?.image_signed_url ? (
-            <img
-              src={current.image_signed_url}
-              alt={current.alt_text || current.title}
-              className="h-full w-full object-contain"
-            />
+            <>
+              {!currentLoaded && (
+                <div className="absolute inset-0 animate-pulse" style={{ background: "#F3E8D2" }} />
+              )}
+              <img
+                key={current.image_signed_url}
+                src={current.image_signed_url}
+                alt={current.alt_text || current.title}
+                decoding="async"
+                {...({ fetchpriority: "high" } as any)}
+                className="relative h-full w-full object-contain"
+                style={{ maxWidth: "100%", height: "auto" }}
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  const url = current.image_signed_url as string;
+                  loadedRef.current.add(url);
+                  if (el.naturalWidth && el.naturalHeight) {
+                    const ar = el.naturalWidth / el.naturalHeight;
+                    setRatios((r) => (r[url] === ar ? r : { ...r, [url]: ar }));
+                  }
+                  forceRerender((n) => n + 1);
+                }}
+              />
+            </>
           ) : (
             <div className="p-6 text-center text-xs" style={{ color: "#6B7280" }}>
               <ImageIcon className="mx-auto mb-2 h-8 w-8" style={{ color: "#C9A24A" }} />
@@ -268,10 +352,7 @@ function Guide({ data, onSkip }: { data: any; onSkip: () => void }) {
             onClick={() => setIdx(i)}
             aria-label={`Página ${i + 1}`}
             className="h-2 rounded-full transition-all"
-            style={{
-              width: i === idx ? 18 : 8,
-              background: i === idx ? "#C9A24A" : "#E5D6BD",
-            }}
+            style={{ width: i === idx ? 18 : 8, background: i === idx ? "#C9A24A" : "#E5D6BD" }}
           />
         ))}
       </div>
