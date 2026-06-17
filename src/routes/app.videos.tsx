@@ -4,7 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { listClientVideos, getClientVideoPlayback } from "@/lib/thermofit-client-app.functions";
-import { PlayCircle, X, Clock } from "lucide-react";
+import { X, Clock } from "lucide-react";
+import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
+
 
 export const Route = createFileRoute("/app/videos")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -33,10 +35,6 @@ function youtubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-function youtubeThumb(url: string): string | null {
-  const id = youtubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-}
 
 function fmtDuration(sec: number): string {
   if (!sec) return "—";
@@ -113,18 +111,10 @@ function Page() {
                   onClick={() => setOpenId(v.id)}
                   className="flex w-full items-center gap-3 rounded-xl border border-[#E5D6BD] bg-white p-3 text-left transition hover:border-[#8A6A3D]"
                 >
-                  <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-[#F3E8D2]">
-                    {thumb ? (
-                      <img src={thumb} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-[#8A6A3D]">
-                        <PlayCircle className="h-7 w-7" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 grid place-items-center bg-black/20">
-                      <PlayCircle className="h-7 w-7 text-white drop-shadow" />
-                    </div>
+                  <div className="h-16 w-24 shrink-0">
+                    <VideoThumbnail src={thumb ?? ""} alt={v.title} className="h-full w-full" />
                   </div>
+
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-[#3D2E1C]">{v.title}</p>
                     <p className="mt-0.5 text-xs capitalize text-[#7A6A52]">{v.category || "geral"}</p>

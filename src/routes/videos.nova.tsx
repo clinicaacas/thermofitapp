@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, UploadCloud, Video } from "lucide-react";
 import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  VideoThumbnailPicker,
+  type ThumbState,
+} from "@/components/video-thumbnail-picker";
+import { youtubeThumb } from "@/components/video-thumbnail";
+
 
 export const Route = createFileRoute("/videos/nova")({
   head: () => ({ meta: [{ title: "Adicionar vídeo — ThermoFit" }] }),
@@ -55,6 +61,23 @@ function Page() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [tenantId, setTenantId] = useState<string>("");
+  const [thumb, setThumb] = useState<ThumbState>({ url: "", storageKey: "", source: "none" });
+
+  useEffect(() => {
+    getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
+  }, [getTenant]);
+
+  // Auto-set youtube thumbnail when URL changes and no manual thumb set
+  useEffect(() => {
+    if (form.sourceType !== "youtube") return;
+    if (thumb.source !== "none" && thumb.source !== "youtube") return;
+    const t = youtubeThumb(form.externalUrl.trim());
+    if (t && t !== thumb.url) {
+      setThumb({ url: t, storageKey: "", source: "youtube" });
+    }
+  }, [form.sourceType, form.externalUrl]);
+
 
   function validate() {
     const e: Record<string, string> = {};
@@ -121,7 +144,9 @@ function Page() {
             title: form.title,
             description: form.description,
             url: publicUrl,
-            thumbnailUrl: "",
+            thumbnailUrl: thumb.source === "youtube" ? thumb.url : (thumb.storageKey ? "" : thumb.url),
+            thumbnailStorageKey: thumb.storageKey,
+            thumbnailSource: thumb.source,
             durationSeconds: 0,
             category: form.videoType,
             status: "ativo",
@@ -344,6 +369,26 @@ function Page() {
                 )}
               </Field>
             )}
+
+            <Field label="Capa do vídeo">
+              {tenantId ? (
+                <VideoThumbnailPicker
+                  value={thumb}
+                  onChange={setThumb}
+                  tenantId={tenantId}
+                  videoFile={form.sourceType === "upload" ? file : null}
+                  youtubeUrl={form.sourceType === "youtube" ? form.externalUrl.trim() : undefined}
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando…</p>
+              )}
+              {form.sourceType === "external_link" && !thumb.url && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Para vídeos do Google Drive ou links externos, envie uma imagem de capa para melhorar a visualização no app.
+                </p>
+              )}
+            </Field>
+
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-emerald-600">{success}</p>}

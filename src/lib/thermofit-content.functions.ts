@@ -53,6 +53,10 @@ const videoSchema = z.object({
   description: z.string().trim().max(2000).default(""),
   url: z.string().trim().max(500).default(""),
   thumbnailUrl: z.string().trim().max(500).default(""),
+  thumbnailStorageKey: z.string().trim().max(500).default(""),
+  thumbnailSource: z
+    .enum(["auto_video_frame", "manual_upload", "youtube", "external_default", "none"])
+    .default("none"),
   durationSeconds: z.number().int().min(0).max(86400).default(0),
   category: z.string().trim().max(60).default("geral"),
   status: z.enum(["ativo", "rascunho", "arquivado"]).default("ativo"),
@@ -67,13 +71,17 @@ const videoSchema = z.object({
   storageKey: z.string().trim().max(500).default(""),
 });
 
-function mapVideo(row: any) {
+
+function mapVideo(row: any, signedThumb?: string | null) {
+  const storedThumb = row.thumbnail_storage_key ?? "";
   return {
     id: row.id,
     title: row.title,
     description: row.description ?? "",
     url: row.url ?? "",
-    thumbnailUrl: row.thumbnail_url ?? "",
+    thumbnailUrl: signedThumb ?? row.thumbnail_url ?? "",
+    thumbnailStorageKey: storedThumb,
+    thumbnailSource: row.thumbnail_source ?? "none",
     durationSeconds: row.duration_seconds ?? 0,
     category: row.category ?? "geral",
     status: row.status,
@@ -88,6 +96,12 @@ function mapVideo(row: any) {
   };
 }
 
+async function signThumb(supabase: any, key: string | null | undefined): Promise<string | null> {
+  if (!key) return null;
+  const { data } = await supabase.storage.from("video-thumbnails").createSignedUrl(key, 3600);
+  return data?.signedUrl ?? null;
+}
+
 export const listVideos = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -98,8 +112,15 @@ export const listVideos = createServerFn({ method: "GET" })
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return { videos: (data ?? []).map(mapVideo) };
+    const rows = data ?? [];
+    const signed = await Promise.all(
+      rows.map((r: any) =>
+        r.thumbnail_storage_key ? signThumb(context.supabase, r.thumbnail_storage_key) : Promise.resolve(null),
+      ),
+    );
+    return { videos: rows.map((r: any, i: number) => mapVideo(r, signed[i])) };
   });
+
 
 export const saveVideo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -114,6 +135,8 @@ export const saveVideo = createServerFn({ method: "POST" })
       description: data.patch.description,
       url: data.patch.url,
       thumbnail_url: data.patch.thumbnailUrl,
+      thumbnail_storage_key: data.patch.thumbnailStorageKey || null,
+      thumbnail_source: data.patch.thumbnailSource,
       duration_seconds: data.patch.durationSeconds,
       category: data.patch.category,
       status: data.patch.status,
@@ -125,6 +148,7 @@ export const saveVideo = createServerFn({ method: "POST" })
       file_name: data.patch.fileName,
       storage_key: data.patch.storageKey,
     };
+
     if (data.id) {
       const { data: row, error } = await context.supabase
         .from("videos")
@@ -135,7 +159,8 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.update", "video", row.id, {});
-      return { video: mapVideo(row) };
+      const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
+      return { video: mapVideo(row, sig) };
     } else {
       const { data: row, error } = await context.supabase
         .from("videos")
@@ -144,8 +169,10 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.create", "video", row.id, {});
-      return { video: mapVideo(row) };
+      const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
+      return { video: mapVideo(row, sig) };
     }
+
   });
 
 export const deleteVideo = createServerFn({ method: "POST" })

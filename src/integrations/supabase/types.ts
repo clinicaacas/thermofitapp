@@ -1532,6 +1532,8 @@ export type Database = {
           status: string
           storage_key: string | null
           tenant_id: string
+          thumbnail_source: string | null
+          thumbnail_storage_key: string | null
           thumbnail_url: string
           title: string
           updated_at: string
@@ -1553,6 +1555,8 @@ export type Database = {
           status?: string
           storage_key?: string | null
           tenant_id: string
+          thumbnail_source?: string | null
+          thumbnail_storage_key?: string | null
           thumbnail_url?: string
           title: string
           updated_at?: string
@@ -1574,6 +1578,8 @@ export type Database = {
           status?: string
           storage_key?: string | null
           tenant_id?: string
+          thumbnail_source?: string | null
+          thumbnail_storage_key?: string | null
           thumbnail_url?: string
           title?: string
           updated_at?: string
