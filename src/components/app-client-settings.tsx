@@ -171,6 +171,10 @@ export function AppClientSettingsTab() {
         </CardContent>
       </Card>
 
+      <AdminVacuumSettings />
+
+
+
       <div className="flex items-center justify-end gap-3">
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
