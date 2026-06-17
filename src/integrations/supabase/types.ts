@@ -1532,8 +1532,11 @@ export type Database = {
           status: string
           storage_key: string | null
           tenant_id: string
+          thumbnail_crop_data: Json | null
+          thumbnail_frame_time: number | null
           thumbnail_source: string | null
           thumbnail_storage_key: string | null
+          thumbnail_updated_at: string | null
           thumbnail_url: string
           title: string
           updated_at: string
@@ -1555,8 +1558,11 @@ export type Database = {
           status?: string
           storage_key?: string | null
           tenant_id: string
+          thumbnail_crop_data?: Json | null
+          thumbnail_frame_time?: number | null
           thumbnail_source?: string | null
           thumbnail_storage_key?: string | null
+          thumbnail_updated_at?: string | null
           thumbnail_url?: string
           title: string
           updated_at?: string
@@ -1578,8 +1584,11 @@ export type Database = {
           status?: string
           storage_key?: string | null
           tenant_id?: string
+          thumbnail_crop_data?: Json | null
+          thumbnail_frame_time?: number | null
           thumbnail_source?: string | null
           thumbnail_storage_key?: string | null
+          thumbnail_updated_at?: string | null
           thumbnail_url?: string
           title?: string
           updated_at?: string
