@@ -128,113 +128,20 @@ function Page() {
         </div>
       </div>
 
-      {open && editing && (
+      {editing && (
         <Dialog onClose={close} title="Editar vídeo">
-          <form onSubmit={onSubmit} className="space-y-4">
-            <Field label="Título *">
-              <Input
-                required
-                value={form.title ?? ""}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Tipo">
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={form.videoType ?? "manha"}
-                  onChange={(e) => setForm({ ...form, videoType: e.target.value })}
-                >
-                  <option value="manha">Manhã</option>
-                  <option value="noite">Noite</option>
-                  <option value="audio">Áudio</option>
-                  <option value="mensagem_especial">Mensagem especial</option>
-                  <option value="educativo">Educativo</option>
-                  <option value="motivacional">Motivacional</option>
-                </select>
-              </Field>
-              <Field label="Categoria">
-                <Input
-                  value={form.category ?? ""}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                />
-              </Field>
-            </div>
-            <Field label="URL do vídeo">
-              <Input
-                value={form.url ?? ""}
-                onChange={(e) => setForm({ ...form, url: e.target.value })}
-                placeholder="https://..."
-              />
-            </Field>
-            <Field label="Descrição">
-              <textarea
-                className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm"
-                value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </Field>
-            <Field label="Capa do vídeo">
-              {tenantId ? (
-                <VideoThumbnailPicker
-                  value={thumb}
-                  onChange={setThumb}
-                  tenantId={tenantId}
-                  videoIdHint={editing.id}
-                  videoSrcUrl={
-                    form.url && !/youtube\.com|youtu\.be|drive\.google\.com/i.test(form.url)
-                      ? form.url
-                      : undefined
-                  }
-                  youtubeUrl={
-                    form.url && /youtube\.com|youtu\.be/i.test(form.url) ? form.url : undefined
-                  }
-                />
-              ) : (
-                <p className="text-xs text-muted-foreground">Carregando…</p>
-              )}
-            </Field>
-            <Field label="Status">
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.status ?? "ativo"}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                <option value="ativo">Ativo</option>
-                <option value="rascunho">Rascunho</option>
-                <option value="arquivado">Arquivado</option>
-              </select>
-            </Field>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={close}
-                className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                {saving ? "Salvando…" : "Salvar"}
-              </button>
-            </div>
-          </form>
+          <VideoForm
+            mode="edit"
+            initial={editing as VideoFormInitial}
+            onCancel={close}
+            onSuccess={async () => {
+              await qc.invalidateQueries({ queryKey: ["videos"] });
+              close();
+            }}
+          />
         </Dialog>
       )}
     </AppShell>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}</Label>
-      {children}
-    </div>
   );
 }
 
@@ -253,7 +160,7 @@ function Dialog({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-card p-5 shadow-lg"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-card p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -268,7 +175,7 @@ function Dialog({
   );
 }
 
-function sourceOf(v: any): string {
+function sourceOf(v: V): string {
   if (v.storageKey) return "Upload";
   const url: string = v.url ?? "";
   if (/youtube\.com|youtu\.be/i.test(url)) return "YouTube";
@@ -276,3 +183,4 @@ function sourceOf(v: any): string {
   if (url) return "Link externo";
   return "—";
 }
+
