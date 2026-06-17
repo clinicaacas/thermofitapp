@@ -99,6 +99,40 @@ function Page() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["client", id] }),
   });
 
+  const updateClientFn = useServerFn(updateClient);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const updateMut = useMutation({
+    mutationFn: (patch: any) => updateClientFn({ data: { id, patch } }),
+    onSuccess: () => {
+      setEditOpen(false);
+      setEditError(null);
+      qc.invalidateQueries({ queryKey: ["client", id] });
+    },
+    onError: (e: any) => setEditError(e?.message ?? "Falha ao salvar."),
+  });
+
+  function openEdit() {
+    const cli = (data as any)?.client;
+    if (!cli) return;
+    setEditForm({
+      name: cli.name ?? "",
+      email: cli.email ?? "",
+      phone: cli.phone ?? "",
+      birthDate: cli.birthDate ?? "",
+      startDate: cli.startDate ?? "",
+      plan: cli.plan ?? "",
+      goal: cli.goal ?? "",
+      complaint: cli.complaint ?? "",
+      clinicalNotes: cli.clinicalNotes ?? "",
+      hydrationGoalMl: cli.hydrationGoalMl ?? 2000,
+      status: cli.status ?? "ativo",
+    });
+    setEditError(null);
+    setEditOpen(true);
+  }
+
 
   if (isLoading) {
     return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
