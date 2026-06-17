@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { Plane } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
@@ -23,14 +24,15 @@ function LoginPage() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen w-full px-4 py-10 sm:py-16" style={{ background: "#F3EFE6" }}>
+    <div className="min-h-screen w-full px-4 py-10 sm:py-16" style={{ background: "#F4EDE1" }}>
       <div className="mx-auto flex w-full max-w-[520px] flex-col items-center">
         {/* Logo */}
         <div
-          className="grid h-16 w-16 place-items-center text-white"
-          style={{ background: "#0B111A", borderRadius: 15 }}
+          className="grid h-16 w-16 sm:h-[72px] sm:w-[72px] place-items-center text-white"
+          style={{ background: "#0B0F14", borderRadius: 18 }}
+          aria-label="ThermoFit Acas"
         >
-          <span className="text-[20px] font-bold tracking-wide">ACAS</span>
+          <Plane className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={2} color="#FFFFFF" />
         </div>
 
         {/* Titles */}
@@ -110,8 +112,8 @@ function LoginPage() {
 
             <button
               type="submit"
-              className="h-12 w-full rounded-md text-[15px] font-semibold text-white transition-colors hover:bg-[#1D4FD8]"
-              style={{ background: "#2563EB" }}
+              className="h-12 w-full rounded-md text-[15px] font-semibold text-white transition-colors hover:bg-[#151A22] active:bg-black disabled:bg-[#9CA3AF]"
+              style={{ background: "#0B0F14" }}
             >
               Entrar
             </button>
