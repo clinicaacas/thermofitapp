@@ -13,7 +13,7 @@ import {
   FileText,
   ShieldCheck,
   Settings,
-  Flame,
+  Plane,
   LogOut,
 } from "lucide-react";
 
@@ -52,8 +52,8 @@ export function AppSidebar() {
     <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Brand */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-foreground text-background">
-          <Flame className="h-5 w-5" />
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white" style={{ background: "#0B0F14" }}>
+          <Plane className="h-5 w-5" color="#FFFFFF" />
         </div>
         <div className="min-w-0">
           <div className="text-sm font-semibold leading-tight">{tenant.systemName}</div>
