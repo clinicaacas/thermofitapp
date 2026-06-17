@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, UploadCloud, Video } from "lucide-react";
 import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  VideoThumbnailPicker,
+  type ThumbState,
+} from "@/components/video-thumbnail-picker";
+import { youtubeThumb } from "@/components/video-thumbnail";
+
 
 export const Route = createFileRoute("/videos/nova")({
   head: () => ({ meta: [{ title: "Adicionar vídeo — ThermoFit" }] }),
