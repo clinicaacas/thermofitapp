@@ -1,333 +1,288 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
-import {
-  logVacuumSession,
-  listVacuumSessions,
-} from "@/lib/thermofit-client-app.functions";
-import { Activity, Play, Pause, RotateCcw, CheckCircle2 } from "lucide-react";
+import { getVacuumDataForClient, logVacuumEvent } from "@/lib/thermofit-vacuum.functions";
+import { Play, ChevronLeft, ChevronRight, CheckCircle2, Image as ImageIcon } from "lucide-react";
 
 export const Route = createFileRoute("/app/vacuum")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
   component: Page,
 });
 
-type Phase = { key: "inhale" | "exhale" | "hold" | "rest"; label: string; seconds: number };
-
-const ROUND_OPTIONS = [5, 8, 10];
-const HOLD_OPTIONS = [10, 15, 20];
-
-function buildSequence(holdSec: number): Phase[] {
-  return [
-    { key: "inhale", label: "Inspire pelo nariz", seconds: 4 },
-    { key: "exhale", label: "Solte todo o ar", seconds: 4 },
-    { key: "hold", label: "Contraia o abdômen", seconds: holdSec },
-    { key: "rest", label: "Respire e relaxe", seconds: 6 },
-  ];
-}
-
 function Page() {
   const { clientId } = useSearch({ from: "/app/vacuum" });
-  const qc = useQueryClient();
-  const log = useServerFn(logVacuumSession);
-  const fetchSessions = useServerFn(listVacuumSessions);
-
-  const [tab, setTab] = useState<"praticar" | "guia">("praticar");
+  const fetchData = useServerFn(getVacuumDataForClient);
   const { data } = useQuery({
-    queryKey: ["client-vacuum", clientId],
-    queryFn: () => fetchSessions({ data: { clientId } }),
+    queryKey: ["vacuum-client", clientId],
+    queryFn: () => fetchData({ data: { clientId } }),
     enabled: !!clientId,
   });
 
-  const logMut = useMutation({
-    mutationFn: (vars: { rounds: number; totalSeconds: number }) =>
-      log({ data: { clientId, rounds: vars.rounds, totalSeconds: vars.totalSeconds } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["client-vacuum", clientId] }),
-  });
+  const [tab, setTab] = useState<"praticar" | "guia">("praticar");
+
+  const s = data?.settings;
+  const eyebrow = s?.eyebrow ?? "MÉTODO THERMOFIT";
+  const titleFirst = s?.title_first ?? "Cintura";
+  const titleSecond = s?.title_second ?? "Ativa";
+  const subtitle = s?.subtitle ?? "Core de dentro pra fora — protocolo completo";
 
   return (
-    <ClientAppShell title="Cintura Ativa" subtitle="Core de dentro pra fora">
+    <ClientAppShell>
       <div className="space-y-4">
-        <div className="flex rounded-full border border-[#E5D6BD] bg-white p-1">
-          {(["praticar", "guia"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 rounded-full py-2 text-sm font-medium capitalize transition ${
-                tab === t ? "bg-[#8A6A3D] text-white" : "text-[#5C4528]"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="pt-1">
+          <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: "#8A6A3D" }}>
+            {eyebrow}
+          </p>
+          <h1 className="mt-1 text-3xl font-bold leading-tight" style={{ color: "#1F2933" }}>
+            {titleFirst}{" "}
+            <span style={{ color: "#C9A24A" }}>{titleSecond}</span>
+          </h1>
+          <p className="mt-1 text-xs" style={{ color: "#6B7280" }}>
+            {subtitle}
+          </p>
+        </div>
+
+        <div className="flex rounded-full border p-1" style={{ borderColor: "#E5D6BD", background: "#FFFFFF" }}>
+          <TabButton active={tab === "praticar"} onClick={() => setTab("praticar")} label={s?.practice_tab_label ?? "Praticar"} />
+          <TabButton active={tab === "guia"} onClick={() => setTab("guia")} label={s?.guide_tab_label ?? "Guia Completo"} />
         </div>
 
         {tab === "praticar" ? (
-          <Practice
-            onFinish={(rounds, secs) => logMut.mutate({ rounds, totalSeconds: secs })}
-            justSaved={logMut.isSuccess}
-            resetSaved={() => logMut.reset()}
-          />
+          <Practice data={data} clientId={clientId} />
         ) : (
-          <Guide />
+          <Guide data={data} onSkip={() => setTab("praticar")} />
         )}
-
-        <div className="rounded-2xl border border-[#E5D6BD] bg-white p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7A6A52]">
-            Suas sessões
-          </p>
-          <div className="mb-3 grid grid-cols-2 gap-2 text-center">
-            <Stat label="Sessões" value={String(data?.sessions?.length ?? 0)} />
-            <Stat
-              label="Rounds totais"
-              value={String(data?.totalRounds ?? 0)}
-            />
-          </div>
-          {(data?.sessions?.length ?? 0) === 0 ? (
-            <p className="text-sm text-[#7A6A52]">Nenhuma sessão registrada ainda.</p>
-          ) : (
-            <ul className="divide-y divide-[#F3E8D2]">
-              {data!.sessions.map((s: any) => (
-                <li key={s.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="text-[#3D2E1C]">
-                    {s.rounds} rounds · {Math.round(s.total_seconds / 60)} min
-                  </span>
-                  <span className="text-xs text-[#7A6A52]">
-                    {new Date(s.performed_at).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                    })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
     </ClientAppShell>
   );
 }
 
-function Practice({
-  onFinish,
-  justSaved,
-  resetSaved,
-}: {
-  onFinish: (rounds: number, totalSeconds: number) => void;
-  justSaved: boolean;
-  resetSaved: () => void;
-}) {
-  const [rounds, setRounds] = useState(8);
-  const [holdSec, setHoldSec] = useState(15);
-  const [running, setRunning] = useState(false);
-  const [phaseIdx, setPhaseIdx] = useState(0);
-  const [roundIdx, setRoundIdx] = useState(0);
-  const [tick, setTick] = useState(0);
-  const [done, setDone] = useState(false);
-  const startRef = useRef<number | null>(null);
+function TabButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 rounded-full py-2 text-sm font-medium transition"
+      style={{
+        background: active ? "#8A6A3D" : "transparent",
+        color: active ? "#FFFFFF" : "#5C4528",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
-  const sequence = buildSequence(holdSec);
-  const phase = sequence[phaseIdx];
+function Practice({ data, clientId }: { data: any; clientId: string }) {
+  const qc = useQueryClient();
+  const log = useServerFn(logVacuumEvent);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [running]);
+  const startMut = useMutation({
+    mutationFn: () => log({ data: { clientId, eventType: "treino_iniciado" } }),
+    onSuccess: () => {
+      setFeedback("Treino iniciado.");
+      qc.invalidateQueries({ queryKey: ["vacuum-client", clientId] });
+      setTimeout(() => setFeedback(null), 3500);
+    },
+    onError: (e: any) => setFeedback(e?.message ?? "Falha ao registrar."),
+  });
 
-  useEffect(() => {
-    if (!running) return;
-    if (tick < phase.seconds) return;
-    setTick(0);
-    if (phaseIdx < sequence.length - 1) {
-      setPhaseIdx((i) => i + 1);
-    } else if (roundIdx < rounds - 1) {
-      setRoundIdx((r) => r + 1);
-      setPhaseIdx(0);
-    } else {
-      setRunning(false);
-      setDone(true);
-      const elapsed = startRef.current
-        ? Math.round((Date.now() - startRef.current) / 1000)
-        : 0;
-      onFinish(rounds, elapsed);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick]);
-
-  function start() {
-    setDone(false);
-    resetSaved();
-    setPhaseIdx(0);
-    setRoundIdx(0);
-    setTick(0);
-    startRef.current = Date.now();
-    setRunning(true);
-  }
-  function stop() {
-    setRunning(false);
-  }
-  function reset() {
-    setRunning(false);
-    setDone(false);
-    setPhaseIdx(0);
-    setRoundIdx(0);
-    setTick(0);
-    resetSaved();
-  }
-
-  const totalPhase = phase.seconds;
-  const left = Math.max(0, totalPhase - tick);
-  const pct = totalPhase ? (tick / totalPhase) * 100 : 0;
+  const s = data?.settings;
+  const exercises = data?.exercises ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-[#E5D6BD] bg-white p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#7A6A52]">
-            Rounds
-          </p>
-          <div className="flex gap-2">
-            {ROUND_OPTIONS.map((r) => (
-              <button
-                key={r}
-                disabled={running}
-                onClick={() => setRounds(r)}
-                className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${
-                  rounds === r
-                    ? "bg-[#8A6A3D] text-white"
-                    : "border border-[#E5D6BD] bg-white text-[#5C4528]"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+    <div className="space-y-3">
+      <div className="rounded-2xl p-4" style={{ background: "#3D2E1C", color: "#F8F1E6" }}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold tracking-[0.18em]" style={{ color: "#C9A24A" }}>
+              {s?.card_eyebrow ?? "PROTOCOLO COMPLETO"}
+            </p>
+            <h2 className="mt-1 text-lg font-bold">{s?.card_title ?? "Treino Cintura Ativa"}</h2>
+            <p className="mt-0.5 text-xs" style={{ color: "#E5D6BD" }}>
+              {s?.card_subtitle ?? "5 exercícios · 3 séries cada"}
+            </p>
           </div>
-        </div>
-        <div className="rounded-2xl border border-[#E5D6BD] bg-white p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#7A6A52]">
-            Contração (s)
-          </p>
-          <div className="flex gap-2">
-            {HOLD_OPTIONS.map((h) => (
-              <button
-                key={h}
-                disabled={running}
-                onClick={() => setHoldSec(h)}
-                className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${
-                  holdSec === h
-                    ? "bg-[#8A6A3D] text-white"
-                    : "border border-[#E5D6BD] bg-white text-[#5C4528]"
-                }`}
-              >
-                {h}
-              </button>
-            ))}
-          </div>
+          <span
+            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+            style={{ background: "#C9A24A", color: "#3D2E1C" }}
+          >
+            {s?.estimated_time ?? "~10 min"}
+          </span>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[#E5D6BD] bg-gradient-to-br from-[#F8F1E6] to-[#F3E8D2] p-6 text-center">
-        <div className="relative mx-auto h-48 w-48">
-          <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-            <circle cx="50" cy="50" r="46" fill="none" stroke="#E5D6BD" strokeWidth="4" />
-            <circle
-              cx="50"
-              cy="50"
-              r="46"
-              fill="none"
-              stroke="#8A6A3D"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={2 * Math.PI * 46}
-              strokeDashoffset={2 * Math.PI * 46 * (1 - pct / 100)}
-              className="transition-all duration-1000 ease-linear"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <Activity className="h-6 w-6 text-[#8A6A3D]" />
-            <p className="mt-1 text-4xl font-bold text-[#3D2E1C]">{left}</p>
-            <p className="text-[10px] uppercase tracking-wide text-[#7A6A52]">segundos</p>
-          </div>
-        </div>
-        <p className="mt-4 text-base font-semibold text-[#3D2E1C]">{phase.label}</p>
-        <p className="text-xs text-[#7A6A52]">
-          Round {roundIdx + 1} de {rounds}
-        </p>
-      </div>
+      <ul className="space-y-2">
+        {exercises.map((ex: any, i: number) => (
+          <li
+            key={ex.id}
+            className="flex items-center gap-3 rounded-2xl bg-white p-3"
+            style={{ border: "1px solid #E5D6BD" }}
+          >
+            <div
+              className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl"
+              style={{ background: "#F3E8D2" }}
+            >
+              {ex.thumbnail_signed_url ? (
+                <img
+                  src={ex.thumbnail_signed_url}
+                  alt={ex.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <ImageIcon className="h-5 w-5" style={{ color: "#8A6A3D" }} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                {ex.name}
+              </p>
+              <p className="text-xs" style={{ color: "#6B7280" }}>
+                {[ex.short_description, ex.prescription_text].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            <span
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold"
+              style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+            >
+              {i + 1}
+            </span>
+          </li>
+        ))}
+        {exercises.length === 0 && (
+          <li className="rounded-2xl bg-white p-4 text-center text-xs" style={{ color: "#6B7280", border: "1px solid #E5D6BD" }}>
+            Nenhum exercício configurado.
+          </li>
+        )}
+      </ul>
 
-      {done && justSaved && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-          <CheckCircle2 className="h-4 w-4" /> Sessão registrada!
+      {feedback && (
+        <div
+          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+          style={{ background: "#E8F5E9", color: "#1B5E20" }}
+        >
+          <CheckCircle2 className="h-4 w-4" /> {feedback}
         </div>
       )}
 
+      <button
+        onClick={() => startMut.mutate()}
+        disabled={startMut.isPending}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold disabled:opacity-60"
+        style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+      >
+        <Play className="h-4 w-4" /> {startMut.isPending ? "Registrando…" : (s?.button_text ?? "Começar Treino")}
+      </button>
+    </div>
+  );
+}
+
+function Guide({ data, onSkip }: { data: any; onSkip: () => void }) {
+  const pages = data?.pages ?? [];
+  const s = data?.settings;
+  const [idx, setIdx] = useState(0);
+  const total = pages.length;
+  const current = pages[idx];
+  const isLast = idx === total - 1;
+  const pct = total > 0 ? ((idx + 1) / total) * 100 : 0;
+
+  if (total === 0) {
+    return (
+      <div className="rounded-2xl bg-white p-4 text-center text-sm" style={{ color: "#6B7280", border: "1px solid #E5D6BD" }}>
+        Guia ainda não publicado.
+      </div>
+    );
+  }
+
+  function next() {
+    if (isLast) onSkip();
+    else setIdx((i) => Math.min(total - 1, i + 1));
+  }
+  function prev() {
+    setIdx((i) => Math.max(0, i - 1));
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold" style={{ color: "#3D2E1C" }}>
+          {current?.title}
+        </span>
+        <span style={{ color: "#6B7280" }}>
+          {idx + 1} / {total}
+        </span>
+      </div>
+
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, background: "#C9A24A" }}
+        />
+      </div>
+
+      <div
+        className="overflow-hidden rounded-2xl bg-white"
+        style={{ border: "1px solid #E5D6BD" }}
+      >
+        <div className="grid aspect-[3/4] w-full place-items-center" style={{ background: "#F8F1E6" }}>
+          {current?.image_signed_url ? (
+            <img
+              src={current.image_signed_url}
+              alt={current.alt_text || current.title}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <div className="p-6 text-center text-xs" style={{ color: "#6B7280" }}>
+              <ImageIcon className="mx-auto mb-2 h-8 w-8" style={{ color: "#C9A24A" }} />
+              Imagem ainda não publicada para esta página.
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex gap-2">
-        {!running ? (
-          <button
-            onClick={start}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#8A6A3D] py-3 text-sm font-semibold text-white"
-          >
-            <Play className="h-4 w-4" /> {done ? "Praticar de novo" : "Começar"}
-          </button>
-        ) : (
-          <button
-            onClick={stop}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-[#8A6A3D] py-3 text-sm font-semibold text-[#5C4528]"
-          >
-            <Pause className="h-4 w-4" /> Pausar
-          </button>
-        )}
         <button
-          onClick={reset}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E5D6BD] bg-white px-4 py-3 text-sm font-semibold text-[#5C4528]"
+          onClick={prev}
+          disabled={idx === 0}
+          className="inline-flex flex-1 items-center justify-center gap-1 rounded-full border py-2.5 text-sm font-semibold disabled:opacity-40"
+          style={{ borderColor: "#E5D6BD", color: "#5C4528", background: "#FFFFFF" }}
         >
-          <RotateCcw className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" /> Anterior
+        </button>
+        <button
+          onClick={next}
+          className="inline-flex flex-1 items-center justify-center gap-1 rounded-full py-2.5 text-sm font-semibold"
+          style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+        >
+          {isLast ? (s?.finish_guide_text ?? "Começar a Praticar") : "Próximo"}
+          {!isLast && <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
-    </div>
-  );
-}
 
-function Guide() {
-  const steps = [
-    "Em pé ou em quatro apoios, coluna alinhada e ombros relaxados.",
-    "Inspire profundamente pelo nariz, expandindo a barriga.",
-    "Solte todo o ar pela boca, esvaziando totalmente os pulmões.",
-    "Em apneia (sem ar), puxe o umbigo em direção à coluna e segure.",
-    "Mantenha a contração pelo tempo escolhido — sem prender com força.",
-    "Solte, respire normalmente e descanse antes do próximo round.",
-  ];
-  return (
-    <div className="rounded-2xl border border-[#E5D6BD] bg-white p-4">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#7A6A52]">
-        Como praticar
-      </p>
-      <ol className="space-y-3">
-        {steps.map((s, i) => (
-          <li key={i} className="flex gap-3 text-sm text-[#3D2E1C]">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#8A6A3D] text-xs font-bold text-white">
-              {i + 1}
-            </span>
-            <span>{s}</span>
-          </li>
+      <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+        {pages.map((_: any, i: number) => (
+          <button
+            key={i}
+            onClick={() => setIdx(i)}
+            aria-label={`Página ${i + 1}`}
+            className="h-2 rounded-full transition-all"
+            style={{
+              width: i === idx ? 18 : 8,
+              background: i === idx ? "#C9A24A" : "#E5D6BD",
+            }}
+          />
         ))}
-      </ol>
-      <p className="mt-4 rounded-lg bg-[#F8F1E6] p-3 text-xs text-[#5C4528]">
-        Dica: pratique em jejum, ou no mínimo 2h após comer. Comece com 5 rounds de 10s e
-        evolua aos poucos.
-      </p>
-    </div>
-  );
-}
+      </div>
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-[#F8F1E6] p-2">
-      <p className="text-lg font-bold text-[#3D2E1C]">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-[#7A6A52]">{label}</p>
+      <button
+        onClick={onSkip}
+        className="block w-full pt-1 text-center text-xs underline-offset-2 hover:underline"
+        style={{ color: "#8A6A3D" }}
+      >
+        {s?.skip_guide_text ?? "Pular guia e ir direto para a prática"}
+      </button>
     </div>
   );
 }
