@@ -15,6 +15,7 @@ import {
   saveAppModules,
   saveQuickTopics,
 } from "@/lib/thermofit-app-settings.functions";
+import { AdminVacuumSettings } from "@/components/admin-vacuum-settings";
 
 export function AppClientSettingsTab() {
   const fetchAll = useServerFn(getAppSettings);
