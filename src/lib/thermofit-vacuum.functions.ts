@@ -211,9 +211,7 @@ export const logExerciseCompletion = createServerFn({ method: "POST" })
     return { ok: true, alreadyCompletedToday: false, milesAwarded: ex.miles_reward ?? 0 };
   });
 
-    if (error) throw error;
-    return { ok: true };
-  });
+
 
 // ============ ADMIN (auth + manager) ============
 
