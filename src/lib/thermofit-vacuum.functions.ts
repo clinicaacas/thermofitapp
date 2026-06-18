@@ -391,10 +391,14 @@ export const adminUploadVacuumAsset = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerManagerTenant(context);
     const file = data.file as File;
-    if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
-    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
-      throw new Error("Envie JPG, PNG ou WebP.");
-    }
+    const isExerciseMedia = data.folder === "exercise-media";
+    const maxSize = isExerciseMedia ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) throw new Error("Arquivo muito grande.");
+    const okType = isExerciseMedia
+      ? /^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm|quicktime)|application\/json)$/i.test(file.type)
+      : /^image\/(png|jpe?g|webp)$/i.test(file.type);
+    if (!okType) throw new Error(isExerciseMedia ? "Envie GIF, MP4, WebM, JPG, PNG ou WebP." : "Envie JPG, PNG ou WebP.");
+
     const admin = await getAdmin();
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
     const key = `${tenantId}/${data.folder}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
