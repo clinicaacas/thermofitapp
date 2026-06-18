@@ -27,8 +27,17 @@ type Exercise = {
   prescription_text: string | null;
   thumbnail_url: string | null;
   thumbnail_signed_url: string | null;
+  media_url: string | null;
+  media_signed_url: string | null;
+  media_type: string | null;
+  instruction_text: string | null;
+  duration_seconds: number | null;
+  sets: number | null;
+  reps: number | null;
+  miles_reward: number | null;
   status: string;
 };
+
 
 type Page = {
   id: string;
