@@ -164,6 +164,13 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
           short_description: row.short_description,
           prescription_text: row.prescription_text,
           thumbnail_url: row.thumbnail_url,
+          media_url: row.media_url,
+          media_type: (row.media_type as any) || null,
+          instruction_text: row.instruction_text,
+          duration_seconds: row.duration_seconds ?? 60,
+          sets: row.sets ?? 3,
+          reps: row.reps ?? null,
+          miles_reward: row.miles_reward ?? 0,
           status: row.status as "ativo" | "inativo",
         },
       });
@@ -173,6 +180,7 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       setStatus(e?.message ?? "Falha ao salvar.");
     }
   }
+
 
   async function move(idx: number, dir: -1 | 1) {
     const j = idx + dir;
