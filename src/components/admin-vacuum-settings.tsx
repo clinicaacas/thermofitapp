@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUp, ArrowDown, Trash2, Upload, Plus, Image as ImageIcon } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Upload, Plus, Image as ImageIcon, Sparkles } from "lucide-react";
 import {
   adminGetVacuumData,
   adminSaveVacuumSettings,
@@ -17,7 +17,9 @@ import {
   adminUpsertGuidePage,
   adminReorderGuidePages,
   adminUploadVacuumAsset,
+  adminGenerateExerciseMedia,
 } from "@/lib/thermofit-vacuum.functions";
+
 
 type Exercise = {
   id: string;
