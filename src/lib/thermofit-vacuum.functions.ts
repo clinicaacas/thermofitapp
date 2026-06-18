@@ -410,3 +410,77 @@ export const adminUploadVacuumAsset = createServerFn({ method: "POST" })
     const { data: signed } = await admin.storage.from("vacuum-assets").createSignedUrl(key, 3600);
     return { storageKey: key, signedUrl: signed?.signedUrl ?? null };
   });
+
+export const adminGenerateExerciseMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        exerciseId: z.string().uuid(),
+        promptOverride: z.string().trim().max(800).optional().nullable(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerManagerTenant(context);
+    const admin = await getAdmin();
+
+    const { data: ex, error: exErr } = await admin
+      .from("vacuum_exercises")
+      .select("id, name, short_description, instruction_text")
+      .eq("id", data.exerciseId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    if (!ex) throw new Error("Exercício não encontrado.");
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY não configurada.");
+
+    const basePrompt =
+      data.promptOverride?.trim() ||
+      `Ilustração de referência fitness, estilo clean e moderno, fundo neutro claro, figura humana realizando o exercício "${ex.name}". ${ex.short_description ?? ""} ${ex.instruction_text ?? ""}. Pose clara, vista lateral, sem texto, sem marca d'água, foco na execução correta do movimento.`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        prompt: basePrompt,
+        size: "1024x1024",
+        n: 1,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      if (res.status === 429) throw new Error("Limite de uso de IA atingido. Tente novamente em instantes.");
+      if (res.status === 402) throw new Error("Créditos de IA esgotados. Adicione créditos no workspace.");
+      throw new Error(`Falha ao gerar animação (${res.status}). ${text.slice(0, 200)}`);
+    }
+
+    const payload = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+    const b64 = payload?.data?.[0]?.b64_json;
+    if (!b64) throw new Error("A IA não retornou imagem.");
+
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const key = `${tenantId}/exercise-media/${Date.now()}-${crypto.randomUUID()}.png`;
+    const { error: upErr } = await admin.storage
+      .from("vacuum-assets")
+      .upload(key, bin, { contentType: "image/png", upsert: false });
+    if (upErr) throw upErr;
+
+    const { error: updErr } = await admin
+      .from("vacuum_exercises")
+      .update({ media_url: key, media_type: "image" })
+      .eq("id", ex.id)
+      .eq("tenant_id", tenantId);
+    if (updErr) throw updErr;
+
+    const { data: signed } = await admin.storage.from("vacuum-assets").createSignedUrl(key, 3600);
+    return { storageKey: key, signedUrl: signed?.signedUrl ?? null, mediaType: "image" as const };
+  });
+

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUp, ArrowDown, Trash2, Upload, Plus, Image as ImageIcon } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Upload, Plus, Image as ImageIcon, Sparkles } from "lucide-react";
 import {
   adminGetVacuumData,
   adminSaveVacuumSettings,
@@ -17,7 +17,9 @@ import {
   adminUpsertGuidePage,
   adminReorderGuidePages,
   adminUploadVacuumAsset,
+  adminGenerateExerciseMedia,
 } from "@/lib/thermofit-vacuum.functions";
+
 
 type Exercise = {
   id: string;
@@ -145,8 +147,11 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
   const del = useServerFn(adminDeleteExercise);
   const reorder = useServerFn(adminReorderExercises);
   const upload = useServerFn(adminUploadVacuumAsset);
+  const generate = useServerFn(adminGenerateExerciseMedia);
   const [list, setList] = useState<Exercise[]>(exercises);
   const [status, setStatus] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
 
   useEffect(() => setList(exercises), [exercises]);
 
@@ -252,6 +257,25 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
     }
   }
 
+  async function generateMedia(idx: number) {
+    const row = list[idx];
+    if (!row.id) return;
+    setGeneratingId(row.id);
+    setStatus("Gerando animação com IA…");
+    try {
+      const res = await generate({ data: { exerciseId: row.id } });
+      update(idx, { media_url: res.storageKey, media_type: "image", media_signed_url: res.signedUrl });
+      setStatus("Animação gerada e salva.");
+      onChanged();
+    } catch (e: any) {
+      setStatus(e?.message ?? "Falha ao gerar animação.");
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
+
+
 
   return (
     <Card>
@@ -329,6 +353,17 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 type={row.media_type}
                 onPick={(file) => pickMedia(idx, file)}
               />
+              <Button
+                size="sm"
+                variant="outline"
+                className="sm:col-span-2 gap-2"
+                onClick={() => generateMedia(idx)}
+                disabled={generatingId === row.id}
+              >
+                <Sparkles className="h-4 w-4" />
+                {generatingId === row.id ? "Gerando…" : "Gerar animação com IA"}
+              </Button>
+
               <label className="flex items-center gap-2 text-xs">
                 <Switch
                   checked={row.status === "ativo"}
