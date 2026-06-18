@@ -288,6 +288,47 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 value={row.short_description ?? ""}
                 onChange={(e) => update(idx, { short_description: e.target.value })}
               />
+              <Textarea
+                className="sm:col-span-2 min-h-[60px] text-xs"
+                placeholder="Instrução para execução guiada (ex.: Inspire pelo nariz por 4s, expire pela boca por 6s.)"
+                value={row.instruction_text ?? ""}
+                onChange={(e) => update(idx, { instruction_text: e.target.value })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Duração (s)"
+                value={row.duration_seconds ?? 60}
+                onChange={(e) => update(idx, { duration_seconds: Number(e.target.value) || 0 })}
+              />
+              <Input
+                type="number"
+                min={1}
+                placeholder="Séries"
+                value={row.sets ?? 3}
+                onChange={(e) => update(idx, { sets: Number(e.target.value) || 1 })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Repetições (opcional)"
+                value={row.reps ?? ""}
+                onChange={(e) =>
+                  update(idx, { reps: e.target.value === "" ? null : Number(e.target.value) })
+                }
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Milhas ao concluir"
+                value={row.miles_reward ?? 0}
+                onChange={(e) => update(idx, { miles_reward: Number(e.target.value) || 0 })}
+              />
+              <MediaPicker
+                url={row.media_signed_url}
+                type={row.media_type}
+                onPick={(file) => pickMedia(idx, file)}
+              />
               <label className="flex items-center gap-2 text-xs">
                 <Switch
                   checked={row.status === "ativo"}
@@ -296,6 +337,7 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 Ativo
               </label>
             </div>
+
             <div className="flex flex-col gap-1">
               <Button size="icon" variant="ghost" onClick={() => move(idx, -1)} disabled={idx === 0}>
                 <ArrowUp className="h-4 w-4" />
