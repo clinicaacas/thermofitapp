@@ -238,6 +238,62 @@ export type Database = {
           },
         ]
       }
+      client_exercise_progress: {
+        Row: {
+          client_id: string
+          completed_at: string
+          completion_date: string
+          created_at: string
+          duration_seconds: number
+          exercise_id: string
+          id: string
+          miles_awarded: number
+          module: string
+          started_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string
+          completion_date?: string
+          created_at?: string
+          duration_seconds?: number
+          exercise_id: string
+          id?: string
+          miles_awarded?: number
+          module?: string
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string
+          completion_date?: string
+          created_at?: string
+          duration_seconds?: number
+          exercise_id?: string
+          id?: string
+          miles_awarded?: number
+          module?: string
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_exercise_progress_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_hydration_logs: {
         Row: {
           client_id: string
@@ -617,6 +673,66 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_video_progress: {
+        Row: {
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          is_completed: boolean
+          last_position_seconds: number
+          miles_awarded: number
+          progress_percent: number
+          tenant_id: string
+          updated_at: string
+          video_id: string
+          watched_seconds: number
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          last_position_seconds?: number
+          miles_awarded?: number
+          progress_percent?: number
+          tenant_id: string
+          updated_at?: string
+          video_id: string
+          watched_seconds?: number
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          last_position_seconds?: number
+          miles_awarded?: number
+          progress_percent?: number
+          tenant_id?: string
+          updated_at?: string
+          video_id?: string
+          watched_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_video_progress_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_video_progress_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
             referencedColumns: ["id"]
           },
         ]
@@ -1360,10 +1476,17 @@ export type Database = {
       vacuum_exercises: {
         Row: {
           created_at: string
+          duration_seconds: number
           id: string
+          instruction_text: string | null
+          media_type: string | null
+          media_url: string | null
+          miles_reward: number
           name: string
           order_index: number
           prescription_text: string | null
+          reps: number | null
+          sets: number
           short_description: string | null
           status: string
           tenant_id: string
@@ -1372,10 +1495,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          duration_seconds?: number
           id?: string
+          instruction_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          miles_reward?: number
           name: string
           order_index?: number
           prescription_text?: string | null
+          reps?: number | null
+          sets?: number
           short_description?: string | null
           status?: string
           tenant_id: string
@@ -1384,10 +1514,17 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          duration_seconds?: number
           id?: string
+          instruction_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          miles_reward?: number
           name?: string
           order_index?: number
           prescription_text?: string | null
+          reps?: number | null
+          sets?: number
           short_description?: string | null
           status?: string
           tenant_id?: string
