@@ -152,7 +152,65 @@ export const logVacuumEvent = createServerFn({ method: "POST" })
       client_id: client.id,
       event_type: data.eventType,
       metadata: data.metadata ?? {},
+  });
+
+export const logExerciseCompletion = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        exerciseId: z.string().uuid(),
+        durationSeconds: z.number().int().min(0).max(7200).default(0),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: ex, error: exErr } = await admin
+      .from("vacuum_exercises")
+      .select("id, tenant_id, miles_reward")
+      .eq("id", data.exerciseId)
+      .eq("tenant_id", client.tenant_id)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    if (!ex) throw new Error("Exercício não encontrado.");
+
+    // SP date YYYY-MM-DD
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    const { data: existing } = await admin
+      .from("client_exercise_progress")
+      .select("id")
+      .eq("client_id", client.id)
+      .eq("exercise_id", ex.id)
+      .eq("completion_date", today)
+      .maybeSingle();
+
+    if (existing) {
+      return { ok: true, alreadyCompletedToday: true };
+    }
+
+    const { error } = await admin.from("client_exercise_progress").insert({
+      tenant_id: ex.tenant_id,
+      client_id: client.id,
+      exercise_id: ex.id,
+      module: "vacuum",
+      status: "concluido",
+      completed_at: new Date().toISOString(),
+      duration_seconds: data.durationSeconds,
+      miles_awarded: ex.miles_reward ?? 0,
+      completion_date: today,
     });
+    if (error) throw error;
+    return { ok: true, alreadyCompletedToday: false, milesAwarded: ex.miles_reward ?? 0 };
+  });
+
     if (error) throw error;
     return { ok: true };
   });
