@@ -152,7 +152,11 @@ export const logVacuumEvent = createServerFn({ method: "POST" })
       client_id: client.id,
       event_type: data.eventType,
       metadata: data.metadata ?? {},
+    });
+    if (error) throw error;
+    return { ok: true };
   });
+
 
 export const logExerciseCompletion = createServerFn({ method: "POST" })
   .inputValidator((i) =>
