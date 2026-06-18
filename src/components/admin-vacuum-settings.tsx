@@ -254,6 +254,7 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       await saveRow(row);
     } catch (e: any) {
       setStatus(e?.message ?? "Falha no upload da mídia.");
+    }
   }
 
   async function generateMedia(idx: number) {
@@ -274,7 +275,6 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
   }
 
 
-  }
 
 
   return (
