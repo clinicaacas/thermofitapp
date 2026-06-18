@@ -147,8 +147,11 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
   const del = useServerFn(adminDeleteExercise);
   const reorder = useServerFn(adminReorderExercises);
   const upload = useServerFn(adminUploadVacuumAsset);
+  const generate = useServerFn(adminGenerateExerciseMedia);
   const [list, setList] = useState<Exercise[]>(exercises);
   const [status, setStatus] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
 
   useEffect(() => setList(exercises), [exercises]);
 
