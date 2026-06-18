@@ -112,8 +112,13 @@ async function loadAll(tenantId: string, opts: { onlyActive: boolean }) {
   if (e.error) throw e.error;
   if (p.error) throw p.error;
   const exercises = await Promise.all(
-    (e.data ?? []).map(async (r: any) => ({ ...r, thumbnail_signed_url: await signKey(r.thumbnail_url) })),
+    (e.data ?? []).map(async (r: any) => ({
+      ...r,
+      thumbnail_signed_url: await signKey(r.thumbnail_url),
+      media_signed_url: await signKey(r.media_url),
+    })),
   );
+
   const pages = await Promise.all(
     (p.data ?? []).map(async (r: any) => ({ ...r, image_signed_url: await signKey(r.image_url) })),
   );
