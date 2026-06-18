@@ -112,8 +112,13 @@ async function loadAll(tenantId: string, opts: { onlyActive: boolean }) {
   if (e.error) throw e.error;
   if (p.error) throw p.error;
   const exercises = await Promise.all(
-    (e.data ?? []).map(async (r: any) => ({ ...r, thumbnail_signed_url: await signKey(r.thumbnail_url) })),
+    (e.data ?? []).map(async (r: any) => ({
+      ...r,
+      thumbnail_signed_url: await signKey(r.thumbnail_url),
+      media_signed_url: await signKey(r.media_url),
+    })),
   );
+
   const pages = await Promise.all(
     (p.data ?? []).map(async (r: any) => ({ ...r, image_signed_url: await signKey(r.image_url) })),
   );
@@ -151,6 +156,66 @@ export const logVacuumEvent = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+
+export const logExerciseCompletion = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        exerciseId: z.string().uuid(),
+        durationSeconds: z.number().int().min(0).max(7200).default(0),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: ex, error: exErr } = await admin
+      .from("vacuum_exercises")
+      .select("id, tenant_id, miles_reward")
+      .eq("id", data.exerciseId)
+      .eq("tenant_id", client.tenant_id)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    if (!ex) throw new Error("Exercício não encontrado.");
+
+    // SP date YYYY-MM-DD
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    const { data: existing } = await admin
+      .from("client_exercise_progress")
+      .select("id")
+      .eq("client_id", client.id)
+      .eq("exercise_id", ex.id)
+      .eq("completion_date", today)
+      .maybeSingle();
+
+    if (existing) {
+      return { ok: true, alreadyCompletedToday: true };
+    }
+
+    const { error } = await admin.from("client_exercise_progress").insert({
+      tenant_id: ex.tenant_id,
+      client_id: client.id,
+      exercise_id: ex.id,
+      module: "vacuum",
+      status: "concluido",
+      completed_at: new Date().toISOString(),
+      duration_seconds: data.durationSeconds,
+      miles_awarded: ex.miles_reward ?? 0,
+      completion_date: today,
+    });
+    if (error) throw error;
+    return { ok: true, alreadyCompletedToday: false, milesAwarded: ex.miles_reward ?? 0 };
+  });
+
+
 
 // ============ ADMIN (auth + manager) ============
 
@@ -225,6 +290,13 @@ const exerciseSchema = z.object({
   short_description: z.string().trim().max(120).optional().nullable(),
   prescription_text: z.string().trim().max(80).optional().nullable(),
   thumbnail_url: z.string().trim().max(500).optional().nullable(),
+  media_url: z.string().trim().max(500).optional().nullable(),
+  media_type: z.enum(["gif", "video", "lottie", "image"]).optional().nullable(),
+  instruction_text: z.string().trim().max(500).optional().nullable(),
+  duration_seconds: z.number().int().min(0).max(3600).default(60),
+  sets: z.number().int().min(1).max(20).default(3),
+  reps: z.number().int().min(0).max(1000).optional().nullable(),
+  miles_reward: z.number().int().min(0).max(1000).default(0),
   status: z.enum(["ativo", "inativo"]).default("ativo"),
 });
 
@@ -240,6 +312,7 @@ export const adminUpsertExercise = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
 
 export const adminDeleteExercise = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -318,10 +391,14 @@ export const adminUploadVacuumAsset = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerManagerTenant(context);
     const file = data.file as File;
-    if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
-    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
-      throw new Error("Envie JPG, PNG ou WebP.");
-    }
+    const isExerciseMedia = data.folder === "exercise-media";
+    const maxSize = isExerciseMedia ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) throw new Error("Arquivo muito grande.");
+    const okType = isExerciseMedia
+      ? /^(image\/(png|jpe?g|webp|gif)|video\/(mp4|webm|quicktime)|application\/json)$/i.test(file.type)
+      : /^image\/(png|jpe?g|webp)$/i.test(file.type);
+    if (!okType) throw new Error(isExerciseMedia ? "Envie GIF, MP4, WebM, JPG, PNG ou WebP." : "Envie JPG, PNG ou WebP.");
+
     const admin = await getAdmin();
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
     const key = `${tenantId}/${data.folder}/${Date.now()}-${crypto.randomUUID()}.${ext}`;

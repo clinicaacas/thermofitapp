@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DEFAULT_MODULES, DEFAULT_QUICK_TOPICS } from "./thermofit-app-settings.functions";
+import { getClientJourneyDay } from "./journey";
+
+
 
 
 async function getAdmin() {
@@ -41,15 +44,29 @@ export const listClientVideos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
+    const journeyDay = getClientJourneyDay(client.start_date);
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("videos")
-      .select("id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, miles_on_complete")
+      .select(
+        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, release_day, miles_on_complete, min_completion_pct",
+      )
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
+      .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
-    const list = rows ?? [];
+    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como dia 0)
+    const list = (rows ?? []).filter((r: any) => {
+      const rd = r.release_day == null ? 0 : Number(r.release_day);
+      return rd <= journeyDay;
+    });
+    // Progresso da cliente
+    const { data: progressRows } = await admin
+      .from("client_video_progress")
+      .select("video_id, progress_percent, is_completed, completed_at")
+      .eq("client_id", client.id);
+    const progMap = new Map((progressRows ?? []).map((p: any) => [p.video_id, p]));
     const signed = await Promise.all(
       list.map(async (r: any) => {
         if (!r.thumbnail_storage_key) return r.thumbnail_url ?? "";
@@ -60,9 +77,117 @@ export const listClientVideos = createServerFn({ method: "GET" })
       }),
     );
     return {
-      videos: list.map((r: any, i: number) => ({ ...r, thumbnail_url: signed[i] })),
+      journeyDay,
+      videos: list.map((r: any, i: number) => ({
+        ...r,
+        thumbnail_url: signed[i],
+        progress: progMap.get(r.id) ?? null,
+      })),
     };
   });
+
+export const listTodayVideoMissions = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const journeyDay = getClientJourneyDay(client.start_date);
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("videos")
+      .select(
+        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, miles_on_complete, min_completion_pct, release_day",
+      )
+      .eq("tenant_id", client.tenant_id)
+      .eq("status", "ativo")
+      .eq("release_day", journeyDay);
+    if (error) throw error;
+    const list = rows ?? [];
+    const { data: progressRows } = await admin
+      .from("client_video_progress")
+      .select("video_id, is_completed")
+      .eq("client_id", client.id)
+      .in("video_id", list.map((r: any) => r.id));
+    const doneSet = new Set(
+      (progressRows ?? []).filter((p: any) => p.is_completed).map((p: any) => p.video_id),
+    );
+    const pending = list.filter((r: any) => !doneSet.has(r.id));
+    const signed = await Promise.all(
+      pending.map(async (r: any) => {
+        if (!r.thumbnail_storage_key) return r.thumbnail_url ?? "";
+        const { data: s } = await admin.storage
+          .from("video-thumbnails")
+          .createSignedUrl(r.thumbnail_storage_key, 3600);
+        return s?.signedUrl ?? r.thumbnail_url ?? "";
+      }),
+    );
+    return {
+      journeyDay,
+      missions: pending.map((r: any, i: number) => ({ ...r, thumbnail_url: signed[i] })),
+    };
+  });
+
+export const saveVideoProgress = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        videoId: z.string().uuid(),
+        positionSeconds: z.number().min(0),
+        durationSeconds: z.number().min(0),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const { data: video, error: vErr } = await admin
+      .from("videos")
+      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds")
+      .eq("id", data.videoId)
+      .eq("tenant_id", client.tenant_id)
+      .maybeSingle();
+    if (vErr) throw vErr;
+    if (!video) throw new Error("Vídeo não encontrado.");
+    const duration = Math.max(data.durationSeconds || 0, video.duration_seconds || 0);
+    const position = Math.min(Math.max(0, Math.floor(data.positionSeconds)), Math.max(duration, 1));
+    const pct = duration > 0 ? Math.min(100, Math.round((position / duration) * 100)) : 0;
+    const minPct = video.min_completion_pct ?? 90;
+
+    // Buscar registro existente
+    const { data: existing } = await admin
+      .from("client_video_progress")
+      .select("id, is_completed, watched_seconds")
+      .eq("client_id", client.id)
+      .eq("video_id", video.id)
+      .maybeSingle();
+
+    const alreadyCompleted = !!existing?.is_completed;
+    const shouldComplete = !alreadyCompleted && pct >= minPct;
+    const watched = Math.max(existing?.watched_seconds ?? 0, position);
+
+    const payload: any = {
+      tenant_id: video.tenant_id,
+      client_id: client.id,
+      video_id: video.id,
+      progress_percent: pct,
+      watched_seconds: watched,
+      last_position_seconds: position,
+    };
+    if (shouldComplete) {
+      payload.is_completed = true;
+      payload.completed_at = new Date().toISOString();
+      payload.miles_awarded = video.miles_on_complete ?? 0;
+    }
+
+    const { error: upErr } = await admin
+      .from("client_video_progress")
+      .upsert(payload, { onConflict: "client_id,video_id" });
+    if (upErr) throw upErr;
+
+    return { ok: true, completed: shouldComplete || alreadyCompleted, progressPercent: pct };
+  });
+
+
 
 
 export const getClientVideoPlayback = createServerFn({ method: "GET" })

@@ -27,8 +27,17 @@ type Exercise = {
   prescription_text: string | null;
   thumbnail_url: string | null;
   thumbnail_signed_url: string | null;
+  media_url: string | null;
+  media_signed_url: string | null;
+  media_type: string | null;
+  instruction_text: string | null;
+  duration_seconds: number | null;
+  sets: number | null;
+  reps: number | null;
+  miles_reward: number | null;
   status: string;
 };
+
 
 type Page = {
   id: string;
@@ -155,6 +164,13 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
           short_description: row.short_description,
           prescription_text: row.prescription_text,
           thumbnail_url: row.thumbnail_url,
+          media_url: row.media_url,
+          media_type: (row.media_type as any) || null,
+          instruction_text: row.instruction_text,
+          duration_seconds: row.duration_seconds ?? 60,
+          sets: row.sets ?? 3,
+          reps: row.reps ?? null,
+          miles_reward: row.miles_reward ?? 0,
           status: row.status as "ativo" | "inativo",
         },
       });
@@ -164,6 +180,7 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       setStatus(e?.message ?? "Falha ao salvar.");
     }
   }
+
 
   async function move(idx: number, dir: -1 | 1) {
     const j = idx + dir;
@@ -206,13 +223,35 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       fd.append("folder", "exercises");
       const res = await upload({ data: fd as any });
       update(idx, { thumbnail_url: res.storageKey });
-      // immediate save
       const row = { ...list[idx], thumbnail_url: res.storageKey };
       await saveRow(row);
     } catch (e: any) {
       setStatus(e?.message ?? "Falha no upload.");
     }
   }
+
+  async function pickMedia(idx: number, file: File) {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "exercise-media");
+      const res = await upload({ data: fd as any });
+      const ext = file.name.toLowerCase();
+      const type = ext.endsWith(".gif")
+        ? "gif"
+        : ext.endsWith(".json") || ext.endsWith(".lottie")
+          ? "lottie"
+          : ext.endsWith(".mp4") || ext.endsWith(".webm") || ext.endsWith(".mov")
+            ? "video"
+            : "image";
+      update(idx, { media_url: res.storageKey, media_type: type });
+      const row = { ...list[idx], media_url: res.storageKey, media_type: type };
+      await saveRow(row);
+    } catch (e: any) {
+      setStatus(e?.message ?? "Falha no upload da mídia.");
+    }
+  }
+
 
   return (
     <Card>
@@ -249,6 +288,47 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 value={row.short_description ?? ""}
                 onChange={(e) => update(idx, { short_description: e.target.value })}
               />
+              <Textarea
+                className="sm:col-span-2 min-h-[60px] text-xs"
+                placeholder="Instrução para execução guiada (ex.: Inspire pelo nariz por 4s, expire pela boca por 6s.)"
+                value={row.instruction_text ?? ""}
+                onChange={(e) => update(idx, { instruction_text: e.target.value })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Duração (s)"
+                value={row.duration_seconds ?? 60}
+                onChange={(e) => update(idx, { duration_seconds: Number(e.target.value) || 0 })}
+              />
+              <Input
+                type="number"
+                min={1}
+                placeholder="Séries"
+                value={row.sets ?? 3}
+                onChange={(e) => update(idx, { sets: Number(e.target.value) || 1 })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Repetições (opcional)"
+                value={row.reps ?? ""}
+                onChange={(e) =>
+                  update(idx, { reps: e.target.value === "" ? null : Number(e.target.value) })
+                }
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Milhas ao concluir"
+                value={row.miles_reward ?? 0}
+                onChange={(e) => update(idx, { miles_reward: Number(e.target.value) || 0 })}
+              />
+              <MediaPicker
+                url={row.media_signed_url}
+                type={row.media_type}
+                onPick={(file) => pickMedia(idx, file)}
+              />
               <label className="flex items-center gap-2 text-xs">
                 <Switch
                   checked={row.status === "ativo"}
@@ -257,6 +337,7 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 Ativo
               </label>
             </div>
+
             <div className="flex flex-col gap-1">
               <Button size="icon" variant="ghost" onClick={() => move(idx, -1)} disabled={idx === 0}>
                 <ArrowUp className="h-4 w-4" />
@@ -411,6 +492,51 @@ function ThumbPicker({ url, onPick }: { url: string | null; onPick: (f: File) =>
         }}
       />
     </button>
+  );
+}
+
+function MediaPicker({
+  url,
+  type,
+  onPick,
+}: {
+  url: string | null;
+  type: string | null;
+  onPick: (f: File) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="sm:col-span-2 flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-md border bg-background"
+        title="Subir mídia demonstrativa"
+      >
+        {url && (type === "video" || type === "lottie") ? (
+          <video src={url} className="h-full w-full object-cover" muted loop autoPlay playsInline />
+        ) : url ? (
+          <img src={url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Upload className="h-5 w-5 text-muted-foreground" />
+        )}
+      </button>
+      <div className="text-xs text-muted-foreground">
+        <p className="font-medium">Mídia demonstrativa</p>
+        <p>GIF, WebM, MP4 ou imagem (loop curto).</p>
+      </div>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/gif,image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,.gif,.mp4,.webm,.mov,.json,.lottie"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.currentTarget.value = "";
+        }}
+      />
+    </div>
   );
 }
 

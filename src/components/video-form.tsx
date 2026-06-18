@@ -276,9 +276,10 @@ export function VideoForm({
               inputMode="numeric"
               value={form.releaseDay}
               onChange={(e) => setForm({ ...form, releaseDay: e.target.value })}
-              placeholder="Ex: 1 (desde o início)"
+              placeholder="Ex: 0 para o primeiro dia, 1 para o segundo dia"
             />
           </Field>
+
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
