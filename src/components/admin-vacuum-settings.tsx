@@ -353,6 +353,17 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 type={row.media_type}
                 onPick={(file) => pickMedia(idx, file)}
               />
+              <Button
+                size="sm"
+                variant="outline"
+                className="sm:col-span-2 gap-2"
+                onClick={() => generateMedia(idx)}
+                disabled={generatingId === row.id}
+              >
+                <Sparkles className="h-4 w-4" />
+                {generatingId === row.id ? "Gerando…" : "Gerar animação com IA"}
+              </Button>
+
               <label className="flex items-center gap-2 text-xs">
                 <Switch
                   checked={row.status === "ativo"}
