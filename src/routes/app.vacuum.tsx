@@ -1,10 +1,11 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { getVacuumDataForClient, logVacuumEvent } from "@/lib/thermofit-vacuum.functions";
 import { Play, ChevronLeft, ChevronRight, CheckCircle2, Image as ImageIcon } from "lucide-react";
+
 
 export const Route = createFileRoute("/app/vacuum")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
