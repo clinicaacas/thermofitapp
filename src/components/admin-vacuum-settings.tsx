@@ -254,7 +254,26 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       await saveRow(row);
     } catch (e: any) {
       setStatus(e?.message ?? "Falha no upload da mídia.");
+  }
+
+  async function generateMedia(idx: number) {
+    const row = list[idx];
+    if (!row.id) return;
+    setGeneratingId(row.id);
+    setStatus("Gerando animação com IA…");
+    try {
+      const res = await generate({ data: { exerciseId: row.id } });
+      update(idx, { media_url: res.storageKey, media_type: "image", media_signed_url: res.signedUrl });
+      setStatus("Animação gerada e salva.");
+      onChanged();
+    } catch (e: any) {
+      setStatus(e?.message ?? "Falha ao gerar animação.");
+    } finally {
+      setGeneratingId(null);
     }
+  }
+
+
   }
 
 
