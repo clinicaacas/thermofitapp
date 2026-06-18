@@ -495,6 +495,51 @@ function ThumbPicker({ url, onPick }: { url: string | null; onPick: (f: File) =>
   );
 }
 
+function MediaPicker({
+  url,
+  type,
+  onPick,
+}: {
+  url: string | null;
+  type: string | null;
+  onPick: (f: File) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="sm:col-span-2 flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-md border bg-background"
+        title="Subir mídia demonstrativa"
+      >
+        {url && (type === "video" || type === "lottie") ? (
+          <video src={url} className="h-full w-full object-cover" muted loop autoPlay playsInline />
+        ) : url ? (
+          <img src={url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Upload className="h-5 w-5 text-muted-foreground" />
+        )}
+      </button>
+      <div className="text-xs text-muted-foreground">
+        <p className="font-medium">Mídia demonstrativa</p>
+        <p>GIF, WebM, MP4 ou imagem (loop curto).</p>
+      </div>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/gif,image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,.gif,.mp4,.webm,.mov,.json,.lottie"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.currentTarget.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 function PagePreview({ url, onPick }: { url: string | null; onPick: (f: File) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
