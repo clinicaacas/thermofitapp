@@ -223,13 +223,35 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
       fd.append("folder", "exercises");
       const res = await upload({ data: fd as any });
       update(idx, { thumbnail_url: res.storageKey });
-      // immediate save
       const row = { ...list[idx], thumbnail_url: res.storageKey };
       await saveRow(row);
     } catch (e: any) {
       setStatus(e?.message ?? "Falha no upload.");
     }
   }
+
+  async function pickMedia(idx: number, file: File) {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "exercise-media");
+      const res = await upload({ data: fd as any });
+      const ext = file.name.toLowerCase();
+      const type = ext.endsWith(".gif")
+        ? "gif"
+        : ext.endsWith(".json") || ext.endsWith(".lottie")
+          ? "lottie"
+          : ext.endsWith(".mp4") || ext.endsWith(".webm") || ext.endsWith(".mov")
+            ? "video"
+            : "image";
+      update(idx, { media_url: res.storageKey, media_type: type });
+      const row = { ...list[idx], media_url: res.storageKey, media_type: type };
+      await saveRow(row);
+    } catch (e: any) {
+      setStatus(e?.message ?? "Falha no upload da mídia.");
+    }
+  }
+
 
   return (
     <Card>
