@@ -225,6 +225,13 @@ const exerciseSchema = z.object({
   short_description: z.string().trim().max(120).optional().nullable(),
   prescription_text: z.string().trim().max(80).optional().nullable(),
   thumbnail_url: z.string().trim().max(500).optional().nullable(),
+  media_url: z.string().trim().max(500).optional().nullable(),
+  media_type: z.enum(["gif", "video", "lottie", "image"]).optional().nullable(),
+  instruction_text: z.string().trim().max(500).optional().nullable(),
+  duration_seconds: z.number().int().min(0).max(3600).default(60),
+  sets: z.number().int().min(1).max(20).default(3),
+  reps: z.number().int().min(0).max(1000).optional().nullable(),
+  miles_reward: z.number().int().min(0).max(1000).default(0),
   status: z.enum(["ativo", "inativo"]).default("ativo"),
 });
 
@@ -240,6 +247,7 @@ export const adminUpsertExercise = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
 
 export const adminDeleteExercise = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
