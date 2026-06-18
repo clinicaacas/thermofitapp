@@ -261,11 +261,11 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
     const row = list[idx];
     if (!row.id) return;
     setGeneratingId(row.id);
-    setStatus("Gerando animação com IA…");
+    setStatus("Gerando imagem com IA…");
     try {
       const res = await generate({ data: { exerciseId: row.id } });
       update(idx, { media_url: res.storageKey, media_type: "image", media_signed_url: res.signedUrl });
-      setStatus("Animação gerada e salva.");
+      setStatus("Imagem gerada e salva. Para animação real, envie um GIF/MP4/WebM no campo Mídia demonstrativa.");
       onChanged();
     } catch (e: any) {
       setStatus(e?.message ?? "Falha ao gerar animação.");
@@ -359,9 +359,10 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 className="sm:col-span-2 gap-2"
                 onClick={() => generateMedia(idx)}
                 disabled={generatingId === row.id}
+                title="Gera uma imagem estática de referência. Para animação real, faça upload manual de GIF/MP4/WebM."
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingId === row.id ? "Gerando…" : "Gerar animação com IA"}
+                {generatingId === row.id ? "Gerando…" : "Gerar imagem com IA (estática)"}
               </Button>
 
               <label className="flex items-center gap-2 text-xs">
@@ -557,8 +558,8 @@ function MediaPicker({
         )}
       </button>
       <div className="text-xs text-muted-foreground">
-        <p className="font-medium">Mídia demonstrativa</p>
-        <p>GIF, WebM, MP4 ou imagem (loop curto).</p>
+        <p className="font-medium text-foreground">Mídia demonstrativa</p>
+        <p>Envie um GIF, MP4 ou WebM curto demonstrando o movimento. PNG/JPG será usado apenas como imagem estática.</p>
       </div>
       <input
         ref={ref}
