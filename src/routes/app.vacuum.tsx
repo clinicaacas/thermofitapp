@@ -112,6 +112,7 @@ function ExerciseSkeleton() {
 
 function Practice({ data, clientId, loading }: { data: any; clientId: string; loading: boolean }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const log = useServerFn(logVacuumEvent);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -120,10 +121,11 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
     onSuccess: () => {
       setFeedback("Treino iniciado.");
       qc.invalidateQueries({ queryKey: ["vacuum-client", clientId] });
-      setTimeout(() => setFeedback(null), 3500);
+      navigate({ to: "/app/vacuum/treino", search: { clientId } });
     },
     onError: (e: any) => setFeedback(e?.message ?? "Falha ao registrar."),
   });
+
 
   const s = data?.settings;
   const exercises = data?.exercises ?? [];
