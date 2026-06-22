@@ -215,12 +215,12 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
       )}
 
       <button
-        onClick={() => startMut.mutate()}
-        disabled={startMut.isPending || loading}
+        onClick={() => startProtocol(0)}
+        disabled={loading}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold disabled:opacity-60"
         style={{ background: "#8A6A3D", color: "#FFFFFF" }}
       >
-        <Play className="h-4 w-4" /> {startMut.isPending ? "Registrando…" : (s?.button_text ?? "Começar Treino")}
+        <Play className="h-4 w-4" /> {s?.button_text ?? "Começar Treino"}
       </button>
     </div>
   );
