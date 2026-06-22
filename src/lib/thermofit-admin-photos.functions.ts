@@ -99,7 +99,7 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
     const { data: rows, error } = await admin
       .from("client_progress_photos")
       .select(
-        "id, storage_key, taken_at, week, notes, source, visible_to_client, uploaded_by_user_id, created_at, updated_at",
+        "id, storage_key, taken_at, week, notes, source, visible_to_client, uploaded_by_user_id, created_at, updated_at, journey_id",
       )
       .eq("client_id", client.id)
       .eq("tenant_id", client.tenant_id)
