@@ -44,6 +44,7 @@ import { Route as AppFalarRouteImport } from './routes/app.falar'
 import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
+import { Route as AppVacuumIndexRouteImport } from './routes/app.vacuum.index'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 import { Route as AppVacuumTreinoRouteImport } from './routes/app.vacuum.treino'
 
@@ -222,6 +223,11 @@ const AppAguaRoute = AppAguaRouteImport.update({
   path: '/agua',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVacuumIndexRoute = AppVacuumIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppVacuumRoute,
+} as any)
 const ClientesIdConteudosRoute = ClientesIdConteudosRouteImport.update({
   id: '/conteudos',
   path: '/conteudos',
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -299,7 +306,6 @@ export interface FileRoutesByTo {
   '/app/privacidade': typeof AppPrivacidadeRoute
   '/app/pulso': typeof AppPulsoRoute
   '/app/treino': typeof AppTreinoRoute
-  '/app/vacuum': typeof AppVacuumRouteWithChildren
   '/app/videos': typeof AppVideosRoute
   '/clientes/$id': typeof ClientesIdRouteWithChildren
   '/clientes/nova': typeof ClientesNovaRoute
@@ -309,6 +315,7 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/app/vacuum': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -349,6 +356,7 @@ export interface FileRoutesById {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -390,6 +398,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/app/vacuum/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -418,7 +427,6 @@ export interface FileRouteTypes {
     | '/app/privacidade'
     | '/app/pulso'
     | '/app/treino'
-    | '/app/vacuum'
     | '/app/videos'
     | '/clientes/$id'
     | '/clientes/nova'
@@ -428,6 +436,7 @@ export interface FileRouteTypes {
     | '/videos'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/app/vacuum'
   id:
     | '__root__'
     | '/'
@@ -467,6 +476,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/app/vacuum/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -739,6 +749,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAguaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/vacuum/': {
+      id: '/app/vacuum/'
+      path: '/'
+      fullPath: '/app/vacuum/'
+      preLoaderRoute: typeof AppVacuumIndexRouteImport
+      parentRoute: typeof AppVacuumRoute
+    }
     '/clientes/$id/conteudos': {
       id: '/clientes/$id/conteudos'
       path: '/conteudos'
@@ -758,10 +775,12 @@ declare module '@tanstack/react-router' {
 
 interface AppVacuumRouteChildren {
   AppVacuumTreinoRoute: typeof AppVacuumTreinoRoute
+  AppVacuumIndexRoute: typeof AppVacuumIndexRoute
 }
 
 const AppVacuumRouteChildren: AppVacuumRouteChildren = {
   AppVacuumTreinoRoute: AppVacuumTreinoRoute,
+  AppVacuumIndexRoute: AppVacuumIndexRoute,
 }
 
 const AppVacuumRouteWithChildren = AppVacuumRoute._addFileChildren(

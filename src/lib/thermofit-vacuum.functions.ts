@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -56,6 +57,55 @@ async function loadClient(clientId: string) {
   if (error) throw error;
   if (!data) throw new Error("Cliente não encontrada.");
   return data;
+}
+
+const CLIENT_LOAD_ERROR = "Não foi possível carregar seu treino. Volte ao início e tente novamente.";
+
+async function getAuthenticatedUser(admin: any) {
+  const authHeader = getRequestHeader("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : null;
+  if (!token) return null;
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function resolveVacuumClient(requestedClientId?: string | null) {
+  const admin = await getAdmin();
+  const user = await getAuthenticatedUser(admin);
+  if (!user) throw new Error(CLIENT_LOAD_ERROR);
+
+  const { data: linkedClient, error: linkedErr } = await admin
+    .from("clients")
+    .select("id, tenant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (linkedErr) throw linkedErr;
+  if (linkedClient) return linkedClient;
+
+  if (requestedClientId) {
+    const { data: profile, error: profileErr } = await admin
+      .from("profiles")
+      .select("tenant_id, profile, status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileErr) throw profileErr;
+    const canPreview =
+      profile?.status === "ativo" &&
+      ["super_admin", "dono", "admin"].includes(profile.profile as string);
+    if (canPreview) {
+      const { data: previewClient, error: clientErr } = await admin
+        .from("clients")
+        .select("id, tenant_id")
+        .eq("id", requestedClientId)
+        .eq("tenant_id", profile.tenant_id)
+        .maybeSingle();
+      if (clientErr) throw clientErr;
+      if (previewClient) return previewClient;
+    }
+  }
+
+  throw new Error(CLIENT_LOAD_ERROR);
 }
 
 async function ensureSeed(tenantId: string) {
@@ -128,24 +178,24 @@ async function loadAll(tenantId: string, opts: { onlyActive: boolean }) {
 // ============ CLIENT (public, by clientId) ============
 
 export const getVacuumDataForClient = createServerFn({ method: "GET" })
-  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .inputValidator((i) => z.object({ clientId: z.string().uuid().optional().nullable() }).parse(i ?? {}))
   .handler(async ({ data }) => {
-    const client = await loadClient(data.clientId);
-    return loadAll(client.tenant_id, { onlyActive: true });
+    const client = await resolveVacuumClient(data.clientId);
+    return { ...(await loadAll(client.tenant_id, { onlyActive: true })), resolvedClientId: client.id };
   });
 
 export const logVacuumEvent = createServerFn({ method: "POST" })
   .inputValidator((i) =>
     z
       .object({
-        clientId: z.string().uuid(),
+        clientId: z.string().uuid().optional().nullable(),
         eventType: z.string().trim().min(1).max(60),
         metadata: z.any().optional(),
       })
       .parse(i),
   )
   .handler(async ({ data }) => {
-    const client = await loadClient(data.clientId);
+    const client = await resolveVacuumClient(data.clientId);
     const admin = await getAdmin();
     const { error } = await admin.from("client_vacuum_events").insert({
       tenant_id: client.tenant_id,
@@ -162,14 +212,14 @@ export const logExerciseCompletion = createServerFn({ method: "POST" })
   .inputValidator((i) =>
     z
       .object({
-        clientId: z.string().uuid(),
+        clientId: z.string().uuid().optional().nullable(),
         exerciseId: z.string().uuid(),
         durationSeconds: z.number().int().min(0).max(7200).default(0),
       })
       .parse(i),
   )
   .handler(async ({ data }) => {
-    const client = await loadClient(data.clientId);
+    const client = await resolveVacuumClient(data.clientId);
     const admin = await getAdmin();
     const { data: ex, error: exErr } = await admin
       .from("vacuum_exercises")
