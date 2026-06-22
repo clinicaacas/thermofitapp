@@ -46,6 +46,7 @@ import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 import { Route as AppVacuumTreinoRouteImport } from './routes/app.vacuum.treino'
+import { Route as ApiPublicResetAcassRouteImport } from './routes/api/public/reset-acass'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
   id: '/trocar-senha',
@@ -232,6 +233,11 @@ const AppVacuumTreinoRoute = AppVacuumTreinoRouteImport.update({
   path: '/treino',
   getParentRoute: () => AppVacuumRoute,
 } as any)
+const ApiPublicResetAcassRoute = ApiPublicResetAcassRouteImport.update({
+  id: '/api/public/reset-acass',
+  path: '/api/public/reset-acass',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/api/public/reset-acass': typeof ApiPublicResetAcassRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/videos': typeof VideosIndexRoute
+  '/api/public/reset-acass': typeof ApiPublicResetAcassRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/api/public/reset-acass': typeof ApiPublicResetAcassRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
 }
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/clientes/'
     | '/videos/'
+    | '/api/public/reset-acass'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
   fileRoutesByTo: FileRoutesByTo
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/clientes'
     | '/videos'
+    | '/api/public/reset-acass'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
   id:
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/clientes/'
     | '/videos/'
+    | '/api/public/reset-acass'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
   fileRoutesById: FileRoutesById
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
+  ApiPublicResetAcassRoute: typeof ApiPublicResetAcassRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -753,6 +766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumTreinoRouteImport
       parentRoute: typeof AppVacuumRoute
     }
+    '/api/public/reset-acass': {
+      id: '/api/public/reset-acass'
+      path: '/api/public/reset-acass'
+      fullPath: '/api/public/reset-acass'
+      preLoaderRoute: typeof ApiPublicResetAcassRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -839,17 +859,8 @@ const rootRouteChildren: RootRouteChildren = {
   VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
+  ApiPublicResetAcassRoute: ApiPublicResetAcassRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
