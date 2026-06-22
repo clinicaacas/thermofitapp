@@ -182,6 +182,33 @@ function ExerciseStep({
   }
 
   const mediaType = ex.media_type ?? "image";
+  const isVideo = mediaType === "video" || (!!ex.media_signed_url && /\.(mp4|webm|mov)(\?|$)/i.test(ex.media_signed_url));
+  const [videoNonce, setVideoNonce] = useState(0);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const retriedRef = useRef(false);
+
+  useEffect(() => {
+    setVideoNonce(0);
+    setVideoFailed(false);
+    retriedRef.current = false;
+  }, [ex.id, ex.media_signed_url]);
+
+  async function handleVideoError() {
+    if (!retriedRef.current) {
+      retriedRef.current = true;
+      await onRefreshMedia();
+      setVideoNonce((n) => n + 1);
+    } else {
+      setVideoFailed(true);
+    }
+  }
+
+  async function manualRetry() {
+    retriedRef.current = false;
+    setVideoFailed(false);
+    await onRefreshMedia();
+    setVideoNonce((n) => n + 1);
+  }
 
   return (
     <div className="space-y-3">
@@ -198,26 +225,39 @@ function ExerciseStep({
         className="relative grid w-full place-items-center overflow-hidden rounded-2xl bg-white"
         style={{ border: "1px solid #E5D6BD", aspectRatio: "4/3" }}
       >
-        {ex.media_signed_url ? (
-          mediaType === "video" ? (
-            <video
-              src={ex.media_signed_url}
-              className="h-full w-full object-cover"
-              muted
-              loop
-              autoPlay
-              playsInline
-            />
-          ) : (
-            <img
-              src={ex.media_signed_url}
-              alt={ex.name}
-              className="h-full w-full object-cover"
-            />
-          )
+        {ex.media_signed_url && isVideo && !videoFailed ? (
+          <video
+            key={`${ex.id}-${videoNonce}`}
+            src={ex.media_signed_url}
+            className="h-full w-full object-cover"
+            muted
+            loop
+            autoPlay
+            playsInline
+            controls
+            preload="metadata"
+            onError={handleVideoError}
+          />
+        ) : ex.media_signed_url && !isVideo ? (
+          <img
+            src={ex.media_signed_url}
+            alt={ex.name}
+            className="h-full w-full object-cover"
+          />
         ) : ex.thumbnail_signed_url ? (
-          <img src={ex.thumbnail_signed_url} alt={ex.name} className="h-full w-full object-cover" />
-        ) : (
+          <>
+            <img src={ex.thumbnail_signed_url} alt={ex.name} className="h-full w-full object-cover" />
+            {isVideo && videoFailed && (
+              <button
+                type="button"
+                onClick={manualRetry}
+                className="absolute bottom-2 right-2 rounded-full px-3 py-1 text-[11px] font-semibold shadow"
+                style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+              >
+                Tentar carregar vídeo
+              </button>
+            )}
+          </>
           <div className="grid place-items-center p-6 text-center text-xs" style={{ color: "#6B7280" }}>
             <ImageIcon className="mx-auto mb-2 h-8 w-8" style={{ color: "#C9A24A" }} />
             Mídia ainda não publicada para este exercício.
