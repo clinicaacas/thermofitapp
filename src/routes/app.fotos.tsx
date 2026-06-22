@@ -8,6 +8,7 @@ import {
   uploadClientPhoto,
   deleteClientPhoto,
 } from "@/lib/thermofit-client-app.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { Camera, Check, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/app/fotos")({
@@ -28,6 +29,12 @@ function Page() {
     queryKey: ["client-photos", clientId],
     queryFn: () => fetchPhotos({ data: { clientId } }),
     enabled: !!clientId,
+  });
+
+  // Realtime: invalida fotos e missões sem refresh manual.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["client-photos", clientId] });
+    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
   });
 
   const fileRef = useRef<HTMLInputElement>(null);

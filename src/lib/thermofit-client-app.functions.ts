@@ -347,11 +347,106 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+// Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
+// conclusão a partir das fotos com source='client_upload' na semana atual.
+// Chave lógica idempotente: (client_id, title="Foto de evolução — Semana N").
+export async function ensureAndSyncWeeklyPhotoMission(
+  admin: any,
+  client: any,
+): Promise<{ missionId: string | null }> {
+  if (!client.start_date) return { missionId: null };
+  const actualWeek = computeActualJourneyWeek(client.start_date);
+  if (actualWeek < 1 || actualWeek > JOURNEY_TOTAL_WEEKS) return { missionId: null };
+  const week = actualWeek;
+  const title = `Foto de evolução — Semana ${week}`;
+  const description = "Registre sua foto desta semana para acompanhar sua evolução.";
+  const today = todayISO();
+
+  // Idempotente: busca por (client_id, title).
+  const { data: existing } = await admin
+    .from("client_missions")
+    .select("id")
+    .eq("client_id", client.id)
+    .eq("title", title)
+    .maybeSingle();
+  let missionId = existing?.id as string | undefined;
+  if (!missionId) {
+    const { data: created, error: insErr } = await admin
+      .from("client_missions")
+      .insert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        title,
+        description,
+        miles: 0,
+        due_date: today,
+        active: true,
+      })
+      .select("id")
+      .single();
+    if (insErr) {
+      // race: outra requisição criou nesse meio-tempo
+      const { data: again } = await admin
+        .from("client_missions")
+        .select("id")
+        .eq("client_id", client.id)
+        .eq("title", title)
+        .maybeSingle();
+      if (!again) return { missionId: null };
+      missionId = again.id;
+    } else {
+      missionId = created.id;
+    }
+  } else {
+    // Reativa/atualiza due_date para que apareça na lista de hoje.
+    await admin
+      .from("client_missions")
+      .update({ due_date: today, active: true })
+      .eq("id", missionId);
+  }
+
+  // Conta fotos da cliente nesta semana (apenas client_upload).
+  const { count: photoCount } = await admin
+    .from("client_progress_photos")
+    .select("id", { head: true, count: "exact" })
+    .eq("client_id", client.id)
+    .eq("week", week)
+    .eq("source", "client_upload");
+  const { data: completion } = await admin
+    .from("client_mission_completions")
+    .select("mission_id")
+    .eq("mission_id", missionId)
+    .eq("client_id", client.id)
+    .maybeSingle();
+  if ((photoCount ?? 0) > 0 && !completion) {
+    await admin
+      .from("client_mission_completions")
+      .upsert(
+        {
+          tenant_id: client.tenant_id,
+          client_id: client.id,
+          mission_id: missionId,
+          miles_awarded: 0,
+        },
+        { onConflict: "mission_id,client_id" },
+      );
+  } else if ((photoCount ?? 0) === 0 && completion) {
+    await admin
+      .from("client_mission_completions")
+      .delete()
+      .eq("mission_id", missionId)
+      .eq("client_id", client.id);
+  }
+  return { missionId: missionId ?? null };
+}
+
 export const listClientMissions = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    // Garante e sincroniza a missão semanal de foto antes de listar.
+    await ensureAndSyncWeeklyPhotoMission(admin, client);
     const day = todayISO();
     const [{ data: missions, error: mErr }, { data: completions, error: cErr }] = await Promise.all([
       admin
@@ -378,6 +473,7 @@ export const listClientMissions = createServerFn({ method: "GET" })
       })),
     };
   });
+
 
 export const toggleMissionCompletion = createServerFn({ method: "POST" })
   .inputValidator((i) =>
@@ -655,6 +751,19 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
     }
     const currentWeek = actualJourneyWeek;
     const admin = await getAdmin();
+
+    // LGPD: bloqueia upload se consentimento photos_internal estiver false.
+    const { data: consent } = await admin
+      .from("consents")
+      .select("photos_internal")
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (consent && consent.photos_internal === false) {
+      throw new Error(
+        "Para enviar fotos de evolução, é necessário autorizar o uso interno das suas fotos no termo de privacidade.",
+      );
+    }
+
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
     if (!file.type.startsWith("image/")) throw new Error("Envie uma imagem.");
@@ -677,6 +786,8 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
       await admin.storage.from("client-photos").remove([key]);
       throw insErr;
     }
+    // Conclui (uma única vez) a missão semanal de foto.
+    await ensureAndSyncWeeklyPhotoMission(admin, client);
     return { ok: true, week: currentWeek };
   });
 
@@ -702,8 +813,11 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
       .delete()
       .eq("id", row.id);
     if (dErr) throw dErr;
+    // Recalcula conclusão da missão semanal após exclusão.
+    await ensureAndSyncWeeklyPhotoMission(admin, client);
     return { ok: true };
   });
+
 
 // ============ PULSO SEMANAL ============
 

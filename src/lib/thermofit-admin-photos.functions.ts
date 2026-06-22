@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getClientJourneyDay } from "./journey";
@@ -12,6 +13,17 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
+// Resposta padrão para clientId inexistente ou de outro tenant.
+// Status 404 com mensagem genérica e sem revelar existência em outro tenant.
+class ClientNotFoundError extends Error {
+  status = 404;
+  constructor() { super("Cliente não encontrada."); this.name = "ClientNotFoundError"; }
+}
+function clientNotFound(): never {
+  try { setResponseStatus(404); } catch {}
+  throw new ClientNotFoundError();
+}
+
 async function authorizeForClient(context: Ctx, clientId: string) {
   // Caller's tenant + role (active profile required).
   const { data: profile, error: pErr } = await context.supabase
@@ -23,8 +35,6 @@ async function authorizeForClient(context: Ctx, clientId: string) {
   if (!profile || profile.status !== "ativo") {
     throw new Error("Usuário sem acesso ativo.");
   }
-  // Load the client via admin to verify tenant matches (RLS would also block,
-  // but we want a clear error and to read tenant_id reliably).
   const admin = await getAdmin();
   const { data: client, error: cErr } = await admin
     .from("clients")
@@ -32,17 +42,29 @@ async function authorizeForClient(context: Ctx, clientId: string) {
     .eq("id", clientId)
     .maybeSingle();
   if (cErr) throw cErr;
-  if (!client) throw new Error("Cliente não encontrada.");
   const isSuper = profile.profile === "super_admin";
-  if (!isSuper && client.tenant_id !== profile.tenant_id) {
-    throw new Error("Cliente pertence a outra clínica.");
+  // Cliente inexistente OU de outro tenant → 404 idêntico, sem distinguir.
+  if (!client || (!isSuper && client.tenant_id !== profile.tenant_id)) {
+    // Auditoria de acesso negado (usa tenant do caller para rastrear quem tentou).
+    try {
+      await context.supabase.from("audit_logs").insert({
+        tenant_id: profile.tenant_id,
+        actor_id: context.userId,
+        action: "client_photo.access_denied",
+        entity: "client",
+        entity_id: clientId,
+        metadata: { reason: client ? "cross_tenant" : "not_found" },
+      });
+    } catch {}
+    clientNotFound();
   }
   const allowedRoles = new Set(["super_admin", "dono", "admin"]);
   if (!allowedRoles.has(profile.profile)) {
     throw new Error("Você não tem permissão para gerenciar fotos.");
   }
-  return { client, profile, admin };
+  return { client: client!, profile, admin };
 }
+
 
 async function logAudit(
   context: Ctx,
@@ -147,6 +169,17 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { client, admin } = await authorizeForClient(context, data.clientId);
+    // LGPD: bloqueia upload se consentimento photos_internal estiver false.
+    const { data: consent } = await admin
+      .from("consents")
+      .select("photos_internal")
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (consent && consent.photos_internal === false) {
+      throw new Error(
+        "Esta cliente não possui consentimento ativo para uso interno de fotos.",
+      );
+    }
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
     if (!file.type.startsWith("image/")) throw new Error("Envie uma imagem.");
@@ -231,6 +264,12 @@ export const adminUpdateClientPhoto = createServerFn({ method: "POST" })
       },
       to: patch,
     });
+    // Recalcula missão semanal de foto (mudança de week em client_upload pode
+    // alterar a conclusão da semana atual).
+    try {
+      const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
+      await ensureAndSyncWeeklyPhotoMission(admin, client);
+    } catch {}
     return { ok: true };
   });
 
@@ -279,5 +318,9 @@ export const adminDeleteClientPhoto = createServerFn({ method: "POST" })
       week: row.week,
       source: row.source,
     });
+    try {
+      const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
+      await ensureAndSyncWeeklyPhotoMission(admin, client);
+    } catch {}
     return { ok: true };
   });

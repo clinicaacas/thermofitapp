@@ -7,6 +7,7 @@ import {
   adminUpdateClientPhoto,
   adminDeleteClientPhoto,
 } from "@/lib/thermofit-admin-photos.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { Camera, Check, EyeOff, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
 const TOTAL_WEEKS = 12;
@@ -22,6 +23,11 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
     queryKey: ["admin-client-photos", clientId],
     queryFn: () => fetchPhotos({ data: { clientId } }),
     enabled: !!clientId,
+  });
+
+  // Realtime: cliente envia/edita/exclui → painel atualiza sem refresh.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["admin-client-photos", clientId] });
   });
 
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);

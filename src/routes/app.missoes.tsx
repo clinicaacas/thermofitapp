@@ -8,6 +8,7 @@ import {
   toggleMissionCompletion,
   listTodayVideoMissions,
 } from "@/lib/thermofit-client-app.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -27,6 +28,12 @@ function Page() {
     queryFn: () => fetchList({ data: { clientId } }),
     enabled: !!clientId,
   });
+
+  // Realtime: foto enviada/excluída atualiza a conclusão da missão semanal.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+  });
+
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
     queryKey: ["client-video-missions", clientId],
