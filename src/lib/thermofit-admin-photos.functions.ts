@@ -15,11 +15,13 @@ async function getAdmin() {
 
 // Resposta padrão para clientId inexistente ou de outro tenant.
 // Status 404 com mensagem genérica e sem revelar existência em outro tenant.
+class ClientNotFoundError extends Error {
+  status = 404;
+  constructor() { super("Cliente não encontrada."); this.name = "ClientNotFoundError"; }
+}
 function clientNotFound(): never {
-  throw new Response(
-    JSON.stringify({ message: "Cliente não encontrada." }),
-    { status: 404, headers: { "content-type": "application/json" } },
-  );
+  try { setResponseStatus(404); } catch {}
+  throw new ClientNotFoundError();
 }
 
 async function authorizeForClient(context: Ctx, clientId: string) {
