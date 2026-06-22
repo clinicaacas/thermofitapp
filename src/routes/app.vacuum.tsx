@@ -119,12 +119,16 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
   const startMut = useMutation({
     mutationFn: () => log({ data: { clientId, eventType: "treino_iniciado" } }),
     onSuccess: () => {
-      setFeedback("Treino iniciado.");
       qc.invalidateQueries({ queryKey: ["vacuum-client", clientId] });
-      navigate({ to: "/app/vacuum/treino", search: { clientId } });
     },
     onError: (e: any) => setFeedback(e?.message ?? "Falha ao registrar."),
   });
+
+  function startProtocol(startIdx = 0) {
+    // Fire-and-forget log; navigate immediately so the client doesn't see a toast-only state.
+    startMut.mutate();
+    navigate({ to: "/app/vacuum/treino", search: { clientId, start: startIdx } });
+  }
 
 
   const s = data?.settings;
