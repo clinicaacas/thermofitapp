@@ -35,22 +35,27 @@ type Exercise = {
 function Page() {
   const { clientId, start } = useSearch({ from: "/app/vacuum/treino" });
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const fetchData = useServerFn(getVacuumDataForClient);
   const logDone = useServerFn(logExerciseCompletion);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["vacuum-client", clientId],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["vacuum-client-data", clientId],
     queryFn: () => fetchData({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const exercises: Exercise[] = (data?.exercises ?? []) as any;
   const [idx, setIdx] = useState(0);
-  // Apply initial start index once exercises load
+  // Apply initial start index once exercises load — validate as integer in range
   useEffect(() => {
-    if (exercises.length > 0 && start > 0 && start < exercises.length) {
-      setIdx(start);
-    }
+    if (exercises.length === 0) return;
+    const n = Number.isFinite(start) ? Math.trunc(start as number) : 0;
+    const safe = n >= 0 && n < exercises.length ? n : 0;
+    setIdx(safe);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises.length]);
   const current = exercises[idx];
