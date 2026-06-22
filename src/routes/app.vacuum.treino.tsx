@@ -10,7 +10,10 @@ import {
 import { Play, Pause, ChevronRight, CheckCircle2, Image as ImageIcon, ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/app/vacuum/treino")({
-  validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    clientId: (s.clientId as string) || "",
+    start: typeof s.start === "number" ? s.start : s.start ? Number(s.start) || 0 : 0,
+  }),
   component: Page,
 });
 
@@ -30,7 +33,7 @@ type Exercise = {
 };
 
 function Page() {
-  const { clientId } = useSearch({ from: "/app/vacuum/treino" });
+  const { clientId, start } = useSearch({ from: "/app/vacuum/treino" });
   const navigate = useNavigate();
   const fetchData = useServerFn(getVacuumDataForClient);
   const logDone = useServerFn(logExerciseCompletion);
@@ -43,6 +46,13 @@ function Page() {
 
   const exercises: Exercise[] = (data?.exercises ?? []) as any;
   const [idx, setIdx] = useState(0);
+  // Apply initial start index once exercises load
+  useEffect(() => {
+    if (exercises.length > 0 && start > 0 && start < exercises.length) {
+      setIdx(start);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercises.length]);
   const current = exercises[idx];
 
   const completeMut = useMutation({
@@ -97,6 +107,7 @@ function Page() {
             key={current.id}
             ex={current}
             onDone={(dur) => goNext(dur)}
+            onPrev={idx > 0 ? () => setIdx(idx - 1) : null}
             isLast={idx === exercises.length - 1}
           />
         )}
@@ -108,10 +119,12 @@ function Page() {
 function ExerciseStep({
   ex,
   onDone,
+  onPrev,
   isLast,
 }: {
   ex: Exercise;
   onDone: (durationSeconds: number) => void;
+  onPrev: (() => void) | null;
   isLast: boolean;
 }) {
   const totalSeconds = Math.max(1, (ex.duration_seconds ?? 60) * Math.max(1, ex.sets ?? 1));
@@ -235,6 +248,16 @@ function ExerciseStep({
       </div>
 
       <div className="flex gap-2">
+        {onPrev && (
+          <button
+            onClick={onPrev}
+            className="inline-flex items-center justify-center gap-1 rounded-full border px-4 py-3 text-sm font-semibold"
+            style={{ borderColor: "#E5D6BD", color: "#5C4528", background: "#FFFFFF" }}
+            aria-label="Exercício anterior"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
         {!finished ? (
           <button
             onClick={() => {

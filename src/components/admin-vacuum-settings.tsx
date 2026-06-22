@@ -359,10 +359,10 @@ function ExercisesCard({ exercises, onChanged }: { exercises: Exercise[]; onChan
                 className="sm:col-span-2 gap-2"
                 onClick={() => generateMedia(idx)}
                 disabled={generatingId === row.id}
-                title="Gera uma imagem estática de referência. Para animação real, faça upload manual de GIF/MP4/WebM."
+                title="A IA gera apenas uma imagem estática de referência. Para vídeo demonstrativo com movimento real, faça upload manual de MP4, WebM ou GIF no campo Mídia acima."
               >
                 <Sparkles className="h-4 w-4" />
-                {generatingId === row.id ? "Gerando…" : "Gerar imagem com IA (estática)"}
+                {generatingId === row.id ? "Gerando…" : "Gerar imagem de referência (estática)"}
               </Button>
 
               <label className="flex items-center gap-2 text-xs">

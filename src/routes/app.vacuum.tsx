@@ -119,12 +119,16 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
   const startMut = useMutation({
     mutationFn: () => log({ data: { clientId, eventType: "treino_iniciado" } }),
     onSuccess: () => {
-      setFeedback("Treino iniciado.");
       qc.invalidateQueries({ queryKey: ["vacuum-client", clientId] });
-      navigate({ to: "/app/vacuum/treino", search: { clientId } });
     },
     onError: (e: any) => setFeedback(e?.message ?? "Falha ao registrar."),
   });
+
+  function startProtocol(startIdx = 0) {
+    // Fire-and-forget log; navigate immediately so the client doesn't see a toast-only state.
+    startMut.mutate();
+    navigate({ to: "/app/vacuum/treino", search: { clientId, start: startIdx } });
+  }
 
 
   const s = data?.settings;
@@ -191,6 +195,14 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
                 {i + 1}
               </span>
+              <button
+                onClick={() => startProtocol(i)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold"
+                style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+                aria-label={`Praticar ${ex.name}`}
+              >
+                <Play className="h-3 w-3" /> Praticar
+              </button>
             </li>
           ))
         )}
@@ -203,12 +215,12 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
       )}
 
       <button
-        onClick={() => startMut.mutate()}
-        disabled={startMut.isPending || loading}
+        onClick={() => startProtocol(0)}
+        disabled={loading}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold disabled:opacity-60"
         style={{ background: "#8A6A3D", color: "#FFFFFF" }}
       >
-        <Play className="h-4 w-4" /> {startMut.isPending ? "Registrando…" : (s?.button_text ?? "Começar Treino")}
+        <Play className="h-4 w-4" /> {s?.button_text ?? "Começar Treino"}
       </button>
     </div>
   );
