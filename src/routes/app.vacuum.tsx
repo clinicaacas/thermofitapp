@@ -122,14 +122,19 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
   const startMut = useMutation({
     mutationFn: () => log({ data: { clientId, eventType: "treino_iniciado" } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["vacuum-client", clientId] });
+      qc.invalidateQueries({ queryKey: ["vacuum-client-data", clientId] });
     },
     onError: (e: any) => setFeedback(e?.message ?? "Falha ao registrar."),
   });
 
   function startProtocol(startIdx = 0) {
     startMut.mutate();
-    navigate({ to: "/app/vacuum/treino", search: { clientId, start: startIdx } });
+    qc.invalidateQueries({ queryKey: ["vacuum-client-data", clientId] });
+    try {
+      navigate({ to: "/app/vacuum/treino", search: { clientId, start: startIdx } });
+    } catch {
+      setFeedback("Não foi possível abrir o exercício. Tente novamente.");
+    }
   }
 
 
