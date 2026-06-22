@@ -224,6 +224,7 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
         source: "admin_upload",
         uploaded_by_user_id: context.userId,
         visible_to_client: data.visibleToClient,
+        journey_id: client.active_journey_id,
       })
       .select("id")
       .single();
@@ -236,6 +237,7 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
       week: data.week,
       visible_to_client: data.visibleToClient,
     });
+    await emitPhotoEvent(admin, client.id, "created", inserted.id);
     return { ok: true, id: inserted.id };
   });
 
