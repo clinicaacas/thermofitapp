@@ -261,6 +261,12 @@ export const adminUpdateClientPhoto = createServerFn({ method: "POST" })
       },
       to: patch,
     });
+    // Recalcula missão semanal de foto (mudança de week em client_upload pode
+    // alterar a conclusão da semana atual).
+    try {
+      const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
+      await ensureAndSyncWeeklyPhotoMission(admin, client);
+    } catch {}
     return { ok: true };
   });
 
