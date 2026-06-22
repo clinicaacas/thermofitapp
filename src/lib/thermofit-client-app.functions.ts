@@ -564,14 +564,15 @@ export const listClientRedemptions = createServerFn({ method: "GET" })
 
 // ============ FOTOS DE EVOLUÇÃO ============
 
-// Calcula a semana atual (1..N) da jornada da cliente a partir de start_date,
-// usando dias de calendário em America/Sao_Paulo. Semana 1 = dias 0..6.
-function computeCurrentWeek(startDate: string | Date | null | undefined): number {
+// Calcula a semana real da jornada (pode ultrapassar 12). currentWeek é a versão
+// limitada para exibição (1..12). journeyCompleted = actualJourneyWeek > 12.
+function computeActualJourneyWeek(startDate: string | Date | null | undefined): number {
   const day = getClientJourneyDay(startDate);
   return Math.floor(day / 7) + 1;
 }
 
 const JOURNEY_TOTAL_WEEKS = 12;
+
 
 export const listClientPhotos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
@@ -605,11 +606,15 @@ export const listClientPhotos = createServerFn({ method: "GET" })
         legacyPhotoCount += 1;
       }
     }
-    const currentWeek = computeCurrentWeek(client.start_date);
-    const journeyCompleted = currentWeek > JOURNEY_TOTAL_WEEKS;
+    const actualJourneyWeek = computeActualJourneyWeek(client.start_date);
+    const journeyCompleted = actualJourneyWeek > JOURNEY_TOTAL_WEEKS;
+    const currentWeek = journeyCompleted
+      ? JOURNEY_TOTAL_WEEKS
+      : Math.max(1, Math.min(JOURNEY_TOTAL_WEEKS, actualJourneyWeek));
     return {
       photos: items,
-      currentWeek: journeyCompleted ? JOURNEY_TOTAL_WEEKS : currentWeek,
+      actualJourneyWeek,
+      currentWeek,
       journeyCompleted,
       totalWeeks: JOURNEY_TOTAL_WEEKS,
       hasStartDate: !!client.start_date,
@@ -639,15 +644,16 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
     if (!client.start_date) {
       throw new Error("Sua data de início ainda não foi definida. Fale com a equipe.");
     }
-    const currentWeek = computeCurrentWeek(client.start_date);
-    if (currentWeek > JOURNEY_TOTAL_WEEKS) {
+    const actualJourneyWeek = computeActualJourneyWeek(client.start_date);
+    if (actualJourneyWeek > JOURNEY_TOTAL_WEEKS) {
       throw new Error(
         "Sua jornada de 12 semanas foi concluída. Para novos registros, fale com a equipe.",
       );
     }
-    if (currentWeek < 1) {
+    if (actualJourneyWeek < 1) {
       throw new Error("Jornada ainda não iniciada.");
     }
+    const currentWeek = actualJourneyWeek;
     const admin = await getAdmin();
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
