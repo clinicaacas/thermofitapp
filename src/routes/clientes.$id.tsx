@@ -152,18 +152,18 @@ function Page() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="space-y-3">
+        <header className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <Link to="/clientes" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary text-lg font-semibold">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary text-base font-semibold">
               {c.avatarInitial}
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">{c.name}</h1>
-              <div className="mt-1 flex gap-2 text-xs">
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold leading-tight text-foreground">{c.name}</h1>
+              <div className="mt-0.5 flex gap-1.5 text-[11px]">
                 <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{c.plan}</span>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">{c.status}</span>
               </div>
@@ -173,35 +173,35 @@ function Page() {
             <button
               type="button"
               onClick={openEdit}
-              className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-accent"
             >
-              <Edit className="h-4 w-4" /> Editar
+              <Edit className="h-3.5 w-3.5" /> Editar
             </button>
 
-            <button className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
-              <KeyRound className="h-4 w-4" /> Reset senha
+            <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-accent">
+              <KeyRound className="h-3.5 w-3.5" /> Reset senha
             </button>
           </div>
         </header>
 
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
           <Stat label="Dias" value={days} />
           <Stat label="Semana" value={week} />
           <Stat label="Milhas" value={stats?.miles ?? 0} />
           <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-5">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-5">
           <a
             href="#fotos-evolucao"
-            className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
           >
-            <Camera className="h-4 w-4" /> Fotos
+            <Camera className="h-3.5 w-3.5" /> Fotos
           </a>
-          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-4 w-4" />} label="Nutrição" />
-          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
-          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-4 w-4" />} label="Cartas" />
-          <Action icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-3.5 w-3.5" />} label="Nutrição" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-3.5 w-3.5" />} label="Treino" />
+          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-3.5 w-3.5" />} label="Cartas" />
+          <Action icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
         </div>
 
         <div id="fotos-evolucao">
@@ -209,18 +209,22 @@ function Page() {
         </div>
 
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-[0.9fr_1.2fr_0.9fr]">
           <Card title="Contato">
-            <Row label="Email" value={c.email || "—"} />
-            <Row label="Telefone" value={c.phone || "—"} />
-            <Row label="Nascimento" value={c.birthDate || "—"} />
-            <Row label="Início" value={c.startDate} />
+            <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+              <Row label="Email" value={c.email || "—"} />
+              <Row label="Telefone" value={c.phone || "—"} />
+              <Row label="Nascimento" value={c.birthDate || "—"} />
+              <Row label="Início" value={c.startDate} />
+            </div>
           </Card>
           <Card title="Objetivo e queixa">
-            <Row label="Objetivo" value={c.goal || "—"} />
-            <Row label="Queixa" value={c.complaint || "—"} />
-            <Row label="Notas clínicas" value={c.clinicalNotes || "—"} />
-            <Row label="Hidratação" value={`${c.hydrationGoalMl} ml/dia`} />
+            <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+              <Row label="Objetivo" value={c.goal || "—"} />
+              <Row label="Queixa" value={c.complaint || "—"} />
+              <Row label="Hidratação" value={`${c.hydrationGoalMl} ml/dia`} />
+              <Row label="Notas clínicas" value={c.clinicalNotes || "—"} clamp />
+            </div>
           </Card>
           <Card
             title="Missões de hoje"
@@ -237,13 +241,13 @@ function Page() {
           >
 
             {!missionsToday || missionsToday.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma missão atribuída hoje.</p>
+              <p className="text-xs text-muted-foreground">Nenhuma missão atribuída hoje.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
                 {missionsToday.map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-start justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                    className="flex items-start justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -263,13 +267,13 @@ function Page() {
                         </span>
                       </div>
                       {m.description ? (
-                        <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
                           {m.description}
                         </div>
                       ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                         {m.miles} mi
                       </span>
                       <button
@@ -279,7 +283,7 @@ function Page() {
                         }
                         disabled={toggleMissionMut.isPending}
                         className={
-                          "inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs disabled:opacity-50 " +
+                          "inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs disabled:opacity-50 " +
                           (m.done
                             ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600"
                             : "border-input bg-card hover:bg-accent")
@@ -296,7 +300,10 @@ function Page() {
               </ul>
             )}
           </Card>
-          <Card title="Atividade recente">
+        </div>
+
+        <section className="rounded-lg border border-border bg-card px-4 py-2.5">
+          <div className="grid gap-x-4 gap-y-1 sm:grid-cols-3">
             <Row
               label="Último pulso"
               value={
@@ -307,71 +314,72 @@ function Page() {
             />
             <Row label="Cartas não lidas" value={String(stats?.unreadLetters ?? 0)} />
             <Row label="Fotos enviadas" value={String(stats?.photosCount ?? 0)} />
-          </Card>
-        </div>
+          </div>
+        </section>
 
         {/* Acesso da Cliente */}
-        <section className="rounded-lg border border-border bg-card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Acesso da Cliente</h2>
-            <span className={
-              "rounded-full px-2 py-0.5 text-xs " +
-              (c.accessStatus === "ativo"
-                ? "bg-emerald-100 text-emerald-700"
-                : c.accessStatus === "sem_acesso"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-red-100 text-red-700")
-            }>
-              {c.accessStatus === "sem_acesso" ? "Sem acesso" : c.accessStatus}
-            </span>
-          </div>
-
-          <div className="grid gap-2 text-sm sm:grid-cols-3">
-            <Row label="E-mail de acesso" value={c.accessEmail || "—"} />
-            <Row label="Último acesso" value={c.lastAccessAt ? new Date(c.lastAccessAt).toLocaleString("pt-BR") : "—"} />
-            <Row label="Link" value="https://thermofitapp.lovable.app/login" />
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {c.accessStatus === "sem_acesso" || !c.authUserId ? (
-              <button
-                type="button"
-                onClick={() => setAccessForm({ open: true, email: c.email || "", password: "" })}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                <UserPlus className="h-4 w-4" /> Criar acesso
-              </button>
-            ) : (
-              <>
+        <section className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="min-w-[140px] flex-1">
+              <Row label="E-mail de acesso" value={c.accessEmail || "—"} />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <Row label="Último acesso" value={c.lastAccessAt ? new Date(c.lastAccessAt).toLocaleString("pt-BR") : "—"} />
+            </div>
+            <div className="min-w-[160px] flex-1">
+              <Row label="Link" value="https://thermofitapp.lovable.app/login" />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {c.accessStatus === "sem_acesso" || !c.authUserId ? (
                 <button
                   type="button"
-                  onClick={() => resetAccessMut.mutate()}
-                  disabled={resetAccessMut.isPending}
-                  className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                  onClick={() => setAccessForm({ open: true, email: c.email || "", password: "" })}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  <KeyRound className="h-4 w-4" /> Redefinir senha
+                  <UserPlus className="h-3.5 w-3.5" /> Criar acesso
                 </button>
-                {c.accessStatus === "ativo" ? (
+              ) : (
+                <>
                   <button
                     type="button"
-                    onClick={() => statusMut.mutate("inativo")}
-                    disabled={statusMut.isPending}
-                    className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                    onClick={() => resetAccessMut.mutate()}
+                    disabled={resetAccessMut.isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-accent disabled:opacity-50"
                   >
-                    <Lock className="h-4 w-4" /> Inativar acesso
+                    <KeyRound className="h-3.5 w-3.5" /> Redefinir senha
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => statusMut.mutate("ativo")}
-                    disabled={statusMut.isPending}
-                    className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
-                  >
-                    <Unlock className="h-4 w-4" /> Reativar acesso
-                  </button>
-                )}
-              </>
-            )}
+                  {c.accessStatus === "ativo" ? (
+                    <button
+                      type="button"
+                      onClick={() => statusMut.mutate("inativo")}
+                      disabled={statusMut.isPending}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-accent disabled:opacity-50"
+                    >
+                      <Lock className="h-3.5 w-3.5" /> Inativar acesso
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => statusMut.mutate("ativo")}
+                      disabled={statusMut.isPending}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-accent disabled:opacity-50"
+                    >
+                      <Unlock className="h-3.5 w-3.5" /> Reativar acesso
+                    </button>
+                  )}
+                </>
+              )}
+              <span className={
+                "rounded-full px-2 py-0.5 text-[11px] " +
+                (c.accessStatus === "ativo"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : c.accessStatus === "sem_acesso"
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-red-100 text-red-700")
+              }>
+                {c.accessStatus === "sem_acesso" ? "Sem acesso" : c.accessStatus}
+              </span>
+            </div>
           </div>
 
           {accessForm.open && (
@@ -525,16 +533,16 @@ Importante: este acesso é pessoal e não deve ser compartilhado.`}</pre>
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-foreground">{value}</div>
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold leading-tight text-foreground">{value}</div>
     </div>
   );
 }
 
 function Action({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <button className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent">
+    <button className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent">
       {icon} {label}
     </button>
   );
@@ -555,7 +563,7 @@ function ActionLink({
     <Link
       to={to as any}
       params={params as any}
-      className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+      className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
     >
       {icon} {label}
     </Link>
@@ -572,22 +580,22 @@ function Card({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {action}
       </div>
-      <div className="space-y-2">{children}</div>
+      <div className="space-y-1.5">{children}</div>
     </section>
   );
 }
 
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, clamp = false }: { label: string; value: string; clamp?: boolean }) {
   return (
-    <div className="text-sm">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-foreground">{value}</div>
+    <div className="min-w-0 text-xs">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={"text-foreground " + (clamp ? "line-clamp-2" : "truncate")} title={value}>{value}</div>
     </div>
   );
 }

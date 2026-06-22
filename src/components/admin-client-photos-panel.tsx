@@ -100,11 +100,11 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
       : null;
 
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Fotos de evolução</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {hasStartDate
               ? journeyCompleted
                 ? `Jornada concluída · semana real ${data?.actualJourneyWeek ?? "—"}`
@@ -115,14 +115,14 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
         <button
           type="button"
           onClick={() => setShowUpload(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
-          <Plus className="h-4 w-4" /> Adicionar foto
+          <Plus className="h-3.5 w-3.5" /> Adicionar foto
         </button>
       </div>
 
       {/* Linha do tempo */}
-      <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      <div className="-mx-1 mb-2 flex gap-1 overflow-x-auto px-1 pb-1">
         {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map((w) => {
           const count = weekPhotoCounts[w] ?? 0;
           const isCurrent = !journeyCompleted && w === currentWeek;
@@ -136,15 +136,15 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
               key={w}
               type="button"
               onClick={() => setSelectedWeek(w)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${cls}`}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${cls}`}
               aria-pressed={isSelected}
             >
               Semana {w}
               {isDone && (
                 <span
-                  className={`ml-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${isSelected ? "bg-white/25" : "bg-primary/15"}`}
+                  className={`ml-1 inline-flex h-3 w-3 items-center justify-center rounded-full ${isSelected ? "bg-white/25" : "bg-primary/15"}`}
                 >
-                  <Check className={`h-2.5 w-2.5 ${isSelected ? "text-white" : "text-primary"}`} />
+                  <Check className={`h-2 w-2 ${isSelected ? "text-white" : "text-primary"}`} />
                 </span>
               )}
             </button>
@@ -153,47 +153,57 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Fotos da semana {selectedWeek ?? "—"}
-        </p>
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Fotos da semana {selectedWeek ?? "—"}
+          </p>
+          {weekPhotos.length > 0 && (
+            <span className="text-[10px] text-muted-foreground">{weekPhotos.length} {weekPhotos.length === 1 ? "foto" : "fotos"}</span>
+          )}
+        </div>
+        {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
         {!isLoading && weekPhotos.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
             Nenhuma foto nesta semana.
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {weekPhotos.map((p) => (
-            <AdminPhotoCard
-              key={p.id}
-              p={p}
-              onOpen={(u) => setViewing(u)}
-              onEdit={() => setEditing(p)}
-              onToggleVisibility={() =>
-                updateMut.mutate({
-                  photoId: p.id,
-                  patch: { visibleToClient: !p.visible_to_client },
-                })
-              }
-              onDelete={() => {
-                if (
-                  confirm(
-                    "Excluir esta foto removerá o registro e o arquivo associado. Esta ação não poderá ser desfeita.",
+        {weekPhotos.length > 0 && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {weekPhotos.map((p) => (
+              <AdminPhotoCard
+                key={p.id}
+                p={p}
+                onOpen={(u) => setViewing(u)}
+                onEdit={() => setEditing(p)}
+                onToggleVisibility={() =>
+                  updateMut.mutate({
+                    photoId: p.id,
+                    patch: { visibleToClient: !p.visible_to_client },
+                  })
+                }
+                onDelete={() => {
+                  if (
+                    confirm(
+                      "Excluir esta foto removerá o registro e o arquivo associado. Esta ação não poderá ser desfeita.",
+                    )
                   )
-                )
-                  deleteMut.mutate(p.id);
-              }}
-            />
-          ))}
-        </div>
+                    deleteMut.mutate(p.id);
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {legacyPhotos.length > 0 && (
-        <div className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Fotos anteriores
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Fotos anteriores
+            </p>
+            <span className="text-[10px] text-muted-foreground">{legacyPhotos.length}</span>
+          </div>
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
             {legacyPhotos.map((p) => (
               <AdminPhotoCard
                 key={p.id}
@@ -276,60 +286,62 @@ function AdminPhotoCard({
   const isAdmin = p.source === "admin_upload";
   const hidden = p.visible_to_client === false;
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-      <div className="relative aspect-square bg-muted">
+    <div className="w-[132px] shrink-0 overflow-hidden rounded-md border border-border bg-muted/20">
+      <div className="relative h-[160px] w-full bg-muted">
         {p.url ? (
           <button
             type="button"
             onClick={() => onOpen(p.url)}
             className="block h-full w-full"
           >
-            <img src={p.url} alt="" className="h-full w-full object-cover" />
+            <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
           </button>
         ) : (
-          <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">
+          <div className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">
             Indisponível
           </div>
         )}
         {hidden && (
-          <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white">
-            <EyeOff className="h-3 w-3" /> Oculta
+          <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+            <EyeOff className="h-2.5 w-2.5" /> Oculta
           </span>
         )}
+        <span
+          className={
+            "absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9px] " +
+            (isAdmin
+              ? "bg-blue-100 text-blue-700"
+              : "bg-emerald-100 text-emerald-700")
+          }
+          title={isAdmin ? "Enviada pela equipe" : "Enviada pela cliente"}
+        >
+          {isAdmin ? "Equipe" : "Cliente"}
+        </span>
       </div>
-      <div className="space-y-1 p-2 text-xs">
-        <div className="flex items-center justify-between gap-2">
+      <div className="space-y-1 p-1.5 text-[11px]">
+        <div className="flex items-center justify-between gap-1">
           <span className="text-muted-foreground">
             {new Date(p.taken_at).toLocaleDateString("pt-BR")}
           </span>
-          <span
-            className={
-              "rounded-full px-1.5 py-0.5 text-[10px] " +
-              (isAdmin
-                ? "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-700")
-            }
-          >
-            {isAdmin ? "Enviada pela equipe" : "Enviada pela cliente"}
-          </span>
         </div>
         {p.notes ? (
-          <p className="line-clamp-2 text-foreground/80">{p.notes}</p>
+          <p className="line-clamp-1 text-foreground/80" title={p.notes}>{p.notes}</p>
         ) : (
-          <p className="italic text-muted-foreground">Sem observação</p>
+          <p className="italic text-muted-foreground">—</p>
         )}
-        <div className="flex gap-1 pt-1">
+        <div className="flex gap-1 pt-0.5">
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-input bg-card px-2 py-1 hover:bg-accent"
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-input bg-card px-1 py-0.5 text-[10px] hover:bg-accent"
+            title="Editar"
           >
-            <Pencil className="h-3 w-3" /> Editar
+            <Pencil className="h-3 w-3" />
           </button>
           <button
             type="button"
             onClick={onToggleVisibility}
-            className="inline-flex items-center justify-center gap-1 rounded border border-input bg-card px-2 py-1 hover:bg-accent"
+            className="inline-flex items-center justify-center rounded border border-input bg-card px-1 py-0.5 hover:bg-accent"
             title={hidden ? "Mostrar para a cliente" : "Ocultar da cliente"}
           >
             <EyeOff className="h-3 w-3" />
@@ -337,7 +349,8 @@ function AdminPhotoCard({
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex items-center justify-center gap-1 rounded border border-red-200 bg-card px-2 py-1 text-red-700 hover:bg-red-50"
+            className="inline-flex items-center justify-center rounded border border-red-200 bg-card px-1 py-0.5 text-red-700 hover:bg-red-50"
+            title="Excluir"
           >
             <Trash2 className="h-3 w-3" />
           </button>
