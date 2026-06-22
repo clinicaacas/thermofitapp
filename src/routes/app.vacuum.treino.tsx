@@ -10,7 +10,10 @@ import {
 import { Play, Pause, ChevronRight, CheckCircle2, Image as ImageIcon, ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/app/vacuum/treino")({
-  validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    clientId: (s.clientId as string) || "",
+    start: typeof s.start === "number" ? s.start : s.start ? Number(s.start) || 0 : 0,
+  }),
   component: Page,
 });
 
