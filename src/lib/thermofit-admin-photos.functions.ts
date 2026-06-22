@@ -12,6 +12,15 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
+// Resposta padrão para clientId inexistente ou de outro tenant.
+// Status 404 com mensagem genérica e sem revelar existência em outro tenant.
+function clientNotFound(): never {
+  throw new Response(
+    JSON.stringify({ message: "Cliente não encontrada." }),
+    { status: 404, headers: { "content-type": "application/json" } },
+  );
+}
+
 async function authorizeForClient(context: Ctx, clientId: string) {
   // Caller's tenant + role (active profile required).
   const { data: profile, error: pErr } = await context.supabase
@@ -23,8 +32,6 @@ async function authorizeForClient(context: Ctx, clientId: string) {
   if (!profile || profile.status !== "ativo") {
     throw new Error("Usuário sem acesso ativo.");
   }
-  // Load the client via admin to verify tenant matches (RLS would also block,
-  // but we want a clear error and to read tenant_id reliably).
   const admin = await getAdmin();
   const { data: client, error: cErr } = await admin
     .from("clients")
@@ -32,17 +39,29 @@ async function authorizeForClient(context: Ctx, clientId: string) {
     .eq("id", clientId)
     .maybeSingle();
   if (cErr) throw cErr;
-  if (!client) throw new Error("Cliente não encontrada.");
   const isSuper = profile.profile === "super_admin";
-  if (!isSuper && client.tenant_id !== profile.tenant_id) {
-    throw new Error("Cliente pertence a outra clínica.");
+  // Cliente inexistente OU de outro tenant → 404 idêntico, sem distinguir.
+  if (!client || (!isSuper && client.tenant_id !== profile.tenant_id)) {
+    // Auditoria de acesso negado (usa tenant do caller para rastrear quem tentou).
+    try {
+      await context.supabase.from("audit_logs").insert({
+        tenant_id: profile.tenant_id,
+        actor_id: context.userId,
+        action: "client_photo.access_denied",
+        entity: "client",
+        entity_id: clientId,
+        metadata: { reason: client ? "cross_tenant" : "not_found" },
+      });
+    } catch {}
+    clientNotFound();
   }
   const allowedRoles = new Set(["super_admin", "dono", "admin"]);
   if (!allowedRoles.has(profile.profile)) {
     throw new Error("Você não tem permissão para gerenciar fotos.");
   }
-  return { client, profile, admin };
+  return { client: client!, profile, admin };
 }
+
 
 async function logAudit(
   context: Ctx,
