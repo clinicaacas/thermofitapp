@@ -258,9 +258,10 @@ function ExerciseStep({
               </button>
             )}
           </>
+        ) : (
           <div className="grid place-items-center p-6 text-center text-xs" style={{ color: "#6B7280" }}>
             <ImageIcon className="mx-auto mb-2 h-8 w-8" style={{ color: "#C9A24A" }} />
-            Mídia ainda não publicada para este exercício.
+            A demonstração deste exercício ainda está sendo preparada.
           </div>
         )}
 
