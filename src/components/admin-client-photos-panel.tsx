@@ -286,60 +286,62 @@ function AdminPhotoCard({
   const isAdmin = p.source === "admin_upload";
   const hidden = p.visible_to_client === false;
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-      <div className="relative aspect-square bg-muted">
+    <div className="w-[132px] shrink-0 overflow-hidden rounded-md border border-border bg-muted/20">
+      <div className="relative h-[160px] w-full bg-muted">
         {p.url ? (
           <button
             type="button"
             onClick={() => onOpen(p.url)}
             className="block h-full w-full"
           >
-            <img src={p.url} alt="" className="h-full w-full object-cover" />
+            <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
           </button>
         ) : (
-          <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">
+          <div className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">
             Indisponível
           </div>
         )}
         {hidden && (
-          <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white">
-            <EyeOff className="h-3 w-3" /> Oculta
+          <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+            <EyeOff className="h-2.5 w-2.5" /> Oculta
           </span>
         )}
+        <span
+          className={
+            "absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9px] " +
+            (isAdmin
+              ? "bg-blue-100 text-blue-700"
+              : "bg-emerald-100 text-emerald-700")
+          }
+          title={isAdmin ? "Enviada pela equipe" : "Enviada pela cliente"}
+        >
+          {isAdmin ? "Equipe" : "Cliente"}
+        </span>
       </div>
-      <div className="space-y-1 p-2 text-xs">
-        <div className="flex items-center justify-between gap-2">
+      <div className="space-y-1 p-1.5 text-[11px]">
+        <div className="flex items-center justify-between gap-1">
           <span className="text-muted-foreground">
             {new Date(p.taken_at).toLocaleDateString("pt-BR")}
           </span>
-          <span
-            className={
-              "rounded-full px-1.5 py-0.5 text-[10px] " +
-              (isAdmin
-                ? "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-700")
-            }
-          >
-            {isAdmin ? "Enviada pela equipe" : "Enviada pela cliente"}
-          </span>
         </div>
         {p.notes ? (
-          <p className="line-clamp-2 text-foreground/80">{p.notes}</p>
+          <p className="line-clamp-1 text-foreground/80" title={p.notes}>{p.notes}</p>
         ) : (
-          <p className="italic text-muted-foreground">Sem observação</p>
+          <p className="italic text-muted-foreground">—</p>
         )}
-        <div className="flex gap-1 pt-1">
+        <div className="flex gap-1 pt-0.5">
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-input bg-card px-2 py-1 hover:bg-accent"
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded border border-input bg-card px-1 py-0.5 text-[10px] hover:bg-accent"
+            title="Editar"
           >
-            <Pencil className="h-3 w-3" /> Editar
+            <Pencil className="h-3 w-3" />
           </button>
           <button
             type="button"
             onClick={onToggleVisibility}
-            className="inline-flex items-center justify-center gap-1 rounded border border-input bg-card px-2 py-1 hover:bg-accent"
+            className="inline-flex items-center justify-center rounded border border-input bg-card px-1 py-0.5 hover:bg-accent"
             title={hidden ? "Mostrar para a cliente" : "Ocultar da cliente"}
           >
             <EyeOff className="h-3 w-3" />
@@ -347,7 +349,8 @@ function AdminPhotoCard({
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex items-center justify-center gap-1 rounded border border-red-200 bg-card px-2 py-1 text-red-700 hover:bg-red-50"
+            className="inline-flex items-center justify-center rounded border border-red-200 bg-card px-1 py-0.5 text-red-700 hover:bg-red-50"
+            title="Excluir"
           >
             <Trash2 className="h-3 w-3" />
           </button>
