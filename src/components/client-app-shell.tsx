@@ -58,10 +58,12 @@ export function ClientAppShell({
   title,
   subtitle,
   children,
+  allowMissingClientId = false,
 }: {
   title?: string;
   subtitle?: string;
   children: ReactNode;
+  allowMissingClientId?: boolean;
 }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
@@ -119,7 +121,7 @@ export function ClientAppShell({
         )}
 
         <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4" style={{ color: "#1F2933" }}>
-          {!clientId ? (
+          {!clientId && !allowMissingClientId ? (
             <div
               className="rounded-md px-3 py-2 text-sm"
               style={{ background: "#F3E8D2", color: "#8A6A3D", border: "1px solid #E5E0D8" }}

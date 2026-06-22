@@ -1,8 +1,9 @@
-import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
+import { useAuth } from "@/lib/auth-context";
 import {
   getVacuumDataForClient,
   logExerciseCompletion,
@@ -33,20 +34,24 @@ type Exercise = {
 };
 
 function Page() {
-  const { clientId, start } = useSearch({ from: "/app/vacuum/treino" });
+  const { clientId, start } = Route.useSearch();
+  const { user } = useAuth();
+  const scopeClientId = user?.kind === "client" && user.clientId ? user.clientId : clientId;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const fetchData = useServerFn(getVacuumDataForClient);
   const logDone = useServerFn(logExerciseCompletion);
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["vacuum-client-data", clientId],
-    queryFn: () => fetchData({ data: { clientId } }),
-    enabled: !!clientId,
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["vacuum-client-data", scopeClientId],
+    queryFn: () => fetchData({ data: { clientId: scopeClientId || undefined } }),
+    enabled: !!scopeClientId,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
+
+  const resolvedClientId = data?.resolvedClientId ?? scopeClientId;
 
   const exercises: Exercise[] = (data?.exercises ?? []) as any;
   const [idx, setIdx] = useState(0);
@@ -56,13 +61,12 @@ function Page() {
     const n = Number.isFinite(start) ? Math.trunc(start as number) : 0;
     const safe = n >= 0 && n < exercises.length ? n : 0;
     setIdx(safe);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exercises.length]);
+  }, [start, exercises.length]);
   const current = exercises[idx];
 
   const completeMut = useMutation({
     mutationFn: (vars: { exerciseId: string; durationSeconds: number }) =>
-      logDone({ data: { clientId, ...vars } }),
+      logDone({ data: { clientId: resolvedClientId, ...vars } }),
   });
 
   function goNext(durationDone: number) {
@@ -71,16 +75,16 @@ function Page() {
     if (idx < exercises.length - 1) {
       setIdx(idx + 1);
     } else {
-      setTimeout(() => navigate({ to: "/app/vacuum", search: { clientId } }), 600);
+      setTimeout(() => navigate({ to: "/app/vacuum", search: { clientId: resolvedClientId } }), 600);
     }
   }
 
   return (
-    <ClientAppShell>
+    <ClientAppShell allowMissingClientId>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => navigate({ to: "/app/vacuum", search: { clientId } })}
+            onClick={() => navigate({ to: "/app/vacuum", search: { clientId: resolvedClientId } })}
             className="flex items-center gap-1 text-xs"
             style={{ color: "#8A6A3D" }}
           >
@@ -101,7 +105,11 @@ function Page() {
           />
         </div>
 
-        {isLoading && !current ? (
+        {!scopeClientId || isError ? (
+          <div className="rounded-2xl bg-white p-6 text-center text-sm" style={{ border: "1px solid #E5D6BD", color: "#6B7280" }}>
+            Não foi possível carregar seu treino. Volte ao início e tente novamente.
+          </div>
+        ) : isLoading && !current ? (
           <p className="text-sm" style={{ color: "#6B7280" }}>Carregando…</p>
         ) : !current ? (
           <div className="rounded-2xl bg-white p-6 text-center text-sm" style={{ border: "1px solid #E5D6BD", color: "#6B7280" }}>
@@ -115,7 +123,7 @@ function Page() {
             onPrev={idx > 0 ? () => setIdx(idx - 1) : null}
             isLast={idx === exercises.length - 1}
             onRefreshMedia={async () => {
-              await qc.invalidateQueries({ queryKey: ["vacuum-client-data", clientId] });
+              await qc.invalidateQueries({ queryKey: ["vacuum-client-data", resolvedClientId] });
               await refetch();
             }}
           />
@@ -183,17 +191,21 @@ function ExerciseStep({
 
   const mediaType = ex.media_type ?? "image";
   const isVideo = mediaType === "video" || (!!ex.media_signed_url && /\.(mp4|webm|mov)(\?|$)/i.test(ex.media_signed_url));
+  const isGif = mediaType === "gif";
   const [videoNonce, setVideoNonce] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
   const retriedRef = useRef(false);
 
   useEffect(() => {
     setVideoNonce(0);
     setVideoFailed(false);
+    setVideoLoading(Boolean(ex.media_signed_url && isVideo));
     retriedRef.current = false;
-  }, [ex.id, ex.media_signed_url]);
+  }, [ex.id, ex.media_signed_url, isVideo]);
 
   async function handleVideoError() {
+    setVideoLoading(false);
     if (!retriedRef.current) {
       retriedRef.current = true;
       await onRefreshMedia();
@@ -206,8 +218,14 @@ function ExerciseStep({
   async function manualRetry() {
     retriedRef.current = false;
     setVideoFailed(false);
+    setVideoLoading(true);
     await onRefreshMedia();
     setVideoNonce((n) => n + 1);
+  }
+
+  function handleVideoReady() {
+    setVideoLoading(false);
+    setVideoFailed(false);
   }
 
   return (
@@ -226,19 +244,28 @@ function ExerciseStep({
         style={{ border: "1px solid #E5D6BD", aspectRatio: "4/3" }}
       >
         {ex.media_signed_url && isVideo && !videoFailed ? (
-          <video
-            key={`${ex.id}-${videoNonce}`}
-            src={ex.media_signed_url}
-            className="h-full w-full object-cover"
-            muted
-            loop
-            autoPlay
-            playsInline
-            controls
-            preload="metadata"
-            onError={handleVideoError}
-          />
-        ) : ex.media_signed_url && !isVideo ? (
+          <>
+            {videoLoading && (
+              <div className="absolute inset-0 z-10 grid place-items-center text-xs" style={{ background: "#F8F1E6", color: "#6B7280" }}>
+                Carregando demonstração…
+              </div>
+            )}
+            <video
+              key={`${ex.id}-${ex.media_signed_url}-${videoNonce}`}
+              src={ex.media_signed_url}
+              className="h-full w-full object-cover"
+              muted
+              loop
+              autoPlay
+              playsInline
+              controls
+              preload="metadata"
+              onLoadedData={handleVideoReady}
+              onCanPlay={handleVideoReady}
+              onError={handleVideoError}
+            />
+          </>
+        ) : ex.media_signed_url && (isGif || mediaType === "image" || mediaType === "lottie") ? (
           <img
             src={ex.media_signed_url}
             alt={ex.name}
