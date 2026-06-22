@@ -143,8 +143,27 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
       weekPhotoCounts,
       legacyPhotoCount,
       hiddenCount,
+      activeJourneyId: journeyId,
     };
   });
+
+async function emitPhotoEvent(
+  admin: any,
+  clientId: string,
+  change: "created" | "updated" | "deleted",
+  photoId: string | null,
+) {
+  try {
+    await admin.rpc("broadcast_client_photo_event", {
+      p_client_id: clientId,
+      p_change: change,
+      p_photo_id: photoId,
+    });
+  } catch (err) {
+    console.error("broadcast_client_photo_event failed", err);
+  }
+}
+
 
 export const adminUploadClientPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
