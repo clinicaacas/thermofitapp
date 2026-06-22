@@ -248,6 +248,16 @@ function ExerciseStep({
       </div>
 
       <div className="flex gap-2">
+        {onPrev && (
+          <button
+            onClick={onPrev}
+            className="inline-flex items-center justify-center gap-1 rounded-full border px-4 py-3 text-sm font-semibold"
+            style={{ borderColor: "#E5D6BD", color: "#5C4528", background: "#FFFFFF" }}
+            aria-label="Exercício anterior"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
         {!finished ? (
           <button
             onClick={() => {
