@@ -13,6 +13,7 @@ import {
   adminSetClientAccessStatus,
   updateClient,
 } from "@/lib/thermofit-data.functions";
+import { adminRestartClientJourney } from "@/lib/thermofit-client-app.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check, Copy, UserPlus, Lock, Unlock } from "lucide-react";
 import { useState } from "react";
 import { AdminClientPhotosPanel } from "@/components/admin-client-photos-panel";
@@ -112,6 +113,24 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["client", id] });
     },
     onError: (e: any) => setEditError(e?.message ?? "Falha ao salvar."),
+  });
+
+  const restartJourneyFn = useServerFn(adminRestartClientJourney);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restartDate, setRestartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [restartError, setRestartError] = useState<string | null>(null);
+  const restartJourneyMut = useMutation({
+    mutationFn: (newStart: string) =>
+      restartJourneyFn({ data: { clientId: id, startDate: newStart } }),
+    onSuccess: () => {
+      setRestartOpen(false);
+      setRestartError(null);
+      setEditOpen(false);
+      qc.invalidateQueries({ queryKey: ["client", id] });
+      qc.invalidateQueries({ queryKey: ["admin-client-photos", id] });
+      qc.invalidateQueries({ queryKey: ["client-missions-today", id] });
+    },
+    onError: (e: any) => setRestartError(e?.message ?? "Falha ao reiniciar jornada."),
   });
 
   function openEdit() {
@@ -505,21 +524,80 @@ Importante: este acesso é pessoal e não deve ser compartilhado.`}</pre>
               </label>
             </div>
             {editError && <p className="mt-3 text-xs text-red-600">{editError}</p>}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRestartDate(new Date().toISOString().slice(0, 10));
+                  setRestartError(null);
+                  setRestartOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100"
+              >
+                Reiniciar jornada de 12 semanas
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={updateMut.isPending}
+                  onClick={() => updateMut.mutate(editForm)}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {updateMut.isPending ? "Salvando…" : "Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {restartOpen && (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-4"
+          onClick={() => !restartJourneyMut.isPending && setRestartOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-foreground">Reiniciar jornada</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Esta ação inicia uma nova jornada de 12 semanas para a cliente. As fotos e
+              missões anteriores serão preservadas no histórico.
+            </p>
+            <label className="mt-3 block text-xs">
+              <span className="mb-1 block text-muted-foreground">Nova data de início</span>
+              <input
+                type="date"
+                value={restartDate}
+                onChange={(e) => setRestartDate(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            {restartError && <p className="mt-2 text-xs text-red-600">{restartError}</p>}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setEditOpen(false)}
+                disabled={restartJourneyMut.isPending}
+                onClick={() => setRestartOpen(false)}
                 className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-accent"
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                disabled={updateMut.isPending}
-                onClick={() => updateMut.mutate(editForm)}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                disabled={restartJourneyMut.isPending || !restartDate}
+                onClick={() => restartJourneyMut.mutate(restartDate)}
+                className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
               >
-                {updateMut.isPending ? "Salvando…" : "Salvar"}
+                {restartJourneyMut.isPending ? "Reiniciando…" : "Confirmar nova jornada"}
               </button>
             </div>
           </div>

@@ -15,12 +15,31 @@ async function loadClient(clientId: string) {
   const admin = await getAdmin();
   const { data, error } = await admin
     .from("clients")
-    .select("id, name, tenant_id, plan, hydration_goal_ml, status, start_date, goal")
+    .select("id, name, tenant_id, plan, hydration_goal_ml, status, start_date, goal, active_journey_id")
     .eq("id", clientId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Cliente não encontrada.");
   return data;
+}
+
+// Emite evento mínimo de Broadcast no canal privado da cliente.
+// Nunca envia storage_key, URL, notes, week, source, visible_to_client.
+export async function emitClientPhotoEvent(
+  admin: any,
+  clientId: string,
+  change: "created" | "updated" | "deleted",
+  photoId: string | null,
+) {
+  try {
+    await admin.rpc("broadcast_client_photo_event", {
+      p_client_id: clientId,
+      p_change: change,
+      p_photo_id: photoId,
+    });
+  } catch (err) {
+    console.error("broadcast_client_photo_event failed", err);
+  }
 }
 
 export const getClientHome = createServerFn({ method: "GET" })
@@ -348,8 +367,10 @@ function todayISO() {
 }
 
 // Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
-// conclusão a partir das fotos com source='client_upload' na semana atual.
-// Chave lógica idempotente: (client_id, title="Foto de evolução — Semana N").
+// conclusão a partir das fotos com source='client_upload' na semana atual da
+// jornada ATIVA. Identidade lógica:
+//   (client_id, journey_id=client.active_journey_id, mission_type='weekly_photo', week_number)
+// Mantida pelo índice único parcial client_missions_typed_unique.
 export async function ensureAndSyncWeeklyPhotoMission(
   admin: any,
   client: any,
@@ -358,16 +379,20 @@ export async function ensureAndSyncWeeklyPhotoMission(
   const actualWeek = computeActualJourneyWeek(client.start_date);
   if (actualWeek < 1 || actualWeek > JOURNEY_TOTAL_WEEKS) return { missionId: null };
   const week = actualWeek;
+  const journeyId = client.active_journey_id as string | null;
+  if (!journeyId) return { missionId: null };
   const title = `Foto de evolução — Semana ${week}`;
   const description = "Registre sua foto desta semana para acompanhar sua evolução.";
   const today = todayISO();
 
-  // Idempotente: busca por (client_id, title).
+  // Idempotente: chave lógica baseada em (client_id, journey_id, mission_type, week_number).
   const { data: existing } = await admin
     .from("client_missions")
     .select("id")
     .eq("client_id", client.id)
-    .eq("title", title)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "weekly_photo")
+    .eq("week_number", week)
     .maybeSingle();
   let missionId = existing?.id as string | undefined;
   if (!missionId) {
@@ -381,16 +406,21 @@ export async function ensureAndSyncWeeklyPhotoMission(
         miles: 0,
         due_date: today,
         active: true,
+        mission_type: "weekly_photo",
+        journey_id: journeyId,
+        week_number: week,
       })
       .select("id")
       .single();
     if (insErr) {
-      // race: outra requisição criou nesse meio-tempo
+      // Corrida com índice único: outra requisição criou nesse meio-tempo.
       const { data: again } = await admin
         .from("client_missions")
         .select("id")
         .eq("client_id", client.id)
-        .eq("title", title)
+        .eq("journey_id", journeyId)
+        .eq("mission_type", "weekly_photo")
+        .eq("week_number", week)
         .maybeSingle();
       if (!again) return { missionId: null };
       missionId = again.id;
@@ -398,18 +428,18 @@ export async function ensureAndSyncWeeklyPhotoMission(
       missionId = created.id;
     }
   } else {
-    // Reativa/atualiza due_date para que apareça na lista de hoje.
     await admin
       .from("client_missions")
-      .update({ due_date: today, active: true })
+      .update({ due_date: today, active: true, title })
       .eq("id", missionId);
   }
 
-  // Conta fotos da cliente nesta semana (apenas client_upload).
+  // Conta fotos da cliente nesta semana DESTA jornada (apenas client_upload).
   const { count: photoCount } = await admin
     .from("client_progress_photos")
     .select("id", { head: true, count: "exact" })
     .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
     .eq("week", week)
     .eq("source", "client_upload");
   const { data: completion } = await admin
@@ -677,7 +707,7 @@ export const listClientPhotos = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("client_progress_photos")
-      .select("id, storage_key, taken_at, week, notes, source, visible_to_client")
+      .select("id, storage_key, taken_at, week, notes, source, visible_to_client, journey_id")
       .eq("client_id", client.id)
       .eq("tenant_id", client.tenant_id)
       .eq("visible_to_client", true)
@@ -691,12 +721,16 @@ export const listClientPhotos = createServerFn({ method: "GET" })
         return { ...r, url: signed?.signedUrl ?? null };
       }),
     );
+    const journeyId = client.active_journey_id as string | null;
     const weekPhotoCounts: Record<number, number> = {};
     for (let w = 1; w <= JOURNEY_TOTAL_WEEKS; w++) weekPhotoCounts[w] = 0;
     let legacyPhotoCount = 0;
     for (const r of items) {
       const w = r.week;
-      if (typeof w === "number" && w >= 1 && w <= JOURNEY_TOTAL_WEEKS) {
+      // Conta no calendário SOMENTE fotos da jornada ATIVA. Fotos antigas
+      // (journey_id NULL ou diferente) caem em "anteriores", sem misturar.
+      const sameJourney = journeyId && r.journey_id === journeyId;
+      if (sameJourney && typeof w === "number" && w >= 1 && w <= JOURNEY_TOTAL_WEEKS) {
         weekPhotoCounts[w] = (weekPhotoCounts[w] ?? 0) + 1;
       } else {
         legacyPhotoCount += 1;
@@ -716,6 +750,7 @@ export const listClientPhotos = createServerFn({ method: "GET" })
       hasStartDate: !!client.start_date,
       weekPhotoCounts,
       legacyPhotoCount,
+      activeJourneyId: journeyId,
     };
   });
 
@@ -774,20 +809,22 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
       .from("client-photos")
       .upload(key, buf, { contentType: file.type, upsert: false });
     if (upErr) throw upErr;
-    const { error: insErr } = await admin.from("client_progress_photos").insert({
+    const { data: inserted, error: insErr } = await admin.from("client_progress_photos").insert({
       tenant_id: client.tenant_id,
       client_id: client.id,
       storage_key: key,
       week: currentWeek,
       notes: data.notes,
       source: "client_upload",
-    });
+      journey_id: client.active_journey_id,
+    }).select("id").single();
     if (insErr) {
       await admin.storage.from("client-photos").remove([key]);
       throw insErr;
     }
     // Conclui (uma única vez) a missão semanal de foto.
     await ensureAndSyncWeeklyPhotoMission(admin, client);
+    await emitClientPhotoEvent(admin, client.id, "created", inserted?.id ?? null);
     return { ok: true, week: currentWeek };
   });
 
@@ -815,7 +852,39 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
     if (dErr) throw dErr;
     // Recalcula conclusão da missão semanal após exclusão.
     await ensureAndSyncWeeklyPhotoMission(admin, client);
+    await emitClientPhotoEvent(admin, client.id, "deleted", row.id);
     return { ok: true };
+  });
+
+// ============ JORNADA ============
+
+export const adminRestartClientJourney = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        startDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (use AAAA-MM-DD)."),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const newJourneyId = crypto.randomUUID();
+    const { data: updated, error } = await admin
+      .from("clients")
+      .update({
+        active_journey_id: newJourneyId,
+        start_date: data.startDate,
+      })
+      .eq("id", data.clientId)
+      .select("id, active_journey_id, start_date")
+      .single();
+    if (error) throw error;
+    // Sinaliza para que o painel da cliente se atualize sem refresh.
+    await emitClientPhotoEvent(admin, data.clientId, "updated", null);
+    return { ok: true, journeyId: updated.active_journey_id, startDate: updated.start_date };
   });
 
 

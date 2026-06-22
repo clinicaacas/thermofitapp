@@ -38,7 +38,7 @@ async function authorizeForClient(context: Ctx, clientId: string) {
   const admin = await getAdmin();
   const { data: client, error: cErr } = await admin
     .from("clients")
-    .select("id, tenant_id, name, start_date")
+    .select("id, tenant_id, name, start_date, active_journey_id")
     .eq("id", clientId)
     .maybeSingle();
   if (cErr) throw cErr;
@@ -99,7 +99,7 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
     const { data: rows, error } = await admin
       .from("client_progress_photos")
       .select(
-        "id, storage_key, taken_at, week, notes, source, visible_to_client, uploaded_by_user_id, created_at, updated_at",
+        "id, storage_key, taken_at, week, notes, source, visible_to_client, uploaded_by_user_id, created_at, updated_at, journey_id",
       )
       .eq("client_id", client.id)
       .eq("tenant_id", client.tenant_id)
@@ -117,10 +117,12 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
     for (let w = 1; w <= TOTAL_WEEKS; w++) weekPhotoCounts[w] = 0;
     let legacyPhotoCount = 0;
     let hiddenCount = 0;
+    const journeyId = client.active_journey_id as string | null;
     for (const r of items) {
       if (r.visible_to_client === false) hiddenCount += 1;
       const w = r.week;
-      if (typeof w === "number" && w >= 1 && w <= TOTAL_WEEKS) {
+      const sameJourney = journeyId && r.journey_id === journeyId;
+      if (sameJourney && typeof w === "number" && w >= 1 && w <= TOTAL_WEEKS) {
         weekPhotoCounts[w] += 1;
       } else {
         legacyPhotoCount += 1;
@@ -141,8 +143,27 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
       weekPhotoCounts,
       legacyPhotoCount,
       hiddenCount,
+      activeJourneyId: journeyId,
     };
   });
+
+async function emitPhotoEvent(
+  admin: any,
+  clientId: string,
+  change: "created" | "updated" | "deleted",
+  photoId: string | null,
+) {
+  try {
+    await admin.rpc("broadcast_client_photo_event", {
+      p_client_id: clientId,
+      p_change: change,
+      p_photo_id: photoId,
+    });
+  } catch (err) {
+    console.error("broadcast_client_photo_event failed", err);
+  }
+}
+
 
 export const adminUploadClientPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -203,6 +224,7 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
         source: "admin_upload",
         uploaded_by_user_id: context.userId,
         visible_to_client: data.visibleToClient,
+        journey_id: client.active_journey_id,
       })
       .select("id")
       .single();
@@ -215,6 +237,7 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
       week: data.week,
       visible_to_client: data.visibleToClient,
     });
+    await emitPhotoEvent(admin, client.id, "created", inserted.id);
     return { ok: true, id: inserted.id };
   });
 
@@ -270,6 +293,7 @@ export const adminUpdateClientPhoto = createServerFn({ method: "POST" })
       const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
       await ensureAndSyncWeeklyPhotoMission(admin, client);
     } catch {}
+    await emitPhotoEvent(admin, client.id, "updated", existing.id);
     return { ok: true };
   });
 
@@ -322,5 +346,6 @@ export const adminDeleteClientPhoto = createServerFn({ method: "POST" })
       const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
       await ensureAndSyncWeeklyPhotoMission(admin, client);
     } catch {}
+    await emitPhotoEvent(admin, client.id, "deleted", row.id);
     return { ok: true };
   });
