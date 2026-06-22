@@ -114,6 +114,10 @@ function Page() {
             onDone={(dur) => goNext(dur)}
             onPrev={idx > 0 ? () => setIdx(idx - 1) : null}
             isLast={idx === exercises.length - 1}
+            onRefreshMedia={async () => {
+              await qc.invalidateQueries({ queryKey: ["vacuum-client-data", clientId] });
+              await refetch();
+            }}
           />
         )}
       </div>
