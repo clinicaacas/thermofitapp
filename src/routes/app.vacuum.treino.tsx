@@ -1,7 +1,7 @@
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import {
   getVacuumDataForClient,
@@ -35,22 +35,27 @@ type Exercise = {
 function Page() {
   const { clientId, start } = useSearch({ from: "/app/vacuum/treino" });
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const fetchData = useServerFn(getVacuumDataForClient);
   const logDone = useServerFn(logExerciseCompletion);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["vacuum-client", clientId],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["vacuum-client-data", clientId],
     queryFn: () => fetchData({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const exercises: Exercise[] = (data?.exercises ?? []) as any;
   const [idx, setIdx] = useState(0);
-  // Apply initial start index once exercises load
+  // Apply initial start index once exercises load — validate as integer in range
   useEffect(() => {
-    if (exercises.length > 0 && start > 0 && start < exercises.length) {
-      setIdx(start);
-    }
+    if (exercises.length === 0) return;
+    const n = Number.isFinite(start) ? Math.trunc(start as number) : 0;
+    const safe = n >= 0 && n < exercises.length ? n : 0;
+    setIdx(safe);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises.length]);
   const current = exercises[idx];
@@ -109,6 +114,10 @@ function Page() {
             onDone={(dur) => goNext(dur)}
             onPrev={idx > 0 ? () => setIdx(idx - 1) : null}
             isLast={idx === exercises.length - 1}
+            onRefreshMedia={async () => {
+              await qc.invalidateQueries({ queryKey: ["vacuum-client-data", clientId] });
+              await refetch();
+            }}
           />
         )}
       </div>
@@ -121,11 +130,13 @@ function ExerciseStep({
   onDone,
   onPrev,
   isLast,
+  onRefreshMedia,
 }: {
   ex: Exercise;
   onDone: (durationSeconds: number) => void;
   onPrev: (() => void) | null;
   isLast: boolean;
+  onRefreshMedia: () => Promise<void> | void;
 }) {
   const totalSeconds = Math.max(1, (ex.duration_seconds ?? 60) * Math.max(1, ex.sets ?? 1));
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -171,6 +182,33 @@ function ExerciseStep({
   }
 
   const mediaType = ex.media_type ?? "image";
+  const isVideo = mediaType === "video" || (!!ex.media_signed_url && /\.(mp4|webm|mov)(\?|$)/i.test(ex.media_signed_url));
+  const [videoNonce, setVideoNonce] = useState(0);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const retriedRef = useRef(false);
+
+  useEffect(() => {
+    setVideoNonce(0);
+    setVideoFailed(false);
+    retriedRef.current = false;
+  }, [ex.id, ex.media_signed_url]);
+
+  async function handleVideoError() {
+    if (!retriedRef.current) {
+      retriedRef.current = true;
+      await onRefreshMedia();
+      setVideoNonce((n) => n + 1);
+    } else {
+      setVideoFailed(true);
+    }
+  }
+
+  async function manualRetry() {
+    retriedRef.current = false;
+    setVideoFailed(false);
+    await onRefreshMedia();
+    setVideoNonce((n) => n + 1);
+  }
 
   return (
     <div className="space-y-3">
@@ -187,29 +225,43 @@ function ExerciseStep({
         className="relative grid w-full place-items-center overflow-hidden rounded-2xl bg-white"
         style={{ border: "1px solid #E5D6BD", aspectRatio: "4/3" }}
       >
-        {ex.media_signed_url ? (
-          mediaType === "video" ? (
-            <video
-              src={ex.media_signed_url}
-              className="h-full w-full object-cover"
-              muted
-              loop
-              autoPlay
-              playsInline
-            />
-          ) : (
-            <img
-              src={ex.media_signed_url}
-              alt={ex.name}
-              className="h-full w-full object-cover"
-            />
-          )
+        {ex.media_signed_url && isVideo && !videoFailed ? (
+          <video
+            key={`${ex.id}-${videoNonce}`}
+            src={ex.media_signed_url}
+            className="h-full w-full object-cover"
+            muted
+            loop
+            autoPlay
+            playsInline
+            controls
+            preload="metadata"
+            onError={handleVideoError}
+          />
+        ) : ex.media_signed_url && !isVideo ? (
+          <img
+            src={ex.media_signed_url}
+            alt={ex.name}
+            className="h-full w-full object-cover"
+          />
         ) : ex.thumbnail_signed_url ? (
-          <img src={ex.thumbnail_signed_url} alt={ex.name} className="h-full w-full object-cover" />
+          <>
+            <img src={ex.thumbnail_signed_url} alt={ex.name} className="h-full w-full object-cover" />
+            {isVideo && videoFailed && (
+              <button
+                type="button"
+                onClick={manualRetry}
+                className="absolute bottom-2 right-2 rounded-full px-3 py-1 text-[11px] font-semibold shadow"
+                style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+              >
+                Tentar carregar vídeo
+              </button>
+            )}
+          </>
         ) : (
           <div className="grid place-items-center p-6 text-center text-xs" style={{ color: "#6B7280" }}>
             <ImageIcon className="mx-auto mb-2 h-8 w-8" style={{ color: "#C9A24A" }} />
-            Mídia ainda não publicada para este exercício.
+            A demonstração deste exercício ainda está sendo preparada.
           </div>
         )}
 
