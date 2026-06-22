@@ -367,8 +367,10 @@ function todayISO() {
 }
 
 // Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
-// conclusão a partir das fotos com source='client_upload' na semana atual.
-// Chave lógica idempotente: (client_id, title="Foto de evolução — Semana N").
+// conclusão a partir das fotos com source='client_upload' na semana atual da
+// jornada ATIVA. Identidade lógica:
+//   (client_id, journey_id=client.active_journey_id, mission_type='weekly_photo', week_number)
+// Mantida pelo índice único parcial client_missions_typed_unique.
 export async function ensureAndSyncWeeklyPhotoMission(
   admin: any,
   client: any,
@@ -377,16 +379,20 @@ export async function ensureAndSyncWeeklyPhotoMission(
   const actualWeek = computeActualJourneyWeek(client.start_date);
   if (actualWeek < 1 || actualWeek > JOURNEY_TOTAL_WEEKS) return { missionId: null };
   const week = actualWeek;
+  const journeyId = client.active_journey_id as string | null;
+  if (!journeyId) return { missionId: null };
   const title = `Foto de evolução — Semana ${week}`;
   const description = "Registre sua foto desta semana para acompanhar sua evolução.";
   const today = todayISO();
 
-  // Idempotente: busca por (client_id, title).
+  // Idempotente: chave lógica baseada em (client_id, journey_id, mission_type, week_number).
   const { data: existing } = await admin
     .from("client_missions")
     .select("id")
     .eq("client_id", client.id)
-    .eq("title", title)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "weekly_photo")
+    .eq("week_number", week)
     .maybeSingle();
   let missionId = existing?.id as string | undefined;
   if (!missionId) {
@@ -400,16 +406,21 @@ export async function ensureAndSyncWeeklyPhotoMission(
         miles: 0,
         due_date: today,
         active: true,
+        mission_type: "weekly_photo",
+        journey_id: journeyId,
+        week_number: week,
       })
       .select("id")
       .single();
     if (insErr) {
-      // race: outra requisição criou nesse meio-tempo
+      // Corrida com índice único: outra requisição criou nesse meio-tempo.
       const { data: again } = await admin
         .from("client_missions")
         .select("id")
         .eq("client_id", client.id)
-        .eq("title", title)
+        .eq("journey_id", journeyId)
+        .eq("mission_type", "weekly_photo")
+        .eq("week_number", week)
         .maybeSingle();
       if (!again) return { missionId: null };
       missionId = again.id;
@@ -417,18 +428,18 @@ export async function ensureAndSyncWeeklyPhotoMission(
       missionId = created.id;
     }
   } else {
-    // Reativa/atualiza due_date para que apareça na lista de hoje.
     await admin
       .from("client_missions")
-      .update({ due_date: today, active: true })
+      .update({ due_date: today, active: true, title })
       .eq("id", missionId);
   }
 
-  // Conta fotos da cliente nesta semana (apenas client_upload).
+  // Conta fotos da cliente nesta semana DESTA jornada (apenas client_upload).
   const { count: photoCount } = await admin
     .from("client_progress_photos")
     .select("id", { head: true, count: "exact" })
     .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
     .eq("week", week)
     .eq("source", "client_upload");
   const { data: completion } = await admin
