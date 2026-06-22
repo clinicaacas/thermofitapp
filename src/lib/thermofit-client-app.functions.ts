@@ -707,7 +707,7 @@ export const listClientPhotos = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("client_progress_photos")
-      .select("id, storage_key, taken_at, week, notes, source, visible_to_client")
+      .select("id, storage_key, taken_at, week, notes, source, visible_to_client, journey_id")
       .eq("client_id", client.id)
       .eq("tenant_id", client.tenant_id)
       .eq("visible_to_client", true)
@@ -721,12 +721,16 @@ export const listClientPhotos = createServerFn({ method: "GET" })
         return { ...r, url: signed?.signedUrl ?? null };
       }),
     );
+    const journeyId = client.active_journey_id as string | null;
     const weekPhotoCounts: Record<number, number> = {};
     for (let w = 1; w <= JOURNEY_TOTAL_WEEKS; w++) weekPhotoCounts[w] = 0;
     let legacyPhotoCount = 0;
     for (const r of items) {
       const w = r.week;
-      if (typeof w === "number" && w >= 1 && w <= JOURNEY_TOTAL_WEEKS) {
+      // Conta no calendário SOMENTE fotos da jornada ATIVA. Fotos antigas
+      // (journey_id NULL ou diferente) caem em "anteriores", sem misturar.
+      const sameJourney = journeyId && r.journey_id === journeyId;
+      if (sameJourney && typeof w === "number" && w >= 1 && w <= JOURNEY_TOTAL_WEEKS) {
         weekPhotoCounts[w] = (weekPhotoCounts[w] ?? 0) + 1;
       } else {
         legacyPhotoCount += 1;
@@ -746,6 +750,7 @@ export const listClientPhotos = createServerFn({ method: "GET" })
       hasStartDate: !!client.start_date,
       weekPhotoCounts,
       legacyPhotoCount,
+      activeJourneyId: journeyId,
     };
   });
 
