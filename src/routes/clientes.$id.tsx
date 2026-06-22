@@ -15,6 +15,7 @@ import {
 } from "@/lib/thermofit-data.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check, Copy, UserPlus, Lock, Unlock } from "lucide-react";
 import { useState } from "react";
+import { AdminClientPhotosPanel } from "@/components/admin-client-photos-panel";
 
 
 
@@ -191,12 +192,22 @@ function Page() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-5">
-          <Action icon={<Camera className="h-4 w-4" />} label="Fotos" />
+          <a
+            href="#fotos-evolucao"
+            className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+          >
+            <Camera className="h-4 w-4" /> Fotos
+          </a>
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-4 w-4" />} label="Nutrição" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-4 w-4" />} label="Treino" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-4 w-4" />} label="Cartas" />
           <Action icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
         </div>
+
+        <div id="fotos-evolucao">
+          <AdminClientPhotosPanel clientId={id} />
+        </div>
+
 
         <div className="grid gap-4 lg:grid-cols-3">
           <Card title="Contato">
