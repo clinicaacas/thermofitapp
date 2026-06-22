@@ -852,7 +852,39 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
     if (dErr) throw dErr;
     // Recalcula conclusão da missão semanal após exclusão.
     await ensureAndSyncWeeklyPhotoMission(admin, client);
+    await emitClientPhotoEvent(admin, client.id, "deleted", row.id);
     return { ok: true };
+  });
+
+// ============ JORNADA ============
+
+export const adminRestartClientJourney = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        startDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (use AAAA-MM-DD)."),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const newJourneyId = crypto.randomUUID();
+    const { data: updated, error } = await admin
+      .from("clients")
+      .update({
+        active_journey_id: newJourneyId,
+        start_date: data.startDate,
+      })
+      .eq("id", data.clientId)
+      .select("id, active_journey_id, start_date")
+      .single();
+    if (error) throw error;
+    // Sinaliza para que o painel da cliente se atualize sem refresh.
+    await emitClientPhotoEvent(admin, data.clientId, "updated", null);
+    return { ok: true, journeyId: updated.active_journey_id, startDate: updated.start_date };
   });
 
 
