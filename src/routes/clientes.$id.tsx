@@ -532,16 +532,16 @@ Importante: este acesso é pessoal e não deve ser compartilhado.`}</pre>
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-foreground">{value}</div>
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold leading-tight text-foreground">{value}</div>
     </div>
   );
 }
 
 function Action({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <button className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent">
+    <button className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent">
       {icon} {label}
     </button>
   );
@@ -562,7 +562,7 @@ function ActionLink({
     <Link
       to={to as any}
       params={params as any}
-      className="flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-3 text-sm hover:bg-accent"
+      className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
     >
       {icon} {label}
     </Link>
@@ -579,22 +579,22 @@ function Card({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {action}
       </div>
-      <div className="space-y-2">{children}</div>
+      <div className="space-y-1.5">{children}</div>
     </section>
   );
 }
 
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, clamp = false }: { label: string; value: string; clamp?: boolean }) {
   return (
-    <div className="text-sm">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-foreground">{value}</div>
+    <div className="min-w-0 text-xs">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={"text-foreground " + (clamp ? "line-clamp-2" : "truncate")} title={value}>{value}</div>
     </div>
   );
 }
