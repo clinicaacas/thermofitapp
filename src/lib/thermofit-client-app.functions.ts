@@ -15,12 +15,31 @@ async function loadClient(clientId: string) {
   const admin = await getAdmin();
   const { data, error } = await admin
     .from("clients")
-    .select("id, name, tenant_id, plan, hydration_goal_ml, status, start_date, goal")
+    .select("id, name, tenant_id, plan, hydration_goal_ml, status, start_date, goal, active_journey_id")
     .eq("id", clientId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Cliente não encontrada.");
   return data;
+}
+
+// Emite evento mínimo de Broadcast no canal privado da cliente.
+// Nunca envia storage_key, URL, notes, week, source, visible_to_client.
+export async function emitClientPhotoEvent(
+  admin: any,
+  clientId: string,
+  change: "created" | "updated" | "deleted",
+  photoId: string | null,
+) {
+  try {
+    await admin.rpc("broadcast_client_photo_event", {
+      p_client_id: clientId,
+      p_change: change,
+      p_photo_id: photoId,
+    });
+  } catch (err) {
+    console.error("broadcast_client_photo_event failed", err);
+  }
 }
 
 export const getClientHome = createServerFn({ method: "GET" })
