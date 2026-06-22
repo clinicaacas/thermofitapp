@@ -117,10 +117,12 @@ export const adminListClientPhotos = createServerFn({ method: "GET" })
     for (let w = 1; w <= TOTAL_WEEKS; w++) weekPhotoCounts[w] = 0;
     let legacyPhotoCount = 0;
     let hiddenCount = 0;
+    const journeyId = client.active_journey_id as string | null;
     for (const r of items) {
       if (r.visible_to_client === false) hiddenCount += 1;
       const w = r.week;
-      if (typeof w === "number" && w >= 1 && w <= TOTAL_WEEKS) {
+      const sameJourney = journeyId && r.journey_id === journeyId;
+      if (sameJourney && typeof w === "number" && w >= 1 && w <= TOTAL_WEEKS) {
         weekPhotoCounts[w] += 1;
       } else {
         legacyPhotoCount += 1;
