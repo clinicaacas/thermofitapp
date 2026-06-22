@@ -33,7 +33,7 @@ type Exercise = {
 };
 
 function Page() {
-  const { clientId } = useSearch({ from: "/app/vacuum/treino" });
+  const { clientId, start } = useSearch({ from: "/app/vacuum/treino" });
   const navigate = useNavigate();
   const fetchData = useServerFn(getVacuumDataForClient);
   const logDone = useServerFn(logExerciseCompletion);
@@ -46,6 +46,13 @@ function Page() {
 
   const exercises: Exercise[] = (data?.exercises ?? []) as any;
   const [idx, setIdx] = useState(0);
+  // Apply initial start index once exercises load
+  useEffect(() => {
+    if (exercises.length > 0 && start > 0 && start < exercises.length) {
+      setIdx(start);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercises.length]);
   const current = exercises[idx];
 
   const completeMut = useMutation({
