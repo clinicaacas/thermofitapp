@@ -438,10 +438,13 @@ export type Database = {
           description: string | null
           due_date: string
           id: string
+          journey_id: string | null
           miles: number
+          mission_type: string | null
           tenant_id: string
           title: string
           updated_at: string
+          week_number: number | null
         }
         Insert: {
           active?: boolean
@@ -451,10 +454,13 @@ export type Database = {
           description?: string | null
           due_date?: string
           id?: string
+          journey_id?: string | null
           miles?: number
+          mission_type?: string | null
           tenant_id: string
           title: string
           updated_at?: string
+          week_number?: number | null
         }
         Update: {
           active?: boolean
@@ -464,10 +470,13 @@ export type Database = {
           description?: string | null
           due_date?: string
           id?: string
+          journey_id?: string | null
           miles?: number
+          mission_type?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string
+          week_number?: number | null
         }
         Relationships: [
           {
@@ -544,6 +553,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          journey_id: string | null
           notes: string | null
           source: string
           storage_key: string
@@ -558,6 +568,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          journey_id?: string | null
           notes?: string | null
           source?: string
           storage_key: string
@@ -572,6 +583,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          journey_id?: string | null
           notes?: string | null
           source?: string
           storage_key?: string
@@ -870,6 +882,7 @@ export type Database = {
         Row: {
           access_email: string | null
           access_status: string
+          active_journey_id: string
           auth_user_id: string | null
           avatar_initial: string
           birth_date: string | null
@@ -893,6 +906,7 @@ export type Database = {
         Insert: {
           access_email?: string | null
           access_status?: string
+          active_journey_id?: string
           auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
@@ -916,6 +930,7 @@ export type Database = {
         Update: {
           access_email?: string | null
           access_status?: string
+          active_journey_id?: string
           auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
@@ -1759,6 +1774,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      broadcast_client_photo_event: {
+        Args: { p_change: string; p_client_id: string; p_photo_id: string }
+        Returns: undefined
+      }
+      can_access_client_photos_topic: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
       is_profile_manager: {
         Args: { _tenant_id: string; _user_id: string }
