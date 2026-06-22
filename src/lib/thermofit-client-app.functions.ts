@@ -751,6 +751,19 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
     }
     const currentWeek = actualJourneyWeek;
     const admin = await getAdmin();
+
+    // LGPD: bloqueia upload se consentimento photos_internal estiver false.
+    const { data: consent } = await admin
+      .from("consents")
+      .select("photos_internal")
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (consent && consent.photos_internal === false) {
+      throw new Error(
+        "Para enviar fotos de evolução, é necessário autorizar o uso interno das suas fotos no termo de privacidade.",
+      );
+    }
+
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
     if (!file.type.startsWith("image/")) throw new Error("Envie uma imagem.");
@@ -773,6 +786,8 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
       await admin.storage.from("client-photos").remove([key]);
       throw insErr;
     }
+    // Conclui (uma única vez) a missão semanal de foto.
+    await ensureAndSyncWeeklyPhotoMission(admin, client);
     return { ok: true, week: currentWeek };
   });
 
@@ -798,8 +813,11 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
       .delete()
       .eq("id", row.id);
     if (dErr) throw dErr;
+    // Recalcula conclusão da missão semanal após exclusão.
+    await ensureAndSyncWeeklyPhotoMission(admin, client);
     return { ok: true };
   });
+
 
 // ============ PULSO SEMANAL ============
 
