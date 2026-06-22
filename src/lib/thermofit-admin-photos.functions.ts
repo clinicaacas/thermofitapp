@@ -166,6 +166,17 @@ export const adminUploadClientPhoto = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { client, admin } = await authorizeForClient(context, data.clientId);
+    // LGPD: bloqueia upload se consentimento photos_internal estiver false.
+    const { data: consent } = await admin
+      .from("consents")
+      .select("photos_internal")
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (consent && consent.photos_internal === false) {
+      throw new Error(
+        "Esta cliente não possui consentimento ativo para uso interno de fotos.",
+      );
+    }
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
     if (!file.type.startsWith("image/")) throw new Error("Envie uma imagem.");
