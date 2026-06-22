@@ -293,6 +293,7 @@ export const adminUpdateClientPhoto = createServerFn({ method: "POST" })
       const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
       await ensureAndSyncWeeklyPhotoMission(admin, client);
     } catch {}
+    await emitPhotoEvent(admin, client.id, "updated", existing.id);
     return { ok: true };
   });
 
