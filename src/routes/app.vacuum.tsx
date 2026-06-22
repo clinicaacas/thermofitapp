@@ -195,6 +195,14 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
                 {i + 1}
               </span>
+              <button
+                onClick={() => startProtocol(i)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold"
+                style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+                aria-label={`Praticar ${ex.name}`}
+              >
+                <Play className="h-3 w-3" /> Praticar
+              </button>
             </li>
           ))
         )}
