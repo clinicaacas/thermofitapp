@@ -38,7 +38,7 @@ async function authorizeForClient(context: Ctx, clientId: string) {
   const admin = await getAdmin();
   const { data: client, error: cErr } = await admin
     .from("clients")
-    .select("id, tenant_id, name, start_date")
+    .select("id, tenant_id, name, start_date, active_journey_id")
     .eq("id", clientId)
     .maybeSingle();
   if (cErr) throw cErr;
