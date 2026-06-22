@@ -545,9 +545,13 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          source: string
           storage_key: string
           taken_at: string
           tenant_id: string
+          updated_at: string
+          uploaded_by_user_id: string | null
+          visible_to_client: boolean
           week: number | null
         }
         Insert: {
@@ -555,9 +559,13 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          source?: string
           storage_key: string
           taken_at?: string
           tenant_id: string
+          updated_at?: string
+          uploaded_by_user_id?: string | null
+          visible_to_client?: boolean
           week?: number | null
         }
         Update: {
@@ -565,9 +573,13 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          source?: string
           storage_key?: string
           taken_at?: string
           tenant_id?: string
+          updated_at?: string
+          uploaded_by_user_id?: string | null
+          visible_to_client?: boolean
           week?: number | null
         }
         Relationships: [
