@@ -115,6 +115,24 @@ function Page() {
     onError: (e: any) => setEditError(e?.message ?? "Falha ao salvar."),
   });
 
+  const restartJourneyFn = useServerFn(adminRestartClientJourney);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restartDate, setRestartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [restartError, setRestartError] = useState<string | null>(null);
+  const restartJourneyMut = useMutation({
+    mutationFn: (newStart: string) =>
+      restartJourneyFn({ data: { clientId: id, startDate: newStart } }),
+    onSuccess: () => {
+      setRestartOpen(false);
+      setRestartError(null);
+      setEditOpen(false);
+      qc.invalidateQueries({ queryKey: ["client", id] });
+      qc.invalidateQueries({ queryKey: ["admin-client-photos", id] });
+      qc.invalidateQueries({ queryKey: ["client-missions-today", id] });
+    },
+    onError: (e: any) => setRestartError(e?.message ?? "Falha ao reiniciar jornada."),
+  });
+
   function openEdit() {
     const cli = (data as any)?.client;
     if (!cli) return;
