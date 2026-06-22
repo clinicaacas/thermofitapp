@@ -8,6 +8,7 @@ import {
   toggleMissionCompletion,
   listTodayVideoMissions,
 } from "@/lib/thermofit-client-app.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
