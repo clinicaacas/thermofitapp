@@ -354,7 +354,7 @@ function Guide({ data, onSkip, loading }: { data: any; onSkip: () => void; loadi
                 src={current.image_signed_url}
                 alt={current.alt_text || current.title}
                 decoding="async"
-                {...({ fetchpriority: "high" } as any)}
+                fetchPriority="high"
                 className="relative h-full w-full object-contain"
                 style={{ maxWidth: "100%", height: "auto" }}
                 onLoad={(e) => {
