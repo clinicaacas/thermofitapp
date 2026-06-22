@@ -350,7 +350,7 @@ function todayISO() {
 // Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
 // conclusão a partir das fotos com source='client_upload' na semana atual.
 // Chave lógica idempotente: (client_id, title="Foto de evolução — Semana N").
-async function ensureAndSyncWeeklyPhotoMission(
+export async function ensureAndSyncWeeklyPhotoMission(
   admin: any,
   client: any,
 ): Promise<{ missionId: string | null }> {
