@@ -31,6 +31,12 @@ function Page() {
     enabled: !!clientId,
   });
 
+  // Realtime: invalida fotos e missões sem refresh manual.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["client-photos", clientId] });
+    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+  });
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
