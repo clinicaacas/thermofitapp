@@ -437,7 +437,7 @@ async function ensureAndSyncWeeklyPhotoMission(
       .eq("mission_id", missionId)
       .eq("client_id", client.id);
   }
-  return { missionId };
+  return { missionId: missionId ?? null };
 }
 
 export const listClientMissions = createServerFn({ method: "GET" })
