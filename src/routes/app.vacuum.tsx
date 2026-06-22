@@ -18,13 +18,13 @@ function Page() {
   const { clientId } = useSearch({ from: "/app/vacuum" });
   const fetchData = useServerFn(getVacuumDataForClient);
   const { data, isLoading } = useQuery({
-    queryKey: ["vacuum-client", clientId],
+    queryKey: ["vacuum-client-data", clientId],
     queryFn: () => fetchData({ data: { clientId } }),
     enabled: !!clientId,
-    staleTime: FIFTEEN_MIN,
+    staleTime: 0,
     gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     placeholderData: keepPreviousData,
   });
 
