@@ -564,6 +564,15 @@ export const listClientRedemptions = createServerFn({ method: "GET" })
 
 // ============ FOTOS DE EVOLUÇÃO ============
 
+// Calcula a semana atual (1..N) da jornada da cliente a partir de start_date,
+// usando dias de calendário em America/Sao_Paulo. Semana 1 = dias 0..6.
+function computeCurrentWeek(startDate: string | Date | null | undefined): number {
+  const day = getClientJourneyDay(startDate);
+  return Math.floor(day / 7) + 1;
+}
+
+const JOURNEY_TOTAL_WEEKS = 12;
+
 export const listClientPhotos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
@@ -583,7 +592,15 @@ export const listClientPhotos = createServerFn({ method: "GET" })
         return { ...r, url: signed?.signedUrl ?? null };
       }),
     );
-    return { photos: items };
+    const currentWeek = computeCurrentWeek(client.start_date);
+    const journeyCompleted = currentWeek > JOURNEY_TOTAL_WEEKS;
+    return {
+      photos: items,
+      currentWeek: journeyCompleted ? JOURNEY_TOTAL_WEEKS : currentWeek,
+      journeyCompleted,
+      totalWeeks: JOURNEY_TOTAL_WEEKS,
+      hasStartDate: !!client.start_date,
+    };
   });
 
 export const uploadClientPhoto = createServerFn({ method: "POST" })
@@ -592,18 +609,29 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
     const clientId = String(d.get("clientId") || "");
     const file = d.get("file");
     const notes = String(d.get("notes") || "");
-    const weekRaw = d.get("week");
     if (!clientId) throw new Error("clientId obrigatório");
     if (!(file instanceof File)) throw new Error("Arquivo obrigatório");
+    // Semana é IGNORADA propositalmente — recalculada no servidor.
     return {
       clientId,
       file,
       notes: notes || null,
-      week: weekRaw ? Number(weekRaw) || null : null,
     };
   })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
+    if (!client.start_date) {
+      throw new Error("Sua data de início ainda não foi definida. Fale com a equipe.");
+    }
+    const currentWeek = computeCurrentWeek(client.start_date);
+    if (currentWeek > JOURNEY_TOTAL_WEEKS) {
+      throw new Error(
+        "Sua jornada de 12 semanas foi concluída. Para novos registros, fale com a equipe.",
+      );
+    }
+    if (currentWeek < 1) {
+      throw new Error("Jornada ainda não iniciada.");
+    }
     const admin = await getAdmin();
     const file = data.file as File;
     if (file.size > 10 * 1024 * 1024) throw new Error("Arquivo acima de 10MB.");
@@ -619,15 +647,17 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
       tenant_id: client.tenant_id,
       client_id: client.id,
       storage_key: key,
-      week: data.week,
+      week: currentWeek,
       notes: data.notes,
+      source: "client_upload",
     });
     if (insErr) {
       await admin.storage.from("client-photos").remove([key]);
       throw insErr;
     }
-    return { ok: true };
+    return { ok: true, week: currentWeek };
   });
+
 
 export const deleteClientPhoto = createServerFn({ method: "POST" })
   .inputValidator((i) =>

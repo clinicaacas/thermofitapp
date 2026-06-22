@@ -30,11 +30,15 @@ function Page() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState("");
-  const [week, setWeek] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  const currentWeek: number = data?.currentWeek ?? 0;
+  const journeyCompleted: boolean = !!data?.journeyCompleted;
+  const hasStartDate: boolean = data?.hasStartDate !== false;
 
   const uploadMut = useMutation({
     mutationFn: (form: FormData) => uploadFn({ data: form }),
@@ -42,12 +46,15 @@ function Page() {
       setFile(null);
       setPreview(null);
       setNotes("");
-      setWeek("");
       setErr(null);
+      setOkMsg("Foto enviada para sua evolução.");
       if (fileRef.current) fileRef.current.value = "";
       qc.invalidateQueries({ queryKey: ["client-photos", clientId] });
     },
-    onError: (e: any) => setErr(e?.message ?? "Falha no upload."),
+    onError: (e: any) => {
+      setOkMsg(null);
+      setErr(e?.message ?? "Não foi possível enviar a foto. Tente novamente.");
+    },
   });
 
   const deleteMut = useMutation({
@@ -58,6 +65,7 @@ function Page() {
   function onPickFile(f: File | null) {
     setFile(f);
     setErr(null);
+    setOkMsg(null);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f ? URL.createObjectURL(f) : null);
   }
@@ -68,79 +76,85 @@ function Page() {
     fd.append("clientId", clientId);
     fd.append("file", file);
     if (notes) fd.append("notes", notes);
-    if (week) fd.append("week", week);
     uploadMut.mutate(fd);
   }
 
   const photos = data?.photos ?? [];
+  const canUpload = hasStartDate && !journeyCompleted;
 
   return (
     <ClientAppShell title="Fotos de evolução">
       <div className="space-y-4">
-        <div className="rounded-2xl border border-[#E5D6BD] bg-white p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#7A6A52]">
-            Nova foto
-          </p>
-
-          {preview ? (
-            <div className="relative mb-3 overflow-hidden rounded-xl bg-[#F3E8D2]">
-              <img src={preview} alt="" className="max-h-72 w-full object-contain" />
-              <button
-                onClick={() => onPickFile(null)}
-                className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/60 text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="mb-3 flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E5D6BD] bg-[#F8F1E6] p-8 text-[#8A6A3D] transition hover:border-[#8A6A3D]"
-            >
-              <Camera className="h-8 w-8" />
-              <span className="text-sm font-medium">Tirar / escolher foto</span>
-            </button>
-          )}
-
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-          />
-
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              type="number"
-              min={1}
-              placeholder="Semana"
-              value={week}
-              onChange={(e) => setWeek(e.target.value)}
-              className="col-span-1 h-10 rounded-lg border border-[#E5D6BD] bg-white px-3 text-sm text-[#3D2E1C]"
-            />
-            <input
-              type="text"
-              placeholder="Observação (opcional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              maxLength={120}
-              className="col-span-2 h-10 rounded-lg border border-[#E5D6BD] bg-white px-3 text-sm text-[#3D2E1C]"
-            />
+        {journeyCompleted && (
+          <div className="rounded-xl border border-[#E5D6BD] bg-[#FBF4E6] p-3 text-xs text-[#7A4A1F]">
+            Sua jornada de 12 semanas foi concluída. Para novos registros, fale com a equipe.
           </div>
+        )}
+        {!hasStartDate && (
+          <div className="rounded-xl border border-[#E5D6BD] bg-[#FBF4E6] p-3 text-xs text-[#7A4A1F]">
+            Sua data de início ainda não foi definida. Fale com a equipe para liberar o envio de fotos.
+          </div>
+        )}
 
-          {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+        {canUpload && (
+          <div className="rounded-2xl border border-[#E5D6BD] bg-white p-3">
+            {preview ? (
+              <div className="relative mb-2 overflow-hidden rounded-lg bg-[#F3E8D2]">
+                <img src={preview} alt="" className="max-h-28 w-full object-contain" />
+                <button
+                  onClick={() => onPickFile(null)}
+                  className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white"
+                  aria-label="Remover imagem"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="mb-2 flex h-[96px] w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#E5D6BD] bg-[#F8F1E6] px-3 text-[#8A6A3D] transition hover:border-[#8A6A3D]"
+              >
+                <Camera className="h-5 w-5" />
+                <span className="text-sm font-medium">Tirar / escolher foto</span>
+              </button>
+            )}
 
-          <button
-            onClick={submit}
-            disabled={!file || uploadMut.isPending}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#8A6A3D] py-3 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" />
-            {uploadMut.isPending ? "Enviando…" : "Enviar foto"}
-          </button>
-        </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            />
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-1 flex h-9 items-center justify-center rounded-lg border border-[#E5D6BD] bg-[#F8F1E6] px-2 text-xs font-medium text-[#7A6A52]">
+                Semana {currentWeek || "—"}
+              </div>
+              <input
+                type="text"
+                placeholder="Observação (opcional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={120}
+                className="col-span-2 h-9 rounded-lg border border-[#E5D6BD] bg-white px-3 text-sm text-[#3D2E1C]"
+              />
+            </div>
+
+            {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+            {okMsg && !err && <p className="mt-2 text-xs text-green-700">{okMsg}</p>}
+
+            <button
+              onClick={submit}
+              disabled={!file || uploadMut.isPending}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#8A6A3D] py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {uploadMut.isPending ? "Enviando…" : "Enviar foto"}
+            </button>
+          </div>
+        )}
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7A6A52]">
@@ -205,3 +219,4 @@ function Page() {
     </ClientAppShell>
   );
 }
+
