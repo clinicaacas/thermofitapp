@@ -100,7 +100,10 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 
 function ExerciseSkeleton() {
   return (
-    <li className="flex items-center gap-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
+    <li
+      className="relative flex items-center gap-3 rounded-2xl bg-white p-3 pr-16"
+      style={{ border: "1px solid #E5D6BD", minHeight: 76 }}
+    >
       <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl" style={{ background: "#F3E8D2" }} />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="h-3 w-2/3 animate-pulse rounded" style={{ background: "#F3E8D2" }} />
@@ -125,7 +128,6 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
   });
 
   function startProtocol(startIdx = 0) {
-    // Fire-and-forget log; navigate immediately so the client doesn't see a toast-only state.
     startMut.mutate();
     navigate({ to: "/app/vacuum/treino", search: { clientId, start: startIdx } });
   }
@@ -168,8 +170,15 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
           </li>
         ) : (
           exercises.map((ex: any, i: number) => (
-            <li key={ex.id} className="flex items-center gap-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
-              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl" style={{ background: "#F3E8D2" }}>
+            <li
+              key={ex.id}
+              className="relative flex items-center gap-3 rounded-2xl bg-white p-3 pr-20"
+              style={{ border: "1px solid #E5D6BD", minHeight: 76 }}
+            >
+              <div
+                className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl"
+                style={{ background: "#F3E8D2" }}
+              >
                 {ex.thumbnail_signed_url ? (
                   <img
                     src={ex.thumbnail_signed_url}
@@ -185,20 +194,29 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                <p
+                  className="truncate whitespace-nowrap text-[13px] font-semibold"
+                  style={{ color: "#1F2933" }}
+                  title={ex.name}
+                >
                   {ex.name}
                 </p>
-                <p className="text-xs" style={{ color: "#6B7280" }}>
+                <p className="truncate text-[11px]" style={{ color: "#6B7280" }}>
                   {[ex.short_description, ex.prescription_text].filter(Boolean).join(" · ")}
                 </p>
               </div>
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
+              <span
+                className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold"
+                style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+                aria-hidden="true"
+              >
                 {i + 1}
               </span>
               <button
+                type="button"
                 onClick={() => startProtocol(i)}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold"
-                style={{ background: "#8A6A3D", color: "#FFFFFF" }}
+                className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold shadow-sm active:scale-95"
+                style={{ background: "#8A6A3D", color: "#FFFFFF", height: 28, minWidth: 62 }}
                 aria-label={`Praticar ${ex.name}`}
               >
                 <Play className="h-3 w-3" /> Praticar
@@ -213,15 +231,6 @@ function Practice({ data, clientId, loading }: { data: any; clientId: string; lo
           <CheckCircle2 className="h-4 w-4" /> {feedback}
         </div>
       )}
-
-      <button
-        onClick={() => startProtocol(0)}
-        disabled={loading}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold disabled:opacity-60"
-        style={{ background: "#8A6A3D", color: "#FFFFFF" }}
-      >
-        <Play className="h-4 w-4" /> {s?.button_text ?? "Começar Treino"}
-      </button>
     </div>
   );
 }
