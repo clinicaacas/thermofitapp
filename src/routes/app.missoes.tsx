@@ -29,6 +29,12 @@ function Page() {
     enabled: !!clientId,
   });
 
+  // Realtime: foto enviada/excluída atualiza a conclusão da missão semanal.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+  });
+
+
   const { data: videoData, isLoading: videoLoading } = useQuery({
     queryKey: ["client-video-missions", clientId],
     queryFn: () => fetchVideoMissions({ data: { clientId } }),
