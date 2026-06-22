@@ -7,6 +7,7 @@ import {
   adminUpdateClientPhoto,
   adminDeleteClientPhoto,
 } from "@/lib/thermofit-admin-photos.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { Camera, Check, EyeOff, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
 const TOTAL_WEEKS = 12;
