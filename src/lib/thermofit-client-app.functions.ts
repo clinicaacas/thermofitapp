@@ -809,20 +809,22 @@ export const uploadClientPhoto = createServerFn({ method: "POST" })
       .from("client-photos")
       .upload(key, buf, { contentType: file.type, upsert: false });
     if (upErr) throw upErr;
-    const { error: insErr } = await admin.from("client_progress_photos").insert({
+    const { data: inserted, error: insErr } = await admin.from("client_progress_photos").insert({
       tenant_id: client.tenant_id,
       client_id: client.id,
       storage_key: key,
       week: currentWeek,
       notes: data.notes,
       source: "client_upload",
-    });
+      journey_id: client.active_journey_id,
+    }).select("id").single();
     if (insErr) {
       await admin.storage.from("client-photos").remove([key]);
       throw insErr;
     }
     // Conclui (uma única vez) a missão semanal de foto.
     await ensureAndSyncWeeklyPhotoMission(admin, client);
+    await emitClientPhotoEvent(admin, client.id, "created", inserted?.id ?? null);
     return { ok: true, week: currentWeek };
   });
 
