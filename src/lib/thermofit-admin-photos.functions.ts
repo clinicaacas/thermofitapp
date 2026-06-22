@@ -315,5 +315,9 @@ export const adminDeleteClientPhoto = createServerFn({ method: "POST" })
       week: row.week,
       source: row.source,
     });
+    try {
+      const { ensureAndSyncWeeklyPhotoMission } = await import("./thermofit-client-app.functions");
+      await ensureAndSyncWeeklyPhotoMission(admin, client);
+    } catch {}
     return { ok: true };
   });
