@@ -130,11 +130,13 @@ function ExerciseStep({
   onDone,
   onPrev,
   isLast,
+  onRefreshMedia,
 }: {
   ex: Exercise;
   onDone: (durationSeconds: number) => void;
   onPrev: (() => void) | null;
   isLast: boolean;
+  onRefreshMedia: () => Promise<void> | void;
 }) {
   const totalSeconds = Math.max(1, (ex.duration_seconds ?? 60) * Math.max(1, ex.sets ?? 1));
   const [remaining, setRemaining] = useState(totalSeconds);
