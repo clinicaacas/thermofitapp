@@ -580,8 +580,10 @@ export const listClientPhotos = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("client_progress_photos")
-      .select("id, storage_key, taken_at, week, notes")
+      .select("id, storage_key, taken_at, week, notes, source, visible_to_client")
       .eq("client_id", client.id)
+      .eq("tenant_id", client.tenant_id)
+      .eq("visible_to_client", true)
       .order("taken_at", { ascending: false });
     if (error) throw error;
     const items = await Promise.all(
@@ -592,6 +594,17 @@ export const listClientPhotos = createServerFn({ method: "GET" })
         return { ...r, url: signed?.signedUrl ?? null };
       }),
     );
+    const weekPhotoCounts: Record<number, number> = {};
+    for (let w = 1; w <= JOURNEY_TOTAL_WEEKS; w++) weekPhotoCounts[w] = 0;
+    let legacyPhotoCount = 0;
+    for (const r of items) {
+      const w = r.week;
+      if (typeof w === "number" && w >= 1 && w <= JOURNEY_TOTAL_WEEKS) {
+        weekPhotoCounts[w] = (weekPhotoCounts[w] ?? 0) + 1;
+      } else {
+        legacyPhotoCount += 1;
+      }
+    }
     const currentWeek = computeCurrentWeek(client.start_date);
     const journeyCompleted = currentWeek > JOURNEY_TOTAL_WEEKS;
     return {
@@ -600,8 +613,11 @@ export const listClientPhotos = createServerFn({ method: "GET" })
       journeyCompleted,
       totalWeeks: JOURNEY_TOTAL_WEEKS,
       hasStartDate: !!client.start_date,
+      weekPhotoCounts,
+      legacyPhotoCount,
     };
   });
+
 
 export const uploadClientPhoto = createServerFn({ method: "POST" })
   .inputValidator((d) => {
