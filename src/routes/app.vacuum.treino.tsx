@@ -119,10 +119,12 @@ function Page() {
 function ExerciseStep({
   ex,
   onDone,
+  onPrev,
   isLast,
 }: {
   ex: Exercise;
   onDone: (durationSeconds: number) => void;
+  onPrev: (() => void) | null;
   isLast: boolean;
 }) {
   const totalSeconds = Math.max(1, (ex.duration_seconds ?? 60) * Math.max(1, ex.sets ?? 1));
