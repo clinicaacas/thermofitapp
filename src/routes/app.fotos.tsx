@@ -8,6 +8,7 @@ import {
   uploadClientPhoto,
   deleteClientPhoto,
 } from "@/lib/thermofit-client-app.functions";
+import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { Camera, Check, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/app/fotos")({
