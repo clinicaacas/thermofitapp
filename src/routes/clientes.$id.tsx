@@ -13,6 +13,7 @@ import {
   adminSetClientAccessStatus,
   updateClient,
 } from "@/lib/thermofit-data.functions";
+import { adminRestartClientJourney } from "@/lib/thermofit-client-app.functions";
 import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, Plus, Check, Copy, UserPlus, Lock, Unlock } from "lucide-react";
 import { useState } from "react";
 import { AdminClientPhotosPanel } from "@/components/admin-client-photos-panel";
