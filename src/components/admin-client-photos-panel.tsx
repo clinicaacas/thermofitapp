@@ -25,6 +25,11 @@ export function AdminClientPhotosPanel({ clientId }: { clientId: string }) {
     enabled: !!clientId,
   });
 
+  // Realtime: cliente envia/edita/exclui → painel atualiza sem refresh.
+  useClientPhotosRealtime(clientId || null, () => {
+    qc.invalidateQueries({ queryKey: ["admin-client-photos", clientId] });
+  });
+
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
