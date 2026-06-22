@@ -193,30 +193,30 @@ function ExerciseStep({
   const isVideo = mediaType === "video" || (!!ex.media_signed_url && /\.(mp4|webm|mov)(\?|$)/i.test(ex.media_signed_url));
   const isGif = mediaType === "gif";
   const [videoNonce, setVideoNonce] = useState(0);
+  const [videoRetries, setVideoRetries] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
-  const retriedRef = useRef(false);
 
   useEffect(() => {
     setVideoNonce(0);
+    setVideoRetries(0);
     setVideoFailed(false);
     setVideoLoading(Boolean(ex.media_signed_url && isVideo));
-    retriedRef.current = false;
   }, [ex.id, ex.media_signed_url, isVideo]);
 
-  async function handleVideoError() {
+  function handleVideoError() {
     setVideoLoading(false);
-    if (!retriedRef.current) {
-      retriedRef.current = true;
-      await onRefreshMedia();
-      setVideoNonce((n) => n + 1);
-    } else {
+    if (videoRetries >= 1) {
       setVideoFailed(true);
+      return;
     }
+    setVideoRetries((n) => n + 1);
+    setVideoLoading(true);
+    void Promise.resolve(onRefreshMedia()).finally(() => setVideoNonce((n) => n + 1));
   }
 
   async function manualRetry() {
-    retriedRef.current = false;
+    setVideoRetries(0);
     setVideoFailed(false);
     setVideoLoading(true);
     await onRefreshMedia();
