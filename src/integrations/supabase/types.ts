@@ -1410,6 +1410,162 @@ export type Database = {
           },
         ]
       }
+      support_conversations: {
+        Row: {
+          assigned_to_user_id: string | null
+          client_id: string
+          closed_at: string | null
+          created_at: string
+          id: string
+          last_message_at: string
+          status: string
+          tenant_id: string
+          topic_id: string | null
+          topic_label: string | null
+          unread_for_admin: boolean
+          unread_for_client: boolean
+          updated_at: string
+        }
+        Insert: {
+          assigned_to_user_id?: string | null
+          client_id: string
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
+          tenant_id: string
+          topic_id?: string | null
+          topic_label?: string | null
+          unread_for_admin?: boolean
+          unread_for_client?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assigned_to_user_id?: string | null
+          client_id?: string
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
+          tenant_id?: string
+          topic_id?: string | null
+          topic_label?: string | null
+          unread_for_admin?: boolean
+          unread_for_client?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_conversations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_conversations_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "support_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender_type: string
+          sender_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_type: string
+          sender_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_type?: string
+          sender_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "support_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_topics: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          sort_order: number
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          sort_order?: number
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          sort_order?: number
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_topics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           accent_color: string

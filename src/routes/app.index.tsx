@@ -17,7 +17,7 @@ const QUICK: { to: string; label: string; icon: any; moduleKey: string }[] = [
   { to: "/app/cartas", label: "Cartas", icon: Mail, moduleKey: "cartas" },
   { to: "/app/premios", label: "Prêmios", icon: Gift, moduleKey: "premios" },
   { to: "/app/fotos", label: "Fotos", icon: Camera, moduleKey: "fotos" },
-  { to: "/app/ajuda", label: "Ajuda", icon: HelpCircle, moduleKey: "falar" },
+  { to: "/app/falar", label: "Suporte", icon: HelpCircle, moduleKey: "falar" },
   { to: "/app/privacidade", label: "Privacidade", icon: Shield, moduleKey: "privacidade" },
 ];
 
