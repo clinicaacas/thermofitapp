@@ -610,5 +610,23 @@ export const listClientConversationsAdmin = createServerFn({ method: "GET" })
       .eq("client_id", data.clientId)
       .order("last_message_at", { ascending: false });
     if (error) throw error;
-    return { conversations: rows ?? [] };
+    const ids = (rows ?? []).map((c: any) => c.id);
+    let previews: Record<string, { body: string; sender_type: string }> = {};
+    if (ids.length > 0) {
+      const { data: msgs } = await context.supabase
+        .from("support_messages")
+        .select("conversation_id, body, sender_type, created_at")
+        .in("conversation_id", ids)
+        .order("created_at", { ascending: false });
+      for (const m of msgs ?? []) {
+        if (!previews[m.conversation_id]) previews[m.conversation_id] = { body: m.body, sender_type: m.sender_type };
+      }
+    }
+    return {
+      conversations: (rows ?? []).map((c: any) => ({
+        ...c,
+        last_preview: previews[c.id]?.body ?? "",
+        last_sender: previews[c.id]?.sender_type ?? null,
+      })),
+    };
   });
