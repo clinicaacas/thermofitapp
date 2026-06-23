@@ -298,7 +298,8 @@ export const startConversation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { clientId, tenantId } = await resolveClientContext(context, data.clientId ?? null);
     const topic = await resolveTopic(context.supabase, tenantId, data.topicId, data.topicLabel);
-    const { data: conv, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conv, error } = await supabaseAdmin
       .from("support_conversations")
       .insert({
         tenant_id: tenantId,
@@ -316,7 +317,7 @@ export const startConversation = createServerFn({ method: "POST" })
       console.error("[support:startConversation] conversation insert failed", error);
       throw new Error("Não foi possível enviar sua solicitação. Tente novamente.");
     }
-    const { error: mErr } = await context.supabase.from("support_messages").insert({
+    const { error: mErr } = await supabaseAdmin.from("support_messages").insert({
       tenant_id: tenantId,
       conversation_id: conv.id,
       sender_type: "client",
@@ -348,7 +349,8 @@ export const replyAsClient = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!conv || conv.client_id !== clientId) throw new Error("Conversa não encontrada.");
     const newStatus = conv.status === "encerrado" ? "aberto" : conv.status;
-    const { error: msgErr } = await context.supabase.from("support_messages").insert({
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: msgErr } = await supabaseAdmin.from("support_messages").insert({
       tenant_id: tenantId,
       conversation_id: conv.id,
       sender_type: "client",
@@ -359,7 +361,7 @@ export const replyAsClient = createServerFn({ method: "POST" })
       console.error("[support:replyAsClient] message insert failed", msgErr);
       throw new Error("Não foi possível enviar sua solicitação. Tente novamente.");
     }
-    const { error: updateErr } = await context.supabase
+    const { error: updateErr } = await supabaseAdmin
       .from("support_conversations")
       .update({
         status: newStatus,
