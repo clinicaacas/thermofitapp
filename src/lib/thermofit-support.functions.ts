@@ -74,7 +74,11 @@ async function ensureDefaultTopics(supabase: any, tenantId: string) {
       sort_order: i,
     }));
     const { error: insertErr } = await supabase.from("support_topics").insert(defaults);
-    if (insertErr) throw insertErr;
+    if (insertErr) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: adminErr } = await supabaseAdmin.from("support_topics").insert(defaults);
+      if (adminErr) throw adminErr;
+    }
     return;
   }
 
@@ -88,14 +92,31 @@ async function ensureDefaultTopics(supabase: any, tenantId: string) {
       active: true,
       sort_order: maxOrder + 1,
     });
-    if (otherErr) throw otherErr;
+    if (otherErr) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: adminErr } = await supabaseAdmin.from("support_topics").insert({
+        tenant_id: tenantId,
+        title: "Outro assunto",
+        active: true,
+        sort_order: maxOrder + 1,
+      });
+      if (adminErr) throw adminErr;
+    }
   } else if (!other.active) {
     const { error: updateErr } = await supabase
       .from("support_topics")
       .update({ active: true })
       .eq("id", other.id)
       .eq("tenant_id", tenantId);
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: adminErr } = await supabaseAdmin
+        .from("support_topics")
+        .update({ active: true })
+        .eq("id", other.id)
+        .eq("tenant_id", tenantId);
+      if (adminErr) throw adminErr;
+    }
   }
 }
 
