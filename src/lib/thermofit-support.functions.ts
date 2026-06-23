@@ -374,7 +374,7 @@ export const listSupportConversations = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("support_conversations")
       .select(
-        "id, topic_label, status, last_message_at, unread_for_admin, client_id, clients!inner(id, name, tenant_id)",
+        "id, topic_label, status, last_message_at, unread_for_admin, assigned_to_user_id, client_id, clients!inner(id, name, tenant_id)",
       )
       .eq("tenant_id", tenantId)
       .order("last_message_at", { ascending: false });
