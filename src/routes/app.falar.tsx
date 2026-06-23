@@ -184,14 +184,14 @@ function Page() {
 
   return (
     <ClientAppShell title="Suporte" allowMissingClientId>
-      <div className="space-y-3">
-        <p className="text-xs text-slate-600">
+      <div className="-mt-1 space-y-2">
+        <p className="text-[11px] leading-snug text-slate-600">
           Envie sua mensagem para nossa equipe. Vamos acompanhar sua solicitação e responder por aqui.
         </p>
 
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
           <p className="text-xs font-semibold text-slate-700">Assunto</p>
-          <div className="grid grid-cols-1 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {topics.map((t: any) => {
               const selectedTopic = topics.find((x) => x.id === topicId) ?? topics.find((x) => x.title === "Outro assunto") ?? topics[0];
               const selected = selectedTopic?.id === t.id;
@@ -199,11 +199,12 @@ function Page() {
                 <button
                   key={t.id}
                   onClick={() => setTopicId(t.id)}
-                  className={`rounded-md border px-3 py-2 text-left text-sm ${
+                  className={`h-8 truncate rounded-md border px-2 text-left text-xs leading-none ${
                     selected
                       ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                       : "border-slate-200 bg-white text-slate-700"
                   }`}
+                  title={t.title}
                 >
                   {t.title}
                 </button>
@@ -216,7 +217,7 @@ function Page() {
             onChange={(e) => setBody(e.target.value.slice(0, limit))}
             rows={4}
             placeholder="Escreva sua mensagem"
-            className="mt-1 w-full resize-none rounded-md border border-slate-200 bg-white p-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-full resize-none rounded-md border border-slate-200 bg-white p-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{counter}</span>
@@ -236,7 +237,8 @@ function Page() {
         </div>
 
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">Suas solicitações</h3>
+          <h3 className="mb-1.5 text-xs font-semibold uppercase text-slate-500">Suas solicitações</h3>
+
           <ul className="space-y-2">
             {conversations.map((c: any) => (
               <li key={c.id}>
