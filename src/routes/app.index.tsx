@@ -31,8 +31,8 @@ function weekFrom(startDate?: string | null): number {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
-  const { isEnabled } = useEnabledModules(clientId);
-  const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey));
+  const { isEnabled, getLabel } = useEnabledModules(clientId);
+  const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey)).map((m) => ({ ...m, label: getLabel(m.moduleKey, m.label) }));
   const fetchHome = useServerFn(getClientHome);
   const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
