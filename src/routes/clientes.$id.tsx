@@ -22,6 +22,7 @@ import { ClientSupportPanel } from "@/components/client-support-panel";
 
 
 export const Route = createFileRoute("/clientes/$id")({
+  validateSearch: (s: Record<string, unknown>) => ({ section: (s.section as string) || "" }),
   head: () => ({ meta: [{ title: "Perfil da cliente — ThermoFit" }] }),
   component: Page,
 });
