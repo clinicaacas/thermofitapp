@@ -21,7 +21,7 @@ const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/alertas", label: "Alertas", icon: AlertTriangle },
-  { to: "/mensagens", label: "Mensagens", icon: MessageCircle },
+  { to: "/mensagens", label: "Suporte", icon: MessageCircle },
   { to: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
   { to: "/videos", label: "Vídeos", icon: Video },
   { to: "/exercicios", label: "Exercícios", icon: Dumbbell },
