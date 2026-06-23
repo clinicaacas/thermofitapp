@@ -198,7 +198,7 @@ export const getMyConversation = createServerFn({ method: "GET" })
 
 const startConversationSchema = z.object({
   topicId: z.string().uuid().nullable().optional(),
-  topicLabel: z.string().trim().max(120).optional(),
+  topicLabel: z.string().trim().max(120).nullable().optional(),
   body: z.string().trim().min(1).max(2000),
 });
 
