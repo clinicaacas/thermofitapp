@@ -31,6 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function Page() {
+  const { clientId } = useSearch({ from: "/app/falar" });
   const fetchTopics = useServerFn(listSupportTopicsClient);
   const fetchConvs = useServerFn(listMyConversations);
   const fetchConv = useServerFn(getMyConversation);
@@ -44,31 +45,38 @@ function Page() {
   const [status, setStatus] = useState<string | null>(null);
 
   const { data: topicsData } = useQuery({
-    queryKey: ["support-topics-client"],
-    queryFn: () => fetchTopics(),
+    queryKey: ["support-topics-client", clientId],
+    queryFn: () => fetchTopics({ data: clientId ? { clientId } : {} }),
+    refetchInterval: 15000,
   });
-  const topics = topicsData?.topics ?? [];
+  const topics = (topicsData?.topics ?? [{ id: null, title: "Outro assunto", sort_order: 0 }]) as Array<{
+    id: string | null;
+    title: string;
+    sort_order: number;
+  }>;
 
   const { data: convData } = useQuery({
-    queryKey: ["support-my-conversations"],
-    queryFn: () => fetchConvs(),
+    queryKey: ["support-my-conversations", clientId],
+    queryFn: () => fetchConvs({ data: clientId ? { clientId } : {} }),
+    refetchInterval: 15000,
   });
   const conversations = convData?.conversations ?? [];
 
   const { data: openData } = useQuery({
-    queryKey: ["support-conversation", openId],
-    queryFn: () => fetchConv({ data: { conversationId: openId! } }),
+    queryKey: ["support-conversation", openId, clientId],
+    queryFn: () => fetchConv({ data: { conversationId: openId!, ...(clientId ? { clientId } : {}) } }),
     enabled: !!openId,
     refetchInterval: openId ? 15000 : false,
   });
 
   const sendNew = useMutation({
     mutationFn: async () => {
-      const t = topics.find((x: any) => x.id === topicId) ?? topics[0];
+      const t = topics.find((x) => x.id === topicId) ?? topics.find((x) => x.title === "Outro assunto") ?? topics[0];
       return startConv({
         data: {
+          ...(clientId ? { clientId } : {}),
           topicId: t?.id ?? null,
-          topicLabel: t?.title ?? null,
+          topicLabel: t?.title ?? "Outro assunto",
           body: body.trim(),
         },
       });
@@ -78,21 +86,25 @@ function Page() {
       setTopicId(null);
       setStatus("Mensagem enviada para a equipe.");
       qc.invalidateQueries({ queryKey: ["support-my-conversations"] });
+      qc.invalidateQueries({ queryKey: ["support-conversations"] });
+      qc.invalidateQueries({ queryKey: ["client-support-conversations"] });
       setOpenId(res.conversationId);
     },
-    onError: (e: any) => setStatus(e?.message ?? "Falha ao enviar."),
+    onError: () => setStatus("Não foi possível enviar sua solicitação. Tente novamente."),
   });
 
   const sendReply = useMutation({
     mutationFn: async () => {
-      return reply({ data: { conversationId: openId!, body: body.trim() } });
+      return reply({ data: { conversationId: openId!, body: body.trim(), ...(clientId ? { clientId } : {}) } });
     },
     onSuccess: () => {
       setBody("");
       qc.invalidateQueries({ queryKey: ["support-conversation", openId] });
       qc.invalidateQueries({ queryKey: ["support-my-conversations"] });
+      qc.invalidateQueries({ queryKey: ["support-conversations"] });
+      qc.invalidateQueries({ queryKey: ["client-support-conversations"] });
     },
-    onError: (e: any) => setStatus(e?.message ?? "Falha ao enviar."),
+    onError: () => setStatus("Não foi possível enviar sua solicitação. Tente novamente."),
   });
 
   const limit = 2000;
@@ -181,7 +193,8 @@ function Page() {
           <p className="text-xs font-semibold text-slate-700">Assunto</p>
           <div className="grid grid-cols-1 gap-1.5">
             {topics.map((t: any) => {
-              const selected = (topicId ?? topics[0]?.id) === t.id;
+              const selectedTopic = topics.find((x) => x.id === topicId) ?? topics.find((x) => x.title === "Outro assunto") ?? topics[0];
+              const selected = selectedTopic?.id === t.id;
               return (
                 <button
                   key={t.id}
@@ -196,9 +209,6 @@ function Page() {
                 </button>
               );
             })}
-            {topics.length === 0 && (
-              <p className="text-xs text-slate-500">Nenhum assunto configurado.</p>
-            )}
           </div>
 
           <textarea
@@ -211,7 +221,7 @@ function Page() {
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{counter}</span>
             <button
-              disabled={!body.trim() || sendNew.isPending || topics.length === 0}
+              disabled={!body.trim() || sendNew.isPending}
               onClick={() => sendNew.mutate()}
               className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-xs font-medium text-white disabled:opacity-60"
             >
