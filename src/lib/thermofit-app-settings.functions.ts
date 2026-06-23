@@ -62,11 +62,15 @@ export const getAppSettings = createServerFn({ method: "GET" })
       config: {},
     };
 
-    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r.enabled]));
-    const modules = DEFAULT_MODULES.map((d) => ({
-      ...d,
-      enabled: moduleMap.has(d.key) ? !!moduleMap.get(d.key) : true,
-    }));
+    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r]));
+    const modules = DEFAULT_MODULES.map((d) => {
+      const row: any = moduleMap.get(d.key);
+      return {
+        key: d.key,
+        label: (row?.label && String(row.label).trim()) || d.label,
+        enabled: row ? !!row.enabled : true,
+      };
+    });
 
     const quickTopics = (t.data ?? []).filter((r: any) => r.kind === "quick_topic");
     const finalQuickTopics =
@@ -98,7 +102,13 @@ export const saveAppSettings = createServerFn({ method: "POST" })
   });
 
 const saveModulesSchema = z.object({
-  modules: z.array(z.object({ key: z.string().min(1).max(40), enabled: z.boolean() })),
+  modules: z.array(
+    z.object({
+      key: z.string().min(1).max(40),
+      label: z.string().trim().max(60).optional(),
+      enabled: z.boolean(),
+    }),
+  ),
 });
 
 export const saveAppModules = createServerFn({ method: "POST" })
@@ -110,6 +120,7 @@ export const saveAppModules = createServerFn({ method: "POST" })
       tenant_id: tenantId,
       module_key: m.key,
       enabled: m.enabled,
+      label: m.label && m.label.length > 0 ? m.label : null,
     }));
     const { error } = await context.supabase
       .from("app_module_settings")

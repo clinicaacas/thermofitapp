@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          label: string | null
           module_key: string
           tenant_id: string
           updated_at: string
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          label?: string | null
           module_key: string
           tenant_id: string
           updated_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          label?: string | null
           module_key?: string
           tenant_id?: string
           updated_at?: string

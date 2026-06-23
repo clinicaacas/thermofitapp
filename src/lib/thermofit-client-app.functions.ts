@@ -343,11 +343,15 @@ export const getAppSettingsForClient = createServerFn({ method: "GET" })
       config: {},
     };
 
-    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r.enabled]));
-    const modules = DEFAULT_MODULES.map((d) => ({
-      ...d,
-      enabled: moduleMap.has(d.key) ? !!moduleMap.get(d.key) : true,
-    }));
+    const moduleMap = new Map((m.data ?? []).map((r: any) => [r.module_key, r]));
+    const modules = DEFAULT_MODULES.map((d) => {
+      const row: any = moduleMap.get(d.key);
+      return {
+        key: d.key,
+        label: (row?.label && String(row.label).trim()) || d.label,
+        enabled: row ? !!row.enabled : true,
+      };
+    });
 
     const quickTopics = (t.data ?? []).filter((r: any) => r.kind === "quick_topic");
     const finalQuickTopics =

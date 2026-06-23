@@ -56,7 +56,7 @@ export function AppClientSettingsTab() {
   const saveAll = useMutation({
     mutationFn: async () => {
       await saveS({ data: form });
-      await saveM({ data: { modules: modules.map((m) => ({ key: m.key, enabled: m.enabled })) } });
+      await saveM({ data: { modules: modules.map((m) => ({ key: m.key, label: m.label, enabled: m.enabled })) } });
       await saveT({ data: { topics } });
     },
     onSuccess: () => {
@@ -106,8 +106,15 @@ export function AppClientSettingsTab() {
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           {modules.map((m, idx) => (
-            <div key={m.key} className="flex items-center justify-between rounded-md border p-3">
-              <span className="text-sm">{m.label}</span>
+            <div key={m.key} className="flex items-center gap-3 rounded-md border p-3">
+              <Input
+                value={m.label}
+                onChange={(e) =>
+                  setModules((prev) => prev.map((p, i) => (i === idx ? { ...p, label: e.target.value } : p)))
+                }
+                className="h-8 flex-1"
+                placeholder={m.key}
+              />
               <Switch
                 checked={m.enabled}
                 onCheckedChange={(v) =>

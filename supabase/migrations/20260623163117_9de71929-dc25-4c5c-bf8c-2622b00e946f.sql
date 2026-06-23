@@ -1,0 +1,1 @@
+ALTER TABLE public.app_module_settings ADD COLUMN IF NOT EXISTS label text;
