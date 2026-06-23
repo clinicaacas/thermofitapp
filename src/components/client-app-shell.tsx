@@ -160,7 +160,7 @@ export function ClientAppShell({
                   <Link
                     to={item.to}
                     search={(prev: Record<string, unknown>) => prev}
-                    className="flex flex-col items-center gap-0.5 py-2 text-[11px]"
+                    className="flex flex-col items-center gap-0.5 py-1.5 text-[10px]"
                     style={{
                       background: active ? "#F3E8D2" : "transparent",
                       color: active ? "#8A6A3D" : "#6B7280",
