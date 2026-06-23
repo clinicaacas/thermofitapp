@@ -142,3 +142,120 @@ export function AppClientSettingsTab() {
     </div>
   );
 }
+
+function SupportTopicsCard() {
+  const fetchTopics = useServerFn(listSupportTopicsAdmin);
+  const saveFn = useServerFn(saveSupportTopics);
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["support-topics-admin"],
+    queryFn: () => fetchTopics(),
+  });
+  const [topics, setTopics] = useState<
+    { id?: string; title: string; active: boolean; sort_order: number }[]
+  >([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+    setTopics(
+      data.topics.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        active: t.active,
+        sort_order: t.sort_order,
+      })),
+    );
+    setDeletedIds([]);
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = topics.map((t, i) => ({ ...t, sort_order: i }));
+      return saveFn({ data: { topics: payload, deletedIds } });
+    },
+    onSuccess: () => {
+      setStatus("Assuntos do suporte salvos.");
+      qc.invalidateQueries({ queryKey: ["support-topics-admin"] });
+      qc.invalidateQueries({ queryKey: ["support-topics-client"] });
+    },
+    onError: (e: any) => setStatus(e?.message ?? "Falha ao salvar."),
+  });
+
+  function move(i: number, dir: -1 | 1) {
+    setTopics((prev) => {
+      const next = [...prev];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Suporte — Assuntos rápidos</CardTitle>
+        <CardDescription>
+          Assuntos que aparecem como opção quando a cliente abre uma solicitação de suporte no app.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {topics.map((t, idx) => (
+          <div key={idx} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[2fr_auto_auto_auto_auto]">
+            <Input
+              placeholder="Título do assunto"
+              value={t.title}
+              onChange={(e) =>
+                setTopics((p) => p.map((x, i) => (i === idx ? { ...x, title: e.target.value } : x)))
+              }
+            />
+            <label className="flex items-center gap-2 text-xs">
+              <Switch
+                checked={t.active}
+                onCheckedChange={(v) =>
+                  setTopics((p) => p.map((x, i) => (i === idx ? { ...x, active: v } : x)))
+                }
+              />
+              Ativo
+            </label>
+            <Button variant="ghost" size="icon" onClick={() => move(idx, -1)} title="Subir">
+              ↑
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => move(idx, 1)} title="Descer">
+              ↓
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setTopics((p) => p.filter((_, i) => i !== idx));
+                if (t.id) setDeletedIds((d) => [...d, t.id!]);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setTopics((p) => [...p, { title: "", active: true, sort_order: p.length }])
+            }
+          >
+            <Plus className="h-4 w-4" /> Adicionar assunto
+          </Button>
+          <div className="flex items-center gap-3">
+            {status && <span className="text-xs text-muted-foreground">{status}</span>}
+            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? "Salvando…" : "Salvar assuntos"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
