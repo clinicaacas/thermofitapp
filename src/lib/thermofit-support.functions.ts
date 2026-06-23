@@ -136,14 +136,14 @@ export const listSupportTopicsClient = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { tenantId } = await resolveClientContext(context, data?.clientId ?? null);
     await ensureDefaultTopics(context.supabase, tenantId);
-    const { data, error } = await context.supabase
+    const { data: topicRows, error } = await context.supabase
       .from("support_topics")
       .select("id, title, sort_order")
       .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("sort_order", { ascending: true });
     if (error) throw error;
-    return { topics: (data && data.length > 0) ? data : [{ id: null, title: "Outro assunto", sort_order: 0 }] };
+    return { topics: (topicRows && topicRows.length > 0) ? topicRows : [{ id: null, title: "Outro assunto", sort_order: 0 }] };
   });
 
 const saveTopicsSchema = z.object({
@@ -209,14 +209,14 @@ export const listMyConversations = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid().optional() }).optional().parse(i))
   .handler(async ({ data, context }) => {
     const { clientId } = await resolveClientContext(context, data?.clientId ?? null);
-    const { data, error } = await context.supabase
+    const { data: convRows, error } = await context.supabase
       .from("support_conversations")
       .select("id, topic_label, status, last_message_at, unread_for_client, created_at")
       .eq("client_id", clientId)
       .order("last_message_at", { ascending: false });
     if (error) throw error;
     // Last message preview
-    const ids = (data ?? []).map((c: any) => c.id);
+    const ids = (convRows ?? []).map((c: any) => c.id);
     let previews: Record<string, { body: string; sender_type: string }> = {};
     if (ids.length > 0) {
       const { data: msgs } = await context.supabase
@@ -231,7 +231,7 @@ export const listMyConversations = createServerFn({ method: "GET" })
       }
     }
     return {
-      conversations: (data ?? []).map((c: any) => ({
+      conversations: (convRows ?? []).map((c: any) => ({
         ...c,
         last_preview: previews[c.id]?.body ?? "",
         last_sender: previews[c.id]?.sender_type ?? null,
