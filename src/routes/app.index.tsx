@@ -91,7 +91,7 @@ function Page() {
 
       {/* Milhas card */}
       <section
-        className="mt-4 rounded-2xl bg-white p-4"
+        className="mt-3 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between">
@@ -99,10 +99,10 @@ function Page() {
             <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
               MILHAS THERMOFIT
             </p>
-            <p className="text-xs" style={{ color: "#6B7280" }}>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
               Jornada da Transformação
             </p>
-            <p className="mt-2 text-4xl font-bold leading-none" style={{ color: "#1F2933" }}>
+            <p className="mt-1 text-3xl font-bold leading-none" style={{ color: "#1F2933" }}>
               {miles}
               <span className="ml-1 text-sm font-normal" style={{ color: "#6B7280" }}>
                 milhas
@@ -110,26 +110,26 @@ function Page() {
             </p>
           </div>
           <div
-            className="grid h-12 w-12 place-items-center rounded-xl"
+            className="grid h-10 w-10 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-5 w-5" style={{ color: "#8A6A3D" }} />
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-xs">
+        <div className="mt-2.5 flex items-center justify-between text-xs">
           <span className="font-semibold" style={{ color: "#1F2933" }}>
             {currentPhase}
           </span>
           <span style={{ color: "#6B7280" }}>{milesNext - miles} para Decolagem</span>
         </div>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
           <div
             className="h-full rounded-full"
             style={{ width: `${(miles / milesNext) * 100}%`, background: "#D6A93F" }}
           />
         </div>
-        <div className="mt-3 flex justify-between text-[10px]" style={{ color: "#6B7280" }}>
+        <div className="mt-2 flex justify-between text-[10px]" style={{ color: "#6B7280" }}>
           {PHASES.map((p) => (
             <span key={p} style={{ color: p === currentPhase ? "#8A6A3D" : "#B7AFA0", fontWeight: p === currentPhase ? 600 : 400 }}>
               {p}
