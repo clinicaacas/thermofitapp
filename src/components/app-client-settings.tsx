@@ -127,57 +127,7 @@ export function AppClientSettingsTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Botões rápidos — Falar com a equipe</CardTitle>
-          <CardDescription>Botões que aparecem na tela de mensagens. Marque "alerta" para gerar alerta de alta prioridade.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {topics.map((t, idx) => (
-            <div key={idx} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_2fr_auto_auto]">
-              <Input
-                placeholder="chave"
-                value={t.key}
-                onChange={(e) =>
-                  setTopics((p) => p.map((x, i) => (i === idx ? { ...x, key: e.target.value } : x)))
-                }
-              />
-              <Input
-                placeholder="Texto do botão"
-                value={t.label}
-                onChange={(e) =>
-                  setTopics((p) => p.map((x, i) => (i === idx ? { ...x, label: e.target.value } : x)))
-                }
-              />
-              <label className="flex items-center gap-2 text-xs">
-                <Checkbox
-                  checked={t.creates_alert}
-                  onCheckedChange={(v) =>
-                    setTopics((p) => p.map((x, i) => (i === idx ? { ...x, creates_alert: !!v } : x)))
-                  }
-                />
-                Gera alerta
-              </label>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTopics((p) => p.filter((_, i) => i !== idx))}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setTopics((p) => [...p, { key: `botao_${p.length + 1}`, label: "", creates_alert: false }])
-            }
-          >
-            <Plus className="h-4 w-4" /> Adicionar botão
-          </Button>
-        </CardContent>
-      </Card>
+      <SupportTopicsCard />
 
       <AdminVacuumSettings />
 
