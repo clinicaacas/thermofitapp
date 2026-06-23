@@ -144,6 +144,11 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(c.last_message_at).toLocaleString("pt-BR")}
                 </span>
+                {c.last_preview && (
+                  <span className="line-clamp-1 text-[10px] text-muted-foreground">
+                    {c.last_sender === "admin" ? "Equipe: " : "Cliente: "}{c.last_preview}
+                  </span>
+                )}
               </button>
             </li>
           ))}
