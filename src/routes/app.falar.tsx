@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -31,7 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function Page() {
-  const { clientId } = useSearch({ from: "/app/falar" });
+  const { clientId } = Route.useSearch();
   const fetchTopics = useServerFn(listSupportTopicsClient);
   const fetchConvs = useServerFn(listMyConversations);
   const fetchConv = useServerFn(getMyConversation);
