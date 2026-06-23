@@ -56,7 +56,7 @@ export function AppClientSettingsTab() {
   const saveAll = useMutation({
     mutationFn: async () => {
       await saveS({ data: form });
-      await saveM({ data: { modules: modules.map((m) => ({ key: m.key, enabled: m.enabled })) } });
+      await saveM({ data: { modules: modules.map((m) => ({ key: m.key, label: m.label, enabled: m.enabled })) } });
       await saveT({ data: { topics } });
     },
     onSuccess: () => {
