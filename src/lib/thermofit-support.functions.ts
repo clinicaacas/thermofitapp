@@ -89,7 +89,7 @@ async function ensureDefaultTopics(supabase: any, tenantId: string) {
       sort_order: maxOrder + 1,
     });
     if (otherErr) throw otherErr;
-  } else if (activeCount === 0 && !other.active) {
+  } else if (!other.active) {
     const { error: updateErr } = await supabase
       .from("support_topics")
       .update({ active: true })
@@ -417,6 +417,7 @@ export const listSupportConversations = createServerFn({ method: "GET" })
         status: c.status,
         last_message_at: c.last_message_at,
         unread_for_admin: c.unread_for_admin,
+        assigned_to_user_id: c.assigned_to_user_id ?? null,
         client_id: c.client_id,
         client_name: c.clients?.name ?? "—",
         last_preview: previews[c.id]?.body ?? "",
