@@ -102,7 +102,13 @@ export const saveAppSettings = createServerFn({ method: "POST" })
   });
 
 const saveModulesSchema = z.object({
-  modules: z.array(z.object({ key: z.string().min(1).max(40), enabled: z.boolean() })),
+  modules: z.array(
+    z.object({
+      key: z.string().min(1).max(40),
+      label: z.string().trim().max(60).optional(),
+      enabled: z.boolean(),
+    }),
+  ),
 });
 
 export const saveAppModules = createServerFn({ method: "POST" })
@@ -114,6 +120,7 @@ export const saveAppModules = createServerFn({ method: "POST" })
       tenant_id: tenantId,
       module_key: m.key,
       enabled: m.enabled,
+      label: m.label && m.label.length > 0 ? m.label : null,
     }));
     const { error } = await context.supabase
       .from("app_module_settings")
