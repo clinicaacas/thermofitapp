@@ -42,10 +42,15 @@ export function useAppSettings(clientId?: string) {
 
 export function useEnabledModules(clientId?: string) {
   const { data } = useAppSettings(clientId);
-  const map = new Map<string, boolean>();
-  for (const m of data?.modules ?? []) map.set(m.key, m.enabled);
+  const enabledMap = new Map<string, boolean>();
+  const labelMap = new Map<string, string>();
+  for (const m of data?.modules ?? []) {
+    enabledMap.set(m.key, m.enabled);
+    if (m.label) labelMap.set(m.key, m.label);
+  }
   return {
-    isEnabled: (key: string) => (map.has(key) ? !!map.get(key) : true),
+    isEnabled: (key: string) => (enabledMap.has(key) ? !!enabledMap.get(key) : true),
+    getLabel: (key: string, fallback: string) => labelMap.get(key) ?? fallback,
   };
 }
 
