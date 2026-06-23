@@ -222,7 +222,7 @@ function Page() {
 
       {/* Me conta sua jornada */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -230,20 +230,20 @@ function Page() {
             <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
               ME CONTA SUA JORNADA
             </p>
-            <p className="mt-1 text-sm font-semibold" style={{ color: "#1F2933" }}>
+            <p className="mt-0.5 text-sm font-semibold" style={{ color: "#1F2933" }}>
               Como você está hoje?
             </p>
             <Link
               to="/app/ajuda"
               search={{ clientId }}
-              className="mt-1 inline-flex text-xs font-medium"
+              className="mt-0.5 inline-flex text-xs font-medium"
               style={{ color: "#8A6A3D" }}
             >
               Registrar agora →
             </Link>
           </div>
           <div
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
@@ -252,10 +252,10 @@ function Page() {
       </section>
 
       {/* Acesso rápido */}
-      <p className="mt-5 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
+      <p className="mt-3 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
         ACESSO RÁPIDO
       </p>
-      <section className="mt-2 grid grid-cols-4 gap-2">
+      <section className="mt-1.5 grid grid-cols-4 gap-1.5">
         {quickItems.map((m) => {
           const Icon = m.icon;
           return (
@@ -263,10 +263,10 @@ function Page() {
               key={m.to}
               to={m.to as any}
               search={{ clientId } as any}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white px-2 py-3 text-center text-[11px] font-medium"
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-white px-1.5 py-2 text-center text-[11px] font-medium"
               style={{ border: "1px solid #E5E0D8", color: "#1F2933" }}
             >
-              <Icon className="h-5 w-5" style={{ color: "#8A6A3D" }} />
+              <Icon className="h-4 w-4" style={{ color: "#8A6A3D" }} />
               {m.label}
             </Link>
           );
