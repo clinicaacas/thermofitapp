@@ -212,7 +212,7 @@ function Page() {
           <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-5">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-6">
           <a
             href="#fotos-evolucao"
             className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
@@ -222,12 +222,22 @@ function Page() {
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-3.5 w-3.5" />} label="Nutrição" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-3.5 w-3.5" />} label="Treino" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-3.5 w-3.5" />} label="Cartas" />
+          <a
+            href="#suporte"
+            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
+          >
+            <LifeBuoy className="h-3.5 w-3.5" /> Suporte
+          </a>
           <Action icon={<MessageCircle className="h-3.5 w-3.5" />} label="WhatsApp" />
         </div>
 
         <div id="fotos-evolucao">
           <AdminClientPhotosPanel clientId={id} />
         </div>
+
+        <ClientSupportPanel clientId={id} />
+
+
 
 
         <div className="grid gap-3 lg:grid-cols-[0.9fr_1.2fr_0.9fr]">
