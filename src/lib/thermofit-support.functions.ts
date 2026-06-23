@@ -539,7 +539,8 @@ export const startConversationAsAdmin = createServerFn({ method: "POST" })
     if (!client) throw new Error("Cliente não encontrada.");
     const topic = await resolveTopic(context.supabase, tenantId, data.topicId, data.topicLabel);
 
-    const { data: conv, error: convErr } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conv, error: convErr } = await supabaseAdmin
       .from("support_conversations")
       .insert({
         tenant_id: tenantId,
@@ -559,7 +560,7 @@ export const startConversationAsAdmin = createServerFn({ method: "POST" })
       throw new Error("Não foi possível iniciar a conversa. Tente novamente.");
     }
 
-    const { error: msgErr } = await context.supabase.from("support_messages").insert({
+    const { error: msgErr } = await supabaseAdmin.from("support_messages").insert({
       tenant_id: tenantId,
       conversation_id: conv.id,
       sender_type: "admin",
