@@ -168,7 +168,7 @@ export function ClientAppShell({
                     }}
                   >
                     <Icon className="h-5 w-5" />
-                    {item.label}
+                    {getLabel(item.key, item.label)}
                   </Link>
                 </li>
               );
