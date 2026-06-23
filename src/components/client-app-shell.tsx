@@ -73,7 +73,7 @@ export function ClientAppShell({
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const search = useSearch({ strict: false }) as { clientId?: string };
   const clientId = search?.clientId;
-  const { isEnabled } = useEnabledModules(clientId);
+  const { isEnabled, getLabel } = useEnabledModules(clientId);
   const currentModule = PATH_TO_MODULE[pathname];
   const moduleDisabled = !!currentModule && !isEnabled(currentModule);
 
