@@ -9,6 +9,7 @@ import {
   getConversationAdmin,
   replyAsAdmin,
   updateConversationStatus,
+  listSupportTopicsAdmin,
 } from "@/lib/thermofit-support.functions";
 import { Send, Search } from "lucide-react";
 
@@ -36,21 +37,29 @@ function Page() {
   const fetchConv = useServerFn(getConversationAdmin);
   const reply = useServerFn(replyAsAdmin);
   const setStatusFn = useServerFn(updateConversationStatus);
+  const fetchTopics = useServerFn(listSupportTopicsAdmin);
   const qc = useQueryClient();
 
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("todos");
   const [search, setSearch] = useState("");
+  const [topic, setTopic] = useState("todos");
   const [openId, setOpenId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [showHistorico, setShowHistorico] = useState(false);
 
   const { data: convData } = useQuery({
-    queryKey: ["support-conversations", filter, search],
+    queryKey: ["support-conversations", filter, search, topic],
     queryFn: () =>
-      fetchConvs({ data: { status: filter === "todos" ? undefined : filter, search: search || undefined } }),
+      fetchConvs({ data: { status: filter === "todos" ? undefined : filter, search: search || undefined, topic: topic === "todos" ? undefined : topic } }),
     refetchInterval: 20000,
   });
   const conversations = convData?.conversations ?? [];
+
+  const { data: topicsData } = useQuery({
+    queryKey: ["support-topics-admin"],
+    queryFn: () => fetchTopics(),
+  });
+  const topics = (topicsData?.topics ?? []) as Array<{ id: string; title: string; active: boolean }>;
 
   const { data: openData } = useQuery({
     queryKey: ["support-conversation-admin", openId],
@@ -113,6 +122,16 @@ function Page() {
                   className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-2 text-xs"
                 />
               </div>
+              <select
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="max-w-[180px] rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              >
+                <option value="todos">Todos os assuntos</option>
+                {topics.map((t) => (
+                  <option key={t.id} value={t.title}>{t.title}</option>
+                ))}
+              </select>
             </div>
             <div className="mb-2 flex flex-wrap gap-1">
               {FILTERS.map((f) => (
@@ -156,6 +175,9 @@ function Page() {
                         {new Date(c.last_message_at).toLocaleString("pt-BR")}
                         {c.unread_for_admin ? " · não lida" : ""}
                       </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Responsável: {c.assigned_to_user_id ? "atribuído" : "—"}
+                      </p>
                     </div>
                   </button>
                 </li>
@@ -181,7 +203,7 @@ function Page() {
                       search={{ section: "suporte" } as any}
                       className="text-xs text-primary hover:underline"
                     >
-                      Abrir ficha da cliente →
+                      Abrir perfil da cliente →
                     </Link>
                   </div>
                   <div className="flex items-center gap-2">
