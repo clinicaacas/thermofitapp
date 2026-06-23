@@ -74,15 +74,15 @@ function Page() {
       {/* Greeting */}
       <section className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold" style={{ color: "#1F2933" }}>
+          <h1 className="text-lg font-semibold" style={{ color: "#1F2933" }}>
             Olá, {firstName}
           </h1>
-          <p className="mt-1 text-xs leading-snug" style={{ color: "#6B7280" }}>
+          <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "#6B7280" }}>
             Toda rota tem turbulência. O importante é voltar para o plano de voo.
           </p>
         </div>
         <span
-          className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold"
+          className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
           style={{ background: "#F3E8D2", color: "#8A6A3D" }}
         >
           Semana {week}
@@ -91,7 +91,7 @@ function Page() {
 
       {/* Milhas card */}
       <section
-        className="mt-4 rounded-2xl bg-white p-4"
+        className="mt-3 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between">
@@ -99,10 +99,10 @@ function Page() {
             <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
               MILHAS THERMOFIT
             </p>
-            <p className="text-xs" style={{ color: "#6B7280" }}>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
               Jornada da Transformação
             </p>
-            <p className="mt-2 text-4xl font-bold leading-none" style={{ color: "#1F2933" }}>
+            <p className="mt-1 text-3xl font-bold leading-none" style={{ color: "#1F2933" }}>
               {miles}
               <span className="ml-1 text-sm font-normal" style={{ color: "#6B7280" }}>
                 milhas
@@ -110,26 +110,26 @@ function Page() {
             </p>
           </div>
           <div
-            className="grid h-12 w-12 place-items-center rounded-xl"
+            className="grid h-10 w-10 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-5 w-5" style={{ color: "#8A6A3D" }} />
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-xs">
+        <div className="mt-2.5 flex items-center justify-between text-xs">
           <span className="font-semibold" style={{ color: "#1F2933" }}>
             {currentPhase}
           </span>
           <span style={{ color: "#6B7280" }}>{milesNext - miles} para Decolagem</span>
         </div>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
           <div
             className="h-full rounded-full"
             style={{ width: `${(miles / milesNext) * 100}%`, background: "#D6A93F" }}
           />
         </div>
-        <div className="mt-3 flex justify-between text-[10px]" style={{ color: "#6B7280" }}>
+        <div className="mt-2 flex justify-between text-[10px]" style={{ color: "#6B7280" }}>
           {PHASES.map((p) => (
             <span key={p} style={{ color: p === currentPhase ? "#8A6A3D" : "#B7AFA0", fontWeight: p === currentPhase ? 600 : 400 }}>
               {p}
@@ -140,7 +140,7 @@ function Page() {
 
       {/* Missões de hoje */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-center justify-between">
@@ -156,9 +156,9 @@ function Page() {
             Ver todas <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-2 flex items-center gap-3">
           <div
-            className="grid h-10 w-10 place-items-center rounded-xl"
+            className="grid h-9 w-9 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
@@ -167,7 +167,7 @@ function Page() {
             <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
               {missionsDone} de {missionsTotal} missões
             </p>
-            <p className="text-xs" style={{ color: "#6B7280" }}>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
               {missionsTotal === 0
                 ? "Nenhuma missão programada para hoje."
                 : missionsDone === missionsTotal
@@ -180,13 +180,13 @@ function Page() {
 
       {/* Hidratação */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div
-              className="grid h-10 w-10 place-items-center rounded-xl"
+              className="grid h-9 w-9 place-items-center rounded-xl"
               style={{ background: "#DCEEFF" }}
             >
               <Droplet className="h-4 w-4" style={{ color: "#2F80ED" }} />
@@ -195,7 +195,7 @@ function Page() {
               <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#2F80ED" }}>
                 HIDRATAÇÃO
               </p>
-              <p className="text-xl font-bold" style={{ color: "#1F2933" }}>
+              <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
                 {hydration}ml
               </p>
             </div>
@@ -209,10 +209,10 @@ function Page() {
             Registrar <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        <p className="mt-2 text-[11px]" style={{ color: "#6B7280" }}>
+        <p className="mt-1.5 text-[11px]" style={{ color: "#6B7280" }}>
           meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
         </p>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
           <div
             className="h-full rounded-full"
             style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: "#2F80ED" }}
@@ -222,7 +222,7 @@ function Page() {
 
       {/* Me conta sua jornada */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -230,20 +230,20 @@ function Page() {
             <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
               ME CONTA SUA JORNADA
             </p>
-            <p className="mt-1 text-sm font-semibold" style={{ color: "#1F2933" }}>
+            <p className="mt-0.5 text-sm font-semibold" style={{ color: "#1F2933" }}>
               Como você está hoje?
             </p>
             <Link
               to="/app/ajuda"
               search={{ clientId }}
-              className="mt-1 inline-flex text-xs font-medium"
+              className="mt-0.5 inline-flex text-xs font-medium"
               style={{ color: "#8A6A3D" }}
             >
               Registrar agora →
             </Link>
           </div>
           <div
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
@@ -252,10 +252,10 @@ function Page() {
       </section>
 
       {/* Acesso rápido */}
-      <p className="mt-5 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
+      <p className="mt-3 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
         ACESSO RÁPIDO
       </p>
-      <section className="mt-2 grid grid-cols-4 gap-2">
+      <section className="mt-1.5 grid grid-cols-4 gap-1.5">
         {quickItems.map((m) => {
           const Icon = m.icon;
           return (
@@ -263,10 +263,10 @@ function Page() {
               key={m.to}
               to={m.to as any}
               search={{ clientId } as any}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white px-2 py-3 text-center text-[11px] font-medium"
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-white px-1.5 py-2 text-center text-[11px] font-medium"
               style={{ border: "1px solid #E5E0D8", color: "#1F2933" }}
             >
-              <Icon className="h-5 w-5" style={{ color: "#8A6A3D" }} />
+              <Icon className="h-4 w-4" style={{ color: "#8A6A3D" }} />
               {m.label}
             </Link>
           );
