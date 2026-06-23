@@ -74,15 +74,15 @@ function Page() {
       {/* Greeting */}
       <section className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold" style={{ color: "#1F2933" }}>
+          <h1 className="text-lg font-semibold" style={{ color: "#1F2933" }}>
             Olá, {firstName}
           </h1>
-          <p className="mt-1 text-xs leading-snug" style={{ color: "#6B7280" }}>
+          <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "#6B7280" }}>
             Toda rota tem turbulência. O importante é voltar para o plano de voo.
           </p>
         </div>
         <span
-          className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold"
+          className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
           style={{ background: "#F3E8D2", color: "#8A6A3D" }}
         >
           Semana {week}
