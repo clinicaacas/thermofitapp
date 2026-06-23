@@ -6,8 +6,10 @@ import {
   getConversationAdmin,
   replyAsAdmin,
   updateConversationStatus,
+  listSupportTopicsAdmin,
+  startConversationAsAdmin,
 } from "@/lib/thermofit-support.functions";
-import { Send } from "lucide-react";
+import { Plus, Send } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   aberto: "Aberto",
@@ -27,15 +29,27 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
   const fetchConv = useServerFn(getConversationAdmin);
   const reply = useServerFn(replyAsAdmin);
   const setStatusFn = useServerFn(updateConversationStatus);
+  const fetchTopics = useServerFn(listSupportTopicsAdmin);
+  const startAdminConversation = useServerFn(startConversationAsAdmin);
   const qc = useQueryClient();
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   const [body, setBody] = useState("");
+  const [newTopicId, setNewTopicId] = useState<string | null>(null);
+  const [newBody, setNewBody] = useState("");
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const { data: convData } = useQuery({
     queryKey: ["client-support-conversations", clientId],
     queryFn: () => fetchConvs({ data: { clientId } }),
   });
   const conversations = convData?.conversations ?? [];
+
+  const { data: topicsData } = useQuery({
+    queryKey: ["support-topics-admin"],
+    queryFn: () => fetchTopics(),
+  });
+  const topics = (topicsData?.topics ?? []) as Array<{ id: string; title: string; active: boolean; sort_order: number }>;
+  const activeTopics = topics.filter((t) => t.active);
 
   const { data: openData } = useQuery({
     queryKey: ["support-conversation-admin", openId],
@@ -48,9 +62,38 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
     mutationFn: async () => reply({ data: { conversationId: openId!, body: body.trim() } }),
     onSuccess: () => {
       setBody("");
+      setFeedback("Resposta enviada.");
       qc.invalidateQueries({ queryKey: ["support-conversation-admin", openId] });
       qc.invalidateQueries({ queryKey: ["client-support-conversations", clientId] });
+      qc.invalidateQueries({ queryKey: ["support-conversations"] });
+      qc.invalidateQueries({ queryKey: ["support-my-conversations"] });
     },
+    onError: () => setFeedback("Não foi possível enviar a resposta."),
+  });
+
+  const startConversation = useMutation({
+    mutationFn: async () => {
+      const selected = activeTopics.find((t) => t.id === newTopicId) ?? activeTopics.find((t) => t.title === "Outro assunto") ?? activeTopics[0];
+      return startAdminConversation({
+        data: {
+          clientId,
+          topicId: selected?.id ?? null,
+          topicLabel: selected?.title ?? "Outro assunto",
+          body: newBody.trim(),
+        },
+      });
+    },
+    onSuccess: (res) => {
+      setNewBody("");
+      setNewTopicId(null);
+      setFeedback("Conversa iniciada.");
+      setOpenId(res.conversationId);
+      qc.invalidateQueries({ queryKey: ["client-support-conversations", clientId] });
+      qc.invalidateQueries({ queryKey: ["support-conversation-admin", res.conversationId] });
+      qc.invalidateQueries({ queryKey: ["support-conversations"] });
+      qc.invalidateQueries({ queryKey: ["support-my-conversations"] });
+    },
+    onError: () => setFeedback("Não foi possível iniciar a conversa."),
   });
 
   const changeStatus = useMutation({
@@ -59,6 +102,7 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["support-conversation-admin", openId] });
       qc.invalidateQueries({ queryKey: ["client-support-conversations", clientId] });
+      qc.invalidateQueries({ queryKey: ["support-conversations"] });
     },
   });
 
@@ -71,6 +115,18 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
       <h2 className="mb-2 text-sm font-semibold">Suporte</h2>
       <div className="grid gap-3 lg:grid-cols-[0.9fr_1.4fr]">
         <ul className="max-h-[420px] divide-y divide-border overflow-y-auto rounded border border-border">
+          <li className="p-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOpenId(null);
+                setFeedback(null);
+              }}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-input px-2 py-1.5 text-xs font-medium hover:bg-accent"
+            >
+              <Plus className="h-3.5 w-3.5" /> Iniciar conversa
+            </button>
+          </li>
           {conversations.map((c: any) => (
             <li key={c.id}>
               <button
@@ -92,12 +148,45 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
             </li>
           ))}
           {conversations.length === 0 && (
-            <li className="px-2 py-4 text-center text-xs text-muted-foreground">Nenhuma solicitação ainda.</li>
+            <li className="px-2 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa ainda.</li>
           )}
         </ul>
         <div className="rounded border border-border p-2">
           {!conv ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">Selecione uma conversa.</p>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs font-semibold">Iniciar conversa</p>
+                <p className="text-[11px] text-muted-foreground">Envie uma mensagem da equipe para esta cliente.</p>
+              </div>
+              <select
+                value={newTopicId ?? ""}
+                onChange={(e) => setNewTopicId(e.target.value || null)}
+                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              >
+                <option value="">Outro assunto</option>
+                {activeTopics.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+              <textarea
+                value={newBody}
+                onChange={(e) => setNewBody(e.target.value.slice(0, limit))}
+                rows={3}
+                placeholder="Mensagem para a cliente…"
+                className="w-full resize-none rounded-md border border-input bg-background p-2 text-xs"
+              />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>{newBody.length}/{limit}</span>
+                <button
+                  disabled={!newBody.trim() || startConversation.isPending}
+                  onClick={() => startConversation.mutate()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  <Send className="h-3 w-3" /> {startConversation.isPending ? "Enviando…" : "Enviar mensagem"}
+                </button>
+              </div>
+              {feedback && <p className="text-[11px] text-muted-foreground">{feedback}</p>}
+            </div>
           ) : (
             <div className="space-y-2">
               <div className="flex items-center justify-between border-b border-border pb-2">
@@ -155,6 +244,7 @@ export function ClientSupportPanel({ clientId, initialOpenId }: { clientId: stri
                   <Send className="h-3 w-3" /> {sendReply.isPending ? "Enviando…" : "Enviar"}
                 </button>
               </div>
+              {feedback && <p className="text-[11px] text-muted-foreground">{feedback}</p>}
             </div>
           )}
         </div>
