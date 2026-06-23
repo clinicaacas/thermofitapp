@@ -140,7 +140,7 @@ function Page() {
 
       {/* Missões de hoje */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-center justify-between">
@@ -156,9 +156,9 @@ function Page() {
             Ver todas <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-2 flex items-center gap-3">
           <div
-            className="grid h-10 w-10 place-items-center rounded-xl"
+            className="grid h-9 w-9 place-items-center rounded-xl"
             style={{ background: "#F3E8D2" }}
           >
             <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
@@ -167,7 +167,7 @@ function Page() {
             <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
               {missionsDone} de {missionsTotal} missões
             </p>
-            <p className="text-xs" style={{ color: "#6B7280" }}>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
               {missionsTotal === 0
                 ? "Nenhuma missão programada para hoje."
                 : missionsDone === missionsTotal
@@ -180,13 +180,13 @@ function Page() {
 
       {/* Hidratação */}
       <section
-        className="mt-3 rounded-2xl bg-white p-4"
+        className="mt-2 rounded-2xl bg-white p-3"
         style={{ border: "1px solid #E5E0D8" }}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div
-              className="grid h-10 w-10 place-items-center rounded-xl"
+              className="grid h-9 w-9 place-items-center rounded-xl"
               style={{ background: "#DCEEFF" }}
             >
               <Droplet className="h-4 w-4" style={{ color: "#2F80ED" }} />
@@ -195,7 +195,7 @@ function Page() {
               <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#2F80ED" }}>
                 HIDRATAÇÃO
               </p>
-              <p className="text-xl font-bold" style={{ color: "#1F2933" }}>
+              <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
                 {hydration}ml
               </p>
             </div>
@@ -209,10 +209,10 @@ function Page() {
             Registrar <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        <p className="mt-2 text-[11px]" style={{ color: "#6B7280" }}>
+        <p className="mt-1.5 text-[11px]" style={{ color: "#6B7280" }}>
           meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
         </p>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
           <div
             className="h-full rounded-full"
             style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: "#2F80ED" }}
