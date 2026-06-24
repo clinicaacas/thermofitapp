@@ -252,11 +252,14 @@ function MissionVideoPlayer({
     staleTime: 0,
   });
 
+  const completedOnceRef = useRef(false);
   const saveMut = useMutation({
     mutationFn: (vars: { positionSeconds: number; durationSeconds: number }) =>
       saveProgress({ data: { clientId, videoId, ...vars } }),
     onSuccess: (res: any) => {
-      if (res?.completed) {
+      // Invalida apenas na PRIMEIRA conclusão para não re-renderizar e travar o player.
+      if (res?.completed && !completedOnceRef.current) {
+        completedOnceRef.current = true;
         qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
         qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
         qc.invalidateQueries({ queryKey: ["client-home", clientId] });
@@ -297,6 +300,7 @@ function MissionVideoPlayer({
       el.removeEventListener("error", onError);
     };
   }, [playback.data?.playUrl]);
+
 
   const data = playback.data;
   const hasError = !!playback.error || (data && !data.playUrl);
