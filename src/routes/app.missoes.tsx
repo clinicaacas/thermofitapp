@@ -366,8 +366,11 @@ function MissionVideoPlayer({
               controls
               autoPlay
               playsInline
+              preload="auto"
+              controlsList="nodownload"
               className="h-full w-full"
             />
+
           )}
           {!playback.isLoading && !hasError && data?.playUrl && data.kind !== "youtube" && data.kind !== "file" && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center text-white">
