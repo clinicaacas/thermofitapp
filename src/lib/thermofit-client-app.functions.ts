@@ -184,7 +184,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     // Buscar registro existente
     const { data: existing } = await admin
       .from("client_video_progress")
-      .select("id, is_completed, watched_seconds")
+      .select("id, is_completed, watched_seconds, progress_percent")
       .eq("client_id", client.id)
       .eq("video_id", video.id)
       .maybeSingle();
@@ -192,12 +192,13 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const alreadyCompleted = !!existing?.is_completed;
     const shouldComplete = !alreadyCompleted && pct >= minPct;
     const watched = Math.max(existing?.watched_seconds ?? 0, position);
+    const progressPercent = Math.max(existing?.progress_percent ?? 0, pct);
 
     const payload: any = {
       tenant_id: video.tenant_id,
       client_id: client.id,
       video_id: video.id,
-      progress_percent: pct,
+      progress_percent: progressPercent,
       watched_seconds: watched,
       last_position_seconds: position,
     };
@@ -212,7 +213,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
       .upsert(payload, { onConflict: "client_id,video_id" });
     if (upErr) throw upErr;
 
-    return { ok: true, completed: shouldComplete || alreadyCompleted, progressPercent: pct };
+    return { ok: true, completed: shouldComplete || alreadyCompleted, progressPercent };
   });
 
 
@@ -225,7 +226,7 @@ export const getClientVideoPlayback = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: v, error } = await admin
       .from("videos")
-      .select("id, title, url, storage_key")
+      .select("id, title, url, storage_key, duration_seconds, min_completion_pct")
       .eq("tenant_id", client.tenant_id)
       .eq("id", data.videoId)
       .maybeSingle();
@@ -243,7 +244,14 @@ export const getClientVideoPlayback = createServerFn({ method: "GET" })
     } else if (v.url && /youtube\.com|youtu\.be/i.test(v.url)) {
       kind = "youtube";
     }
-    return { id: v.id, title: v.title, kind, playUrl };
+    return {
+      id: v.id,
+      title: v.title,
+      kind,
+      playUrl,
+      durationSeconds: v.duration_seconds ?? 0,
+      minCompletionPct: v.min_completion_pct ?? 90,
+    };
   });
 
 export const listClientRewards = createServerFn({ method: "GET" })

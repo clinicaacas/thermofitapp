@@ -1,7 +1,7 @@
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { Target, Check, Play, X } from "lucide-react";
 import {
@@ -244,62 +244,174 @@ function MissionVideoPlayer({
   const saveProgress = useServerFn(saveVideoProgress);
   const qc = useQueryClient();
   const [reloadKey, setReloadKey] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [friendlyError, setFriendlyError] = useState<string | null>(null);
+  const [detectedDuration, setDetectedDuration] = useState<number | null>(null);
+  const [completedInSession, setCompletedInSession] = useState(false);
 
   const playback = useQuery({
     queryKey: ["client-video-playback", clientId, videoId, reloadKey],
     queryFn: () => fetchPlayback({ data: { clientId, videoId } }),
     enabled: !!clientId && !!videoId,
-    staleTime: 0,
+    staleTime: 55 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const completedOnceRef = useRef(false);
+  const endedRef = useRef(false);
+  const pendingCompletionRefreshRef = useRef(false);
+  const latestPositionRef = useRef(0);
+  const latestDurationRef = useRef(0);
+  const shouldResumeRef = useRef(false);
+  const userWantsPlaybackRef = useRef(true);
+  const saveInFlightRef = useRef(false);
+  const saveQueuedRef = useRef<{ positionSeconds: number; durationSeconds: number } | null>(null);
+
+  const runPostCompletionRefresh = useCallback(() => {
+    window.setTimeout(() => {
+      qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+    }, 350);
+  }, [clientId, qc]);
+
   const saveMut = useMutation({
     mutationFn: (vars: { positionSeconds: number; durationSeconds: number }) =>
       saveProgress({ data: { clientId, videoId, ...vars } }),
     onSuccess: (res: any) => {
-      // Invalida apenas na PRIMEIRA conclusão para não re-renderizar e travar o player.
       if (res?.completed && !completedOnceRef.current) {
         completedOnceRef.current = true;
-        qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
-        qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
-        qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+        setCompletedInSession(true);
+        if (endedRef.current) runPostCompletionRefresh();
+        else pendingCompletionRefreshRef.current = true;
       }
     },
   });
 
+  const queueProgressSave = useCallback(
+    (vars: { positionSeconds: number; durationSeconds: number }) => {
+      if (!vars.durationSeconds || isNaN(vars.durationSeconds)) return;
+      if (saveInFlightRef.current) {
+        saveQueuedRef.current = vars;
+        return;
+      }
+      saveInFlightRef.current = true;
+      saveMut.mutate(vars, {
+        onSettled: () => {
+          saveInFlightRef.current = false;
+          const queued = saveQueuedRef.current;
+          saveQueuedRef.current = null;
+          if (queued) queueProgressSave(queued);
+        },
+      });
+    },
+    [saveMut],
+  );
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedRef = useRef(0);
   const triedRefreshRef = useRef(false);
+  const currentUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+    if (currentUrlRef.current !== playback.data?.playUrl) {
+      currentUrlRef.current = playback.data?.playUrl ?? null;
+      setFriendlyError(null);
+      setIsBuffering(false);
+      if (shouldResumeRef.current && latestPositionRef.current > 0) {
+        const resumeAt = latestPositionRef.current;
+        const resume = () => {
+          if (Number.isFinite(el.duration) && resumeAt < el.duration) {
+            el.currentTime = Math.max(0, Math.min(resumeAt, el.duration - 0.5));
+          }
+          if (userWantsPlaybackRef.current) void el.play().catch(() => {});
+          shouldResumeRef.current = false;
+        };
+        if (el.readyState >= 1) resume();
+        else el.addEventListener("loadedmetadata", resume, { once: true });
+      }
+    }
     const onTime = () => {
       const now = Date.now();
+      latestPositionRef.current = el.currentTime || 0;
+      latestDurationRef.current = Number.isFinite(el.duration) ? el.duration : latestDurationRef.current;
       if (now - lastSavedRef.current < 10_000) return;
       if (!el.duration || isNaN(el.duration)) return;
       lastSavedRef.current = now;
-      saveMut.mutate({ positionSeconds: el.currentTime, durationSeconds: el.duration });
+      queueProgressSave({ positionSeconds: el.currentTime, durationSeconds: el.duration });
     };
     const onEnd = () => {
       if (!el.duration || isNaN(el.duration)) return;
-      saveMut.mutate({ positionSeconds: el.duration, durationSeconds: el.duration });
+      latestPositionRef.current = el.duration;
+      latestDurationRef.current = el.duration;
+      endedRef.current = true;
+      setIsBuffering(false);
+      setEnded(true);
+      if (pendingCompletionRefreshRef.current || completedOnceRef.current) {
+        pendingCompletionRefreshRef.current = false;
+        runPostCompletionRefresh();
+      }
+      queueProgressSave({ positionSeconds: el.duration, durationSeconds: el.duration });
+    };
+    const onLoadedMetadata = () => {
+      if (Number.isFinite(el.duration)) {
+        latestDurationRef.current = el.duration;
+        setDetectedDuration(el.duration);
+      }
+    };
+    const onWaiting = () => setIsBuffering(true);
+    const onCanPlay = () => setIsBuffering(false);
+    const onLoadedData = () => setIsBuffering(false);
+    const onPlay = () => {
+      userWantsPlaybackRef.current = true;
+      if (!el.ended) {
+        endedRef.current = false;
+        setEnded(false);
+      }
+    };
+    const onPause = () => {
+      if (!el.ended) userWantsPlaybackRef.current = false;
     };
     const onError = () => {
+      latestPositionRef.current = el.currentTime || latestPositionRef.current;
+      shouldResumeRef.current = true;
+      setIsBuffering(false);
       if (!triedRefreshRef.current) {
         triedRefreshRef.current = true;
         setReloadKey((k) => k + 1);
+        return;
       }
+      setFriendlyError("Não foi possível continuar este vídeo agora.");
     };
+    el.addEventListener("loadedmetadata", onLoadedMetadata);
+    el.addEventListener("waiting", onWaiting);
+    el.addEventListener("stalled", onWaiting);
+    el.addEventListener("canplay", onCanPlay);
+    el.addEventListener("loadeddata", onLoadedData);
+    el.addEventListener("play", onPlay);
+    el.addEventListener("pause", onPause);
     el.addEventListener("timeupdate", onTime);
     el.addEventListener("ended", onEnd);
     el.addEventListener("error", onError);
     return () => {
+      el.removeEventListener("loadedmetadata", onLoadedMetadata);
+      el.removeEventListener("waiting", onWaiting);
+      el.removeEventListener("stalled", onWaiting);
+      el.removeEventListener("canplay", onCanPlay);
+      el.removeEventListener("loadeddata", onLoadedData);
+      el.removeEventListener("play", onPlay);
+      el.removeEventListener("pause", onPause);
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("ended", onEnd);
       el.removeEventListener("error", onError);
     };
-  }, [playback.data?.playUrl]);
+  }, [playback.data?.playUrl, queueProgressSave]);
 
 
   const data = playback.data;
@@ -307,8 +419,29 @@ function MissionVideoPlayer({
 
   const retry = () => {
     triedRefreshRef.current = false;
+    shouldResumeRef.current = true;
+    setFriendlyError(null);
+    setIsBuffering(false);
     setReloadKey((k) => k + 1);
   };
+
+  const watchAgain = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    setEnded(false);
+    endedRef.current = false;
+    setFriendlyError(null);
+    setIsBuffering(false);
+    userWantsPlaybackRef.current = true;
+    el.currentTime = 0;
+    latestPositionRef.current = 0;
+    void el.play().catch(() => {});
+  };
+
+  const expectedDuration = data?.durationSeconds ?? 0;
+  const showDurationMismatch =
+    expectedDuration > 0 && detectedDuration != null && Math.abs(expectedDuration - detectedDuration) > 2;
+  const sourceType = data?.playUrl?.toLowerCase().split("?")[0].endsWith(".mp4") ? "video/mp4" : undefined;
 
   return (
     <div
@@ -334,9 +467,9 @@ function MissionVideoPlayer({
               Carregando…
             </div>
           )}
-          {!playback.isLoading && hasError && (
+          {!playback.isLoading && (hasError || friendlyError) && (
             <div className="grid h-full w-full place-items-center gap-2 px-4 text-center text-xs text-white/80">
-              <p>Não foi possível carregar este vídeo agora. Tente novamente.</p>
+              <p>{friendlyError ?? "Não foi possível carregar este vídeo agora. Tente novamente."}</p>
               <button
                 onClick={retry}
                 className="rounded-full bg-[#8A6A3D] px-4 py-1.5 text-xs font-semibold text-white"
@@ -345,7 +478,7 @@ function MissionVideoPlayer({
               </button>
             </div>
           )}
-          {!playback.isLoading && !hasError && data?.playUrl && data.kind === "youtube" && (() => {
+          {!playback.isLoading && !hasError && !friendlyError && data?.playUrl && data.kind === "youtube" && (() => {
             const id = youtubeId(data.playUrl);
             if (!id) return null;
             return (
@@ -358,19 +491,47 @@ function MissionVideoPlayer({
               />
             );
           })()}
-          {!playback.isLoading && !hasError && data?.playUrl && data.kind === "file" && (
-            <video
-              key={reloadKey}
-              ref={videoRef}
-              src={data.playUrl}
-              controls
-              autoPlay
-              playsInline
-              preload="auto"
-              controlsList="nodownload"
-              className="h-full w-full"
-            />
-
+          {!playback.isLoading && !hasError && !friendlyError && data?.playUrl && data.kind === "file" && (
+            <div className="relative h-full w-full">
+              <video
+                key={reloadKey}
+                ref={videoRef}
+                controls
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                controlsList="nodownload"
+                className="h-full w-full"
+              >
+                {sourceType ? (
+                  <source src={data.playUrl} type={sourceType} />
+                ) : (
+                  <source src={data.playUrl} />
+                )}
+              </video>
+              {isBuffering && !ended && !friendlyError && (
+                <div className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-black/70 px-3 py-1 text-xs text-white/80">
+                  Carregando vídeo...
+                </div>
+              )}
+              {showDurationMismatch && !friendlyError && (
+                <div className="pointer-events-none absolute inset-x-2 bottom-2 rounded-md bg-black/70 px-3 py-2 text-[11px] text-white/80">
+                  O arquivo salvo tem duração diferente da cadastrada. A conclusão usa a duração detectada no player.
+                </div>
+              )}
+              {ended && !friendlyError && (
+                <div className="absolute inset-x-0 bottom-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={watchAgain}
+                    className="rounded-full bg-[#8A6A3D] px-4 py-2 text-xs font-semibold text-white shadow-lg"
+                  >
+                    Assistir novamente
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {!playback.isLoading && !hasError && data?.playUrl && data.kind !== "youtube" && data.kind !== "file" && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center text-white">
