@@ -441,7 +441,7 @@ function MissionVideoPlayer({
   const expectedDuration = data?.durationSeconds ?? 0;
   const showDurationMismatch =
     expectedDuration > 0 && detectedDuration != null && Math.abs(expectedDuration - detectedDuration) > 2;
-  const sourceType = data?.playUrl?.toLowerCase().split("?")[0].endsWith(".mp4") ? "video/mp4" : undefined;
+  const sourceType = data?.kind === "file" ? "video/mp4" : undefined;
 
   return (
     <div
