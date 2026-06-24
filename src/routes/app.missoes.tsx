@@ -65,14 +65,16 @@ function Page() {
   const missions = data?.missions ?? [];
   const videoMissions = videoData?.missions ?? [];
   const journeyDay = videoData?.journeyDay ?? 0;
-  const done = missions.filter((m: any) => m.completed).length;
+  const videosDone = videoMissions.filter((v: any) => v.is_completed).length;
+  const done = missions.filter((m: any) => m.completed).length + videosDone;
   const total = missions.length + videoMissions.length;
-  const pct = total > 0 ? ((done + 0) / total) * 100 : 0;
+  const pct = total > 0 ? (done / total) * 100 : 0;
 
   const openVideoId = videoParam || null;
   const openVideoMeta = openVideoId
     ? videoMissions.find((v: any) => v.id === openVideoId) ?? null
     : null;
+
 
   const openVideo = (id: string) => {
     navigate({
