@@ -1,22 +1,36 @@
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { Target, Check, Play } from "lucide-react";
+import { Target, Check, Play, X } from "lucide-react";
 import {
   listClientMissions,
   toggleMissionCompletion,
   listTodayVideoMissions,
+  getClientVideoPlayback,
+  saveVideoProgress,
 } from "@/lib/thermofit-client-app.functions";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
-  validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    clientId: (s.clientId as string) || "",
+    video: (s.video as string) || undefined,
+  }),
   component: Page,
 });
 
+function youtubeId(url: string): string | null {
+  const m =
+    url.match(/youtu\.be\/([^?&]+)/) ||
+    url.match(/youtube\.com\/watch\?v=([^?&]+)/) ||
+    url.match(/youtube\.com\/embed\/([^?&]+)/);
+  return m ? m[1] : null;
+}
+
 function Page() {
-  const { clientId } = useSearch({ from: "/app/missoes" });
+  const { clientId, video: videoParam } = useSearch({ from: "/app/missoes" });
   const navigate = useNavigate();
   const fetchList = useServerFn(listClientMissions);
   const fetchVideoMissions = useServerFn(listTodayVideoMissions);
@@ -29,11 +43,9 @@ function Page() {
     enabled: !!clientId,
   });
 
-  // Realtime: foto enviada/excluída atualiza a conclusão da missão semanal.
   useClientPhotosRealtime(clientId || null, () => {
     qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
   });
-
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
     queryKey: ["client-video-missions", clientId],
@@ -57,6 +69,22 @@ function Page() {
   const total = missions.length + videoMissions.length;
   const pct = total > 0 ? ((done + 0) / total) * 100 : 0;
 
+  const openVideoId = videoParam || null;
+  const openVideoMeta = openVideoId
+    ? videoMissions.find((v: any) => v.id === openVideoId) ?? null
+    : null;
+
+  const openVideo = (id: string) => {
+    navigate({
+      to: "/app/missoes",
+      search: { clientId, video: id },
+      replace: false,
+    });
+  };
+  const closeVideo = () => {
+    navigate({ to: "/app/missoes", search: { clientId }, replace: true });
+  };
+
   return (
     <ClientAppShell
       title="Missões de hoje"
@@ -75,7 +103,7 @@ function Page() {
             {videoMissions.map((v: any) => (
               <li key={v.id}>
                 <button
-                  onClick={() => navigate({ to: "/app/videos", search: { clientId } })}
+                  onClick={() => openVideo(v.id)}
                   className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left"
                   style={{ border: "1px solid #E5D6BD" }}
                 >
@@ -176,6 +204,168 @@ function Page() {
           </ul>
         )}
       </section>
+
+      {openVideoId && (
+        <MissionVideoPlayer
+          clientId={clientId}
+          videoId={openVideoId}
+          title={openVideoMeta?.title}
+          onClose={closeVideo}
+        />
+      )}
     </ClientAppShell>
+  );
+}
+
+function MissionVideoPlayer({
+  clientId,
+  videoId,
+  title,
+  onClose,
+}: {
+  clientId: string;
+  videoId: string;
+  title?: string;
+  onClose: () => void;
+}) {
+  const fetchPlayback = useServerFn(getClientVideoPlayback);
+  const saveProgress = useServerFn(saveVideoProgress);
+  const qc = useQueryClient();
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const playback = useQuery({
+    queryKey: ["client-video-playback", clientId, videoId, reloadKey],
+    queryFn: () => fetchPlayback({ data: { clientId, videoId } }),
+    enabled: !!clientId && !!videoId,
+    staleTime: 0,
+  });
+
+  const saveMut = useMutation({
+    mutationFn: (vars: { positionSeconds: number; durationSeconds: number }) =>
+      saveProgress({ data: { clientId, videoId, ...vars } }),
+    onSuccess: (res: any) => {
+      if (res?.completed) {
+        qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
+        qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+        qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      }
+    },
+  });
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastSavedRef = useRef(0);
+  const triedRefreshRef = useRef(false);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const onTime = () => {
+      const now = Date.now();
+      if (now - lastSavedRef.current < 10_000) return;
+      if (!el.duration || isNaN(el.duration)) return;
+      lastSavedRef.current = now;
+      saveMut.mutate({ positionSeconds: el.currentTime, durationSeconds: el.duration });
+    };
+    const onEnd = () => {
+      if (!el.duration || isNaN(el.duration)) return;
+      saveMut.mutate({ positionSeconds: el.duration, durationSeconds: el.duration });
+    };
+    const onError = () => {
+      if (!triedRefreshRef.current) {
+        triedRefreshRef.current = true;
+        setReloadKey((k) => k + 1);
+      }
+    };
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("ended", onEnd);
+    el.addEventListener("error", onError);
+    return () => {
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("ended", onEnd);
+      el.removeEventListener("error", onError);
+    };
+  }, [playback.data?.playUrl]);
+
+  const data = playback.data;
+  const hasError = !!playback.error || (data && !data.playUrl);
+
+  const retry = () => {
+    triedRefreshRef.current = false;
+    setReloadKey((k) => k + 1);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-2xl bg-black"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between bg-[#1a1208] px-4 py-2 text-white">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-white/60">Vídeo do dia</p>
+            <p className="truncate text-sm font-medium">{data?.title ?? title ?? "Vídeo"}</p>
+          </div>
+          <button onClick={onClose} aria-label="Fechar" className="opacity-70 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="aspect-video w-full bg-black">
+          {playback.isLoading && (
+            <div className="grid h-full w-full place-items-center text-xs text-white/60">
+              Carregando…
+            </div>
+          )}
+          {!playback.isLoading && hasError && (
+            <div className="grid h-full w-full place-items-center gap-2 px-4 text-center text-xs text-white/80">
+              <p>Não foi possível carregar este vídeo agora. Tente novamente.</p>
+              <button
+                onClick={retry}
+                className="rounded-full bg-[#8A6A3D] px-4 py-1.5 text-xs font-semibold text-white"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+          {!playback.isLoading && !hasError && data?.playUrl && data.kind === "youtube" && (() => {
+            const id = youtubeId(data.playUrl);
+            if (!id) return null;
+            return (
+              <iframe
+                title="video"
+                src={`https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1`}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            );
+          })()}
+          {!playback.isLoading && !hasError && data?.playUrl && data.kind === "file" && (
+            <video
+              key={reloadKey}
+              ref={videoRef}
+              src={data.playUrl}
+              controls
+              autoPlay
+              playsInline
+              className="h-full w-full"
+            />
+          )}
+          {!playback.isLoading && !hasError && data?.playUrl && data.kind !== "youtube" && data.kind !== "file" && (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center text-white">
+              <p className="text-sm">Não foi possível carregar este vídeo agora. Tente novamente.</p>
+              <button
+                onClick={retry}
+                className="rounded-full bg-[#8A6A3D] px-4 py-2 text-sm font-semibold"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
