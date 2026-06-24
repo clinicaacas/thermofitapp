@@ -126,14 +126,24 @@ function Page() {
                       {v.category || "geral"} · assistir {v.min_completion_pct ?? 90}%
                     </p>
                   </div>
-                  {v.miles_on_complete > 0 && (
+                  {v.is_completed ? (
                     <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                      style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold inline-flex items-center gap-1"
+                      style={{ background: "#E8F2E5", color: "#3F7A3A" }}
                     >
-                      +{v.miles_on_complete}
+                      <Check className="h-3 w-3" /> Concluído
                     </span>
+                  ) : (
+                    v.miles_on_complete > 0 && (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+                      >
+                        +{v.miles_on_complete}
+                      </span>
+                    )
                   )}
+
                 </button>
               </li>
             ))}
