@@ -123,15 +123,15 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
     const list = rows ?? [];
     const { data: progressRows } = await admin
       .from("client_video_progress")
-      .select("video_id, is_completed")
+      .select("video_id, is_completed, progress_percent")
       .eq("client_id", client.id)
       .in("video_id", list.map((r: any) => r.id));
-    const doneSet = new Set(
-      (progressRows ?? []).filter((p: any) => p.is_completed).map((p: any) => p.video_id),
+    const progMap = new Map(
+      (progressRows ?? []).map((p: any) => [p.video_id, p]),
     );
-    const pending = list.filter((r: any) => !doneSet.has(r.id));
+    // Mantém TODOS os vídeos do dia (concluídos ou não); a UI mostra selo.
     const signed = await Promise.all(
-      pending.map(async (r: any) => {
+      list.map(async (r: any) => {
         if (!r.thumbnail_storage_key) return r.thumbnail_url ?? "";
         const { data: s } = await admin.storage
           .from("video-thumbnails")
@@ -141,9 +141,18 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
     );
     return {
       journeyDay,
-      missions: pending.map((r: any, i: number) => ({ ...r, thumbnail_url: signed[i] })),
+      missions: list.map((r: any, i: number) => {
+        const p: any = progMap.get(r.id);
+        return {
+          ...r,
+          thumbnail_url: signed[i],
+          is_completed: !!p?.is_completed,
+          progress_percent: p?.progress_percent ?? 0,
+        };
+      }),
     };
   });
+
 
 export const saveVideoProgress = createServerFn({ method: "POST" })
   .inputValidator((i) =>

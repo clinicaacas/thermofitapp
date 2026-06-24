@@ -65,14 +65,16 @@ function Page() {
   const missions = data?.missions ?? [];
   const videoMissions = videoData?.missions ?? [];
   const journeyDay = videoData?.journeyDay ?? 0;
-  const done = missions.filter((m: any) => m.completed).length;
+  const videosDone = videoMissions.filter((v: any) => v.is_completed).length;
+  const done = missions.filter((m: any) => m.completed).length + videosDone;
   const total = missions.length + videoMissions.length;
-  const pct = total > 0 ? ((done + 0) / total) * 100 : 0;
+  const pct = total > 0 ? (done / total) * 100 : 0;
 
   const openVideoId = videoParam || null;
   const openVideoMeta = openVideoId
     ? videoMissions.find((v: any) => v.id === openVideoId) ?? null
     : null;
+
 
   const openVideo = (id: string) => {
     navigate({
@@ -124,14 +126,24 @@ function Page() {
                       {v.category || "geral"} · assistir {v.min_completion_pct ?? 90}%
                     </p>
                   </div>
-                  {v.miles_on_complete > 0 && (
+                  {v.is_completed ? (
                     <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                      style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold inline-flex items-center gap-1"
+                      style={{ background: "#E8F2E5", color: "#3F7A3A" }}
                     >
-                      +{v.miles_on_complete}
+                      <Check className="h-3 w-3" /> Concluído
                     </span>
+                  ) : (
+                    v.miles_on_complete > 0 && (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ background: "#F3E8D2", color: "#8A6A3D" }}
+                      >
+                        +{v.miles_on_complete}
+                      </span>
+                    )
                   )}
+
                 </button>
               </li>
             ))}
@@ -240,11 +252,14 @@ function MissionVideoPlayer({
     staleTime: 0,
   });
 
+  const completedOnceRef = useRef(false);
   const saveMut = useMutation({
     mutationFn: (vars: { positionSeconds: number; durationSeconds: number }) =>
       saveProgress({ data: { clientId, videoId, ...vars } }),
     onSuccess: (res: any) => {
-      if (res?.completed) {
+      // Invalida apenas na PRIMEIRA conclusão para não re-renderizar e travar o player.
+      if (res?.completed && !completedOnceRef.current) {
+        completedOnceRef.current = true;
         qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
         qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
         qc.invalidateQueries({ queryKey: ["client-home", clientId] });
@@ -285,6 +300,7 @@ function MissionVideoPlayer({
       el.removeEventListener("error", onError);
     };
   }, [playback.data?.playUrl]);
+
 
   const data = playback.data;
   const hasError = !!playback.error || (data && !data.playUrl);
@@ -350,8 +366,11 @@ function MissionVideoPlayer({
               controls
               autoPlay
               playsInline
+              preload="auto"
+              controlsList="nodownload"
               className="h-full w-full"
             />
+
           )}
           {!playback.isLoading && !hasError && data?.playUrl && data.kind !== "youtube" && data.kind !== "file" && (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center text-white">
