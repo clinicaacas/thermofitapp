@@ -566,7 +566,7 @@ export const toggleMissionCompletion = createServerFn({ method: "POST" })
     if (data.done) {
       const { data: mission, error: mErr } = await admin
         .from("client_missions")
-        .select("id, miles, tenant_id, client_id")
+        .select("id, miles, tenant_id, client_id, journey_id")
         .eq("id", data.missionId)
         .eq("client_id", client.id)
         .maybeSingle();
@@ -577,6 +577,7 @@ export const toggleMissionCompletion = createServerFn({ method: "POST" })
           tenant_id: mission.tenant_id,
           client_id: mission.client_id,
           mission_id: mission.id,
+          journey_id: (mission as any).journey_id ?? (client as any).active_journey_id,
           miles_awarded: mission.miles ?? 0,
         },
         { onConflict: "mission_id,client_id" },
