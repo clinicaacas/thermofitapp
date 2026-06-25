@@ -120,6 +120,11 @@ function Page() {
       </div>
       {clientId && <DailyRoutineCard clientId={clientId} />}
 
+      {progress && (progress as any).journeyId && (
+        <SealsAndMilestonesPanel progress={progress as any} />
+      )}
+
+
       {videoMissions.length > 0 && (
         <section className="mt-4">
           <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
