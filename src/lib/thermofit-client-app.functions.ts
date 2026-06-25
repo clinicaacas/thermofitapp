@@ -697,20 +697,17 @@ export const getClientMiles = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    const [{ data: earnedRows, error: eErr }, { data: spentRows, error: sErr }] = await Promise.all([
-      admin
-        .from("client_mission_completions")
-        .select("miles_awarded")
-        .eq("client_id", client.id),
+    const [{ data: ledgerRows, error: lErr }, { data: spentRows, error: sErr }] = await Promise.all([
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id),
       admin
         .from("reward_redemptions")
         .select("cost_miles, status")
         .eq("client_id", client.id)
         .in("status", ["pendente", "aprovado", "entregue"]),
     ]);
-    if (eErr) throw eErr;
+    if (lErr) throw lErr;
     if (sErr) throw sErr;
-    const earned = (earnedRows ?? []).reduce((s: number, r: any) => s + (r.miles_awarded ?? 0), 0);
+    const earned = (ledgerRows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
     const spent = (spentRows ?? []).reduce((s: number, r: any) => s + (r.cost_miles ?? 0), 0);
     return { earned, spent, balance: earned - spent };
   });
