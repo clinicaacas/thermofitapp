@@ -35,6 +35,7 @@ function Page() {
   const navigate = useNavigate();
   const fetchList = useServerFn(listClientMissions);
   const fetchVideoMissions = useServerFn(listTodayVideoMissions);
+  const fetchSummary = useServerFn(getTodayMissionSummary);
   const toggleFn = useServerFn(toggleMissionCompletion);
   const qc = useQueryClient();
 
@@ -46,6 +47,7 @@ function Page() {
 
   useClientPhotosRealtime(clientId || null, () => {
     qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+    qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
   });
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
@@ -54,21 +56,32 @@ function Page() {
     enabled: !!clientId,
   });
 
+  const { data: summary } = useQuery({
+    queryKey: ["mission-summary", clientId],
+    queryFn: () => fetchSummary({ data: { clientId } }),
+    enabled: !!clientId,
+    staleTime: 0,
+  });
+
   const toggle = useMutation({
     mutationFn: (v: { missionId: string; done: boolean }) =>
       toggleFn({ data: { clientId, ...v } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
       qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
     },
   });
 
   const missions = data?.missions ?? [];
   const videoMissions = videoData?.missions ?? [];
   const journeyDay = videoData?.journeyDay ?? 0;
-  const videosDone = videoMissions.filter((v: any) => v.is_completed).length;
-  const done = missions.filter((m: any) => m.completed).length + videosDone;
-  const total = missions.length + videoMissions.length;
+  // Contador único: prefere o resumo oficial do backend.
+  const done = (summary as any)?.completed
+    ?? (missions.filter((m: any) => m.completed).length
+      + videoMissions.filter((v: any) => v.is_completed).length);
+  const total = (summary as any)?.total
+    ?? (missions.length + videoMissions.length);
   const pct = total > 0 ? (done / total) * 100 : 0;
 
   const openVideoId = videoParam || null;
