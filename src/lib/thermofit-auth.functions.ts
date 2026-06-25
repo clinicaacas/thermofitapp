@@ -174,30 +174,41 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   await ensureMasterAdmin(supabaseAdmin, tenant.id);
 
   let team: ReturnType<typeof mapProfile>[] = [];
-  const authHeader = getRequestHeader("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : null;
+  const authHeader =
+    getRequestHeader("authorization") ?? getRequestHeader("Authorization");
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.replace("Bearer ", "")
+    : null;
+
+  // Internal team list is visible to any active tenant member of this clinic.
+  // End-client accounts (no profile row in this tenant) never see it.
+  let callerIsInternalMember = false;
   if (token) {
     const { data } = await supabaseAdmin.auth.getUser(token);
     if (data.user) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
-          .select("profile,status,tenant_id")
+        .select("profile,status,tenant_id")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (
-        profile?.status === "ativo" &&
-        profile.tenant_id === tenant.id &&
-        ["super_admin", "dono", "admin"].includes(profile.profile)
-      ) {
-        const { data: profiles, error } = await supabaseAdmin
-          .from("profiles")
-          .select("*")
-          .eq("tenant_id", tenant.id)
-          .order("created_at", { ascending: true });
-        if (error) throw error;
-        team = profiles.map(mapProfile);
-      }
+      callerIsInternalMember = Boolean(
+        profile &&
+          profile.status === "ativo" &&
+          profile.tenant_id === tenant.id &&
+          ["super_admin", "dono", "admin", "equipe"].includes(profile.profile),
+      );
     }
+  }
+
+  if (callerIsInternalMember) {
+    const { data: profiles, error } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .in("profile", ["super_admin", "dono", "admin", "equipe"])
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    team = profiles.map(mapProfile);
   }
 
   return { tenant: { ...mapTenant(tenant), team } };
