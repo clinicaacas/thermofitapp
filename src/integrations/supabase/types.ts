@@ -2463,6 +2463,10 @@ export type Database = {
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
+      ensure_daily_missions: {
+        Args: { _client_id: string; _day: string; _journey_id: string }
+        Returns: undefined
+      }
       ensure_mission_settings: {
         Args: { _tenant_id: string }
         Returns: undefined
