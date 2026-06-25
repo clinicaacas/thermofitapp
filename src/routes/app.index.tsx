@@ -190,6 +190,13 @@ function Page() {
         </div>
       </section>
 
+      {/* Espelho das missões de hoje na Home (mesma fonte: get_today_mission_summary) */}
+      {clientId && <DailyRoutineCard clientId={clientId} />}
+      {clientId && <PostVideoTaskCard clientId={clientId} />}
+      {clientId && <WeeklyPhotoCard clientId={clientId} />}
+
+
+
       {/* Hidratação */}
       <section
         className="mt-2 rounded-2xl bg-white p-3"
