@@ -13,6 +13,8 @@ import {
 } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
+import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
+import { PostVideoTaskCard } from "@/components/post-video-task-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
@@ -119,6 +121,8 @@ function Page() {
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
       {clientId && <DailyRoutineCard clientId={clientId} />}
+      {clientId && <PostVideoTaskCard clientId={clientId} />}
+      {clientId && <WeeklyPhotoCard clientId={clientId} />}
 
       {progress && (progress as any).journeyId && (
         <SealsAndMilestonesPanel progress={progress as any} />
