@@ -37,6 +37,7 @@ function Page() {
   const fetchList = useServerFn(listClientMissions);
   const fetchVideoMissions = useServerFn(listTodayVideoMissions);
   const fetchSummary = useServerFn(getTodayMissionSummary);
+  const fetchProgress = useServerFn(getJourneyProgress);
   const toggleFn = useServerFn(toggleMissionCompletion);
   const qc = useQueryClient();
 
