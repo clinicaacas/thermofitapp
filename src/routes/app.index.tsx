@@ -38,6 +38,7 @@ function Page() {
   const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
   const fetchMiles = useServerFn(getClientMiles);
+  const fetchSummary = useServerFn(getTodayMissionSummary);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
@@ -47,6 +48,12 @@ function Page() {
     queryKey: ["client-missions", clientId],
     queryFn: () => fetchMissions({ data: { clientId } }),
     enabled: !!clientId,
+  });
+  const { data: summary } = useQuery({
+    queryKey: ["mission-summary", clientId],
+    queryFn: () => fetchSummary({ data: { clientId } }),
+    enabled: !!clientId,
+    staleTime: 0,
   });
   const { data: hydrationData } = useQuery({
     queryKey: ["client-hydration", clientId],
@@ -59,8 +66,9 @@ function Page() {
     enabled: !!clientId,
   });
   const missions = missionsData?.missions ?? [];
-  const missionsDone = missions.filter((m: any) => m.completed).length;
-  const missionsTotal = missions.length;
+  // Fonte única de verdade para o contador (igual em Home e Missões).
+  const missionsDone = (summary as any)?.completed ?? missions.filter((m: any) => m.completed).length;
+  const missionsTotal = (summary as any)?.total ?? missions.length;
   const client = data?.client;
   const firstName = (client?.name ?? "").split(" ")[0] || "Cliente";
   const week = weekFrom(client?.startDate);
