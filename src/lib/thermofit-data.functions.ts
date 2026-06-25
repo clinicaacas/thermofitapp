@@ -153,23 +153,8 @@ export const listClients = createServerFn({ method: "GET" })
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     if (error) throw error;
-    // Exclude any record whose email belongs to an internal team member
-    // (defensive guard so equipe never leaks into the Clientes tab).
-    const { data: internalProfiles } = await context.supabase
-      .from("profiles")
-      .select("email")
-      .eq("tenant_id", tenantId)
-      .in("profile", ["super_admin", "dono", "admin", "equipe"]);
-    const internalEmails = new Set(
-      (internalProfiles ?? [])
-        .map((p: any) => (p.email ?? "").toLowerCase().trim())
-        .filter(Boolean),
-    );
-    const filtered = (data ?? []).filter((row: any) => {
-      const email = (row.email ?? "").toLowerCase().trim();
-      return !email || !internalEmails.has(email);
-    });
-    return { clients: filtered.map(mapClient) };
+    return { clients: (data ?? []).map(mapClient) };
+
   });
 
 export const getClient = createServerFn({ method: "GET" })
