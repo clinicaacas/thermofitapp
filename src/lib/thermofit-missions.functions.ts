@@ -10,19 +10,41 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+// Chaves OFICIAIS de mission_kind — devem casar com public.mission_settings.
 type MissionKind =
-  | "video_complete"
-  | "video_task"
-  | "checkin"
+  | "daily_checkin"
+  | "daily_meal"
+  | "daily_workout"
   | "hydration_goal"
-  | "meal"
-  | "workout"
+  | "video_complete"
+  | "post_video_task"
   | "workout_photo"
   | "weekly_photo"
   | "streak_7"
   | "streak_14"
   | "streak_21"
   | "program_complete";
+
+// Mapeamento de aliases legados → chave canônica.
+const KIND_ALIAS: Record<string, MissionKind> = {
+  checkin: "daily_checkin",
+  meal: "daily_meal",
+  workout: "daily_workout",
+  video_task: "post_video_task",
+  daily_checkin: "daily_checkin",
+  daily_meal: "daily_meal",
+  daily_workout: "daily_workout",
+  hydration_goal: "hydration_goal",
+  video_complete: "video_complete",
+  post_video_task: "post_video_task",
+  workout_photo: "workout_photo",
+  weekly_photo: "weekly_photo",
+};
+function canon(kind: string): MissionKind {
+  const k = KIND_ALIAS[kind];
+  if (!k) throw new Error(`Mission kind desconhecido: ${kind}`);
+  return k;
+}
 
 async function getAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
