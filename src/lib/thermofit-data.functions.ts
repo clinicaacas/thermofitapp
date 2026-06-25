@@ -860,11 +860,18 @@ export const adminCreateMission = createServerFn({ method: "POST" })
     const { tenantId } = await callerTenant(context);
     await assertClientInTenant(context, tenantId, data.clientId);
     const dueDate = data.dueDate ?? adminTodayISO();
+    const { data: clientRow, error: clientErr } = await context.supabase
+      .from("clients")
+      .select("active_journey_id")
+      .eq("id", data.clientId)
+      .single();
+    if (clientErr) throw clientErr;
     const { data: row, error } = await context.supabase
       .from("client_missions")
       .insert({
         tenant_id: tenantId,
         client_id: data.clientId,
+        journey_id: (clientRow as any).active_journey_id,
         title: data.title,
         description: data.description ?? null,
         miles: data.miles ?? 0,
@@ -900,7 +907,7 @@ export const adminToggleMissionCompletion = createServerFn({ method: "POST" })
     if (data.done) {
       const { data: mission, error: mErr } = await context.supabase
         .from("client_missions")
-        .select("id, miles, tenant_id, client_id")
+        .select("id, miles, tenant_id, client_id, journey_id")
         .eq("id", data.missionId)
         .eq("client_id", data.clientId)
         .eq("tenant_id", tenantId)
@@ -913,6 +920,7 @@ export const adminToggleMissionCompletion = createServerFn({ method: "POST" })
             tenant_id: tenantId,
             client_id: data.clientId,
             mission_id: data.missionId,
+            journey_id: (mission as any).journey_id,
             miles_awarded: mission.miles ?? 0,
             completed_at: new Date().toISOString(),
           },

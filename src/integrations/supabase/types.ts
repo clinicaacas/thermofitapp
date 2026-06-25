@@ -248,6 +248,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          journey_id: string
           meal_at: string | null
           meal_choice: string | null
           response_date: string
@@ -265,6 +266,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          journey_id: string
           meal_at?: string | null
           meal_choice?: string | null
           response_date: string
@@ -282,6 +284,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          journey_id?: string
           meal_at?: string | null
           meal_choice?: string | null
           response_date?: string
@@ -299,6 +302,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_daily_responses_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -371,6 +381,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          journey_id: string
           log_date: string
           ml: number
           tenant_id: string
@@ -379,6 +390,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          journey_id: string
           log_date?: string
           ml: number
           tenant_id: string
@@ -387,6 +399,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          journey_id?: string
           log_date?: string
           ml?: number
           tenant_id?: string
@@ -397,6 +410,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_hydration_logs_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -412,6 +432,7 @@ export type Database = {
         Row: {
           client_id: string
           id: string
+          journey_id: string
           miles_threshold: number
           milestone_code: string
           reached_at: string
@@ -420,6 +441,7 @@ export type Database = {
         Insert: {
           client_id: string
           id?: string
+          journey_id: string
           miles_threshold: number
           milestone_code: string
           reached_at?: string
@@ -428,6 +450,7 @@ export type Database = {
         Update: {
           client_id?: string
           id?: string
+          journey_id?: string
           miles_threshold?: number
           milestone_code?: string
           reached_at?: string
@@ -442,7 +465,68 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "client_journey_milestones_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "client_journey_milestones_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_journeys: {
+        Row: {
+          client_id: string
+          created_at: string
+          ended_on: string | null
+          id: string
+          journey_number: number
+          notes: string | null
+          started_on: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          ended_on?: string | null
+          id?: string
+          journey_number?: number
+          notes?: string | null
+          started_on: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          ended_on?: string | null
+          id?: string
+          journey_number?: number
+          notes?: string | null
+          started_on?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_journeys_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_journeys_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -505,6 +589,7 @@ export type Database = {
           created_at: string
           id: string
           idempotency_key: string | null
+          journey_id: string
           miles_awarded: number
           mission_id: string
           source_kind: string | null
@@ -517,6 +602,7 @@ export type Database = {
           created_at?: string
           id?: string
           idempotency_key?: string | null
+          journey_id: string
           miles_awarded?: number
           mission_id: string
           source_kind?: string | null
@@ -529,6 +615,7 @@ export type Database = {
           created_at?: string
           id?: string
           idempotency_key?: string | null
+          journey_id?: string
           miles_awarded?: number
           mission_id?: string
           source_kind?: string | null
@@ -541,6 +628,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_mission_completions_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -561,7 +655,7 @@ export type Database = {
           description: string | null
           due_date: string
           id: string
-          journey_id: string | null
+          journey_id: string
           miles: number
           mission_type: string | null
           tenant_id: string
@@ -577,7 +671,7 @@ export type Database = {
           description?: string | null
           due_date?: string
           id?: string
-          journey_id?: string | null
+          journey_id: string
           miles?: number
           mission_type?: string | null
           tenant_id: string
@@ -593,7 +687,7 @@ export type Database = {
           description?: string | null
           due_date?: string
           id?: string
-          journey_id?: string | null
+          journey_id?: string
           miles?: number
           mission_type?: string | null
           tenant_id?: string
@@ -607,6 +701,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_missions_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
         ]
@@ -739,6 +840,7 @@ export type Database = {
           awarded_at: string
           client_id: string
           id: string
+          journey_id: string
           metadata: Json
           miles_awarded: number
           seal_code: string
@@ -748,6 +850,7 @@ export type Database = {
           awarded_at?: string
           client_id: string
           id?: string
+          journey_id: string
           metadata?: Json
           miles_awarded?: number
           seal_code: string
@@ -757,6 +860,7 @@ export type Database = {
           awarded_at?: string
           client_id?: string
           id?: string
+          journey_id?: string
           metadata?: Json
           miles_awarded?: number
           seal_code?: string
@@ -768,6 +872,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_seals_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -876,6 +987,7 @@ export type Database = {
           created_at: string
           id: string
           is_completed: boolean
+          journey_id: string
           last_position_seconds: number
           miles_awarded: number
           progress_percent: number
@@ -890,6 +1002,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_completed?: boolean
+          journey_id: string
           last_position_seconds?: number
           miles_awarded?: number
           progress_percent?: number
@@ -904,6 +1017,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_completed?: boolean
+          journey_id?: string
           last_position_seconds?: number
           miles_awarded?: number
           progress_percent?: number
@@ -918,6 +1032,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_video_progress_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -1120,6 +1241,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clients_active_journey_id_fkey"
+            columns: ["active_journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clients_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1406,6 +1534,7 @@ export type Database = {
           client_id: string
           id: string
           idempotency_key: string
+          journey_id: string
           metadata: Json
           miles: number
           occurred_on: string
@@ -1420,6 +1549,7 @@ export type Database = {
           client_id: string
           id?: string
           idempotency_key: string
+          journey_id: string
           metadata?: Json
           miles: number
           occurred_on?: string
@@ -1434,6 +1564,7 @@ export type Database = {
           client_id?: string
           id?: string
           idempotency_key?: string
+          journey_id?: string
           metadata?: Json
           miles?: number
           occurred_on?: string
@@ -1448,6 +1579,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "miles_ledger_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -2250,37 +2388,72 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      award_miles: {
-        Args: {
-          _client_id: string
-          _idempotency_key: string
-          _metadata?: Json
-          _miles: number
-          _reason?: string
-          _source_kind: string
-          _source_ref: string
-        }
-        Returns: {
-          awarded_at: string
-          awarded_by: string | null
-          client_id: string
-          id: string
-          idempotency_key: string
-          metadata: Json
-          miles: number
-          occurred_on: string
-          reason: string
-          source_kind: string
-          source_ref: string | null
-          tenant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "miles_ledger"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      award_miles:
+        | {
+            Args: {
+              _client_id: string
+              _idempotency_key: string
+              _metadata?: Json
+              _miles: number
+              _reason?: string
+              _source_kind: string
+              _source_ref: string
+            }
+            Returns: {
+              awarded_at: string
+              awarded_by: string | null
+              client_id: string
+              id: string
+              idempotency_key: string
+              journey_id: string
+              metadata: Json
+              miles: number
+              occurred_on: string
+              reason: string
+              source_kind: string
+              source_ref: string | null
+              tenant_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "miles_ledger"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _client_id: string
+              _idempotency_key: string
+              _journey_id?: string
+              _metadata?: Json
+              _miles: number
+              _reason?: string
+              _source_kind: string
+              _source_ref: string
+            }
+            Returns: {
+              awarded_at: string
+              awarded_by: string | null
+              client_id: string
+              id: string
+              idempotency_key: string
+              journey_id: string
+              metadata: Json
+              miles: number
+              occurred_on: string
+              reason: string
+              source_kind: string
+              source_ref: string | null
+              tenant_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "miles_ledger"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       broadcast_client_photo_event: {
         Args: { p_change: string; p_client_id: string; p_photo_id: string }
         Returns: undefined
