@@ -656,8 +656,10 @@ export type Database = {
           due_date: string
           id: string
           journey_id: string
+          linked_video_id: string | null
           miles: number
           mission_type: string | null
+          task_ref: string | null
           tenant_id: string
           title: string
           updated_at: string
@@ -672,8 +674,10 @@ export type Database = {
           due_date?: string
           id?: string
           journey_id: string
+          linked_video_id?: string | null
           miles?: number
           mission_type?: string | null
+          task_ref?: string | null
           tenant_id: string
           title: string
           updated_at?: string
@@ -688,8 +692,10 @@ export type Database = {
           due_date?: string
           id?: string
           journey_id?: string
+          linked_video_id?: string | null
           miles?: number
           mission_type?: string | null
+          task_ref?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string
@@ -708,6 +714,13 @@ export type Database = {
             columns: ["journey_id"]
             isOneToOne: false
             referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_missions_linked_video_id_fkey"
+            columns: ["linked_video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
             referencedColumns: ["id"]
           },
         ]
@@ -2470,6 +2483,25 @@ export type Database = {
       ensure_mission_settings: {
         Args: { _tenant_id: string }
         Returns: undefined
+      }
+      ensure_post_video_task: {
+        Args: {
+          _client_id: string
+          _day: string
+          _journey_id: string
+          _task_ref: string
+          _video_id: string
+        }
+        Returns: string
+      }
+      ensure_video_mission: {
+        Args: {
+          _client_id: string
+          _day: string
+          _journey_id: string
+          _video_id: string
+        }
+        Returns: string
       }
       evaluate_client_milestones: {
         Args: { _client_id: string; _journey_id: string }
