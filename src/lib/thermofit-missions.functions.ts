@@ -130,6 +130,17 @@ export const getTodayMissionSummary = createServerFn({ method: "GET" })
     };
   });
 
+export const getJourneyProgress = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { data: progress, error } = await admin.rpc("get_journey_progress", {
+      _client_id: data.clientId,
+    });
+    if (error) throw error;
+    return (progress as any) ?? { journeyId: null, milesTotal: 0, streakDays: 0, seals: [], milestones: [] };
+  });
+
 // =====================================================================
 // Conclusões de missão (cada uma idempotente por chave determinística)
 // =====================================================================
