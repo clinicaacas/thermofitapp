@@ -2463,6 +2463,23 @@ export type Database = {
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
+      ensure_mission_settings: {
+        Args: { _tenant_id: string }
+        Returns: undefined
+      }
+      evaluate_client_milestones: {
+        Args: { _client_id: string; _journey_id: string }
+        Returns: Json
+      }
+      evaluate_client_seals: {
+        Args: { _client_id: string; _journey_id: string }
+        Returns: Json
+      }
+      generate_journey_missions: {
+        Args: { _client_id: string; _journey_id: string }
+        Returns: Json
+      }
+      get_journey_progress: { Args: { _client_id: string }; Returns: Json }
       get_today_mission_summary: { Args: { _client_id: string }; Returns: Json }
       is_profile_manager: {
         Args: { _tenant_id: string; _user_id: string }
