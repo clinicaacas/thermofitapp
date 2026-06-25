@@ -11,6 +11,7 @@ import {
   getClientVideoPlayback,
   saveVideoProgress,
 } from "@/lib/thermofit-client-app.functions";
+import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
