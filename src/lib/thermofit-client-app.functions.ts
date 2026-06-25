@@ -629,6 +629,7 @@ export const addHydration = createServerFn({ method: "POST" })
     const { error } = await admin.from("client_hydration_logs").insert({
       tenant_id: client.tenant_id,
       client_id: client.id,
+      journey_id: (client as any).active_journey_id,
       ml: data.ml,
     });
     if (error) throw error;
