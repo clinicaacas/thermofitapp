@@ -241,6 +241,75 @@ export type Database = {
           },
         ]
       }
+      client_daily_responses: {
+        Row: {
+          checkin_at: string | null
+          checkin_done: boolean
+          client_id: string
+          created_at: string
+          id: string
+          meal_at: string | null
+          meal_choice: string | null
+          response_date: string
+          tenant_id: string
+          updated_at: string
+          workout_at: string | null
+          workout_choice: string | null
+          workout_photo_at: string | null
+          workout_photo_note: string | null
+          workout_photo_path: string | null
+        }
+        Insert: {
+          checkin_at?: string | null
+          checkin_done?: boolean
+          client_id: string
+          created_at?: string
+          id?: string
+          meal_at?: string | null
+          meal_choice?: string | null
+          response_date: string
+          tenant_id: string
+          updated_at?: string
+          workout_at?: string | null
+          workout_choice?: string | null
+          workout_photo_at?: string | null
+          workout_photo_note?: string | null
+          workout_photo_path?: string | null
+        }
+        Update: {
+          checkin_at?: string | null
+          checkin_done?: boolean
+          client_id?: string
+          created_at?: string
+          id?: string
+          meal_at?: string | null
+          meal_choice?: string | null
+          response_date?: string
+          tenant_id?: string
+          updated_at?: string
+          workout_at?: string | null
+          workout_choice?: string | null
+          workout_photo_at?: string | null
+          workout_photo_note?: string | null
+          workout_photo_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_daily_responses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_daily_responses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_exercise_progress: {
         Row: {
           client_id: string
