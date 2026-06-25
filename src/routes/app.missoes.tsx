@@ -65,6 +65,13 @@ function Page() {
     staleTime: 0,
   });
 
+  const { data: progress } = useQuery({
+    queryKey: ["journey-progress", clientId],
+    queryFn: () => fetchProgress({ data: { clientId } }),
+    enabled: !!clientId,
+    staleTime: 0,
+  });
+
   const toggle = useMutation({
     mutationFn: (v: { missionId: string; done: boolean }) =>
       toggleFn({ data: { clientId, ...v } }),
