@@ -250,17 +250,19 @@ async function upsertDaily(
   const client = await loadClient(clientId);
   const admin = await getAdmin();
   const day = todayKey();
+  const journeyId = (client as any).active_journey_id as string;
   // Garantir row do dia, depois aplicar patch.
   await admin
     .from("client_daily_responses")
     .upsert(
-      { tenant_id: client.tenant_id, client_id: clientId, response_date: day },
-      { onConflict: "client_id,response_date" },
+      { tenant_id: client.tenant_id, client_id: clientId, journey_id: journeyId, response_date: day },
+      { onConflict: "client_id,journey_id,response_date" },
     );
   const { error } = await admin
     .from("client_daily_responses")
     .update(patch as any)
     .eq("client_id", clientId)
+    .eq("journey_id", journeyId)
     .eq("response_date", day);
   if (error) throw error;
   return { client, day };
