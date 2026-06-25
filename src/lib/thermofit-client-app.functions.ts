@@ -213,6 +213,36 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
       .upsert(payload, { onConflict: "client_id,video_id" });
     if (upErr) throw upErr;
 
+    // Concessão oficial de milhas via miles_ledger (server-side, idempotente).
+    // Roda apenas na transição para concluído. award_miles tem ON CONFLICT
+    // (client_id, idempotency_key) DO NOTHING — reassistir / abrir 2 abas /
+    // F5 não duplica.
+    if (shouldComplete) {
+      try {
+        const { data: ms } = await admin
+          .from("mission_settings")
+          .select("default_miles, active")
+          .eq("tenant_id", video.tenant_id)
+          .eq("mission_kind", "video_complete")
+          .maybeSingle();
+        const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+        if (miles > 0) {
+          await admin.rpc("award_miles", {
+            _client_id: client.id,
+            _source_kind: "video_complete",
+            _source_ref: video.id,
+            _miles: miles,
+            _idempotency_key: `video_complete:${video.id}`,
+            _reason: "Vídeo concluído",
+            _metadata: { progressPercent } as any,
+          });
+        }
+      } catch (e) {
+        // Não bloqueia a marcação de concluído se a concessão falhar.
+        console.error("award_miles(video_complete) falhou", e);
+      }
+    }
+
     return { ok: true, completed: shouldComplete || alreadyCompleted, progressPercent };
   });
 
@@ -601,6 +631,41 @@ export const addHydration = createServerFn({ method: "POST" })
       ml: data.ml,
     });
     if (error) throw error;
+
+    // Se a meta diária foi batida agora, conceder milhas (idempotente por dia).
+    try {
+      const day = todayISO();
+      const { data: todays } = await admin
+        .from("client_hydration_logs")
+        .select("ml")
+        .eq("client_id", client.id)
+        .eq("log_date", day);
+      const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+      const goal = client.hydration_goal_ml ?? 2000;
+      if (total >= goal) {
+        const { data: ms } = await admin
+          .from("mission_settings")
+          .select("default_miles, active")
+          .eq("tenant_id", client.tenant_id)
+          .eq("mission_kind", "hydration_goal")
+          .maybeSingle();
+        const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+        if (miles > 0) {
+          await admin.rpc("award_miles", {
+            _client_id: client.id,
+            _source_kind: "hydration_goal",
+            _source_ref: day,
+            _miles: miles,
+            _idempotency_key: `hydration_goal:${day}`,
+            _reason: "Meta de hidratação atingida",
+            _metadata: { total, goal } as any,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("award_miles(hydration_goal) falhou", e);
+    }
+
     return { ok: true };
   });
 
