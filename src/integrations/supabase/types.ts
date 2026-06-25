@@ -903,6 +903,51 @@ export type Database = {
           },
         ]
       }
+      client_task_responses: {
+        Row: {
+          client_id: string
+          completed_at: string
+          created_at: string
+          due_date: string
+          id: string
+          journey_id: string
+          linked_video_id: string | null
+          mission_id: string
+          response: string
+          task_ref: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string
+          created_at?: string
+          due_date: string
+          id?: string
+          journey_id: string
+          linked_video_id?: string | null
+          mission_id: string
+          response: string
+          task_ref?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          journey_id?: string
+          linked_video_id?: string | null
+          mission_id?: string
+          response?: string
+          task_ref?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_vacuum_events: {
         Row: {
           client_id: string
