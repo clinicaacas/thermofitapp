@@ -860,11 +860,18 @@ export const adminCreateMission = createServerFn({ method: "POST" })
     const { tenantId } = await callerTenant(context);
     await assertClientInTenant(context, tenantId, data.clientId);
     const dueDate = data.dueDate ?? adminTodayISO();
+    const { data: clientRow, error: clientErr } = await context.supabase
+      .from("clients")
+      .select("active_journey_id")
+      .eq("id", data.clientId)
+      .single();
+    if (clientErr) throw clientErr;
     const { data: row, error } = await context.supabase
       .from("client_missions")
       .insert({
         tenant_id: tenantId,
         client_id: data.clientId,
+        journey_id: (clientRow as any).active_journey_id,
         title: data.title,
         description: data.description ?? null,
         miles: data.miles ?? 0,
