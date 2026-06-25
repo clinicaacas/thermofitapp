@@ -1,12 +1,26 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
 import { dashboardSummary } from "@/lib/thermofit-data.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, AlertTriangle, CheckSquare } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — ThermoFit" }] }),
+  beforeLoad: async ({ location }) => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
+  },
+  errorComponent: ({ error }) => (
+    <AppShell>
+      <div className="p-6 text-sm text-muted-foreground">
+        Não foi possível carregar o dashboard. {error.message}
+      </div>
+    </AppShell>
+  ),
   component: Page,
 });
 
@@ -15,7 +29,9 @@ function Page() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => fetchSummary(),
+    retry: false,
   });
+
 
   const today = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
