@@ -415,33 +415,102 @@ export const submitWorkoutPhoto = createServerFn({ method: "POST" })
   });
 
 // =====================================================================
-// Tarefa pós-vídeo — desbloqueada após pelo menos 1 vídeo concluído no dia.
-// 1x por dia, +10 Milhas, idempotente por (cliente, jornada, dia).
+// Tarefa pós-vídeo — resposta em client_task_responses (separado do ledger).
+// Regras de desbloqueio:
+//   - vinculada a um vídeo (videoId): exige video_complete daquele vídeo;
+//   - diária (sem videoId): exige >=1 video_complete no dia.
+// Idempotência por missão: post_video_task:<journeyId>:<missionId>.
 // =====================================================================
+
+async function resolveActiveJourney(clientId: string) {
+  const admin = await getAdmin();
+  const { data: client } = await admin
+    .from("clients").select("id, tenant_id, active_journey_id")
+    .eq("id", clientId).maybeSingle();
+  if (!client) throw new Error("Cliente não encontrada.");
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) throw new Error("Jornada ativa não definida.");
+  return { client: client as { id: string; tenant_id: string }, journeyId };
+}
+
+async function resolvePostVideoTaskMission(
+  clientId: string,
+  journeyId: string,
+  day: string,
+  videoId: string | null,
+  taskRef: string,
+): Promise<string> {
+  const admin = await getAdmin();
+  const { data, error } = await admin.rpc("ensure_post_video_task", {
+    _client_id: clientId,
+    _journey_id: journeyId,
+    _day: day,
+    _video_id: videoId,
+    _task_ref: taskRef,
+  });
+  if (error) throw error;
+  const missionId = (data as any) as string | null;
+  if (!missionId) throw new Error("Não foi possível resolver a missão de tarefa pós-vídeo.");
+  return missionId;
+}
+
+async function isVideoCompleted(
+  clientId: string, journeyId: string, day: string, videoId: string,
+) {
+  const admin = await getAdmin();
+  const { count } = await admin
+    .from("miles_ledger").select("id", { count: "exact", head: true })
+    .eq("client_id", clientId).eq("journey_id", journeyId)
+    .eq("source_kind", "video_complete").eq("occurred_on", day)
+    .eq("source_ref", videoId);
+  return (count ?? 0) > 0;
+}
+
+async function anyVideoCompleted(clientId: string, journeyId: string, day: string) {
+  const admin = await getAdmin();
+  const { count } = await admin
+    .from("miles_ledger").select("id", { count: "exact", head: true })
+    .eq("client_id", clientId).eq("journey_id", journeyId)
+    .eq("source_kind", "video_complete").eq("occurred_on", day);
+  return (count ?? 0) > 0;
+}
+
 export const getPostVideoTaskState = createServerFn({ method: "GET" })
-  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .inputValidator((i) => z.object({
+    clientId: z.string().uuid(),
+    videoId: z.string().uuid().optional(),
+    taskRef: z.string().trim().min(1).max(80).optional(),
+  }).parse(i))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
     const day = todayKey();
     const { data: client } = await admin
       .from("clients").select("active_journey_id").eq("id", data.clientId).maybeSingle();
     const journeyId = (client as any)?.active_journey_id ?? null;
-    if (!journeyId) return { unlocked: false, completed: false, response: null, day };
-    const { count: videosDone } = await admin
-      .from("miles_ledger")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", data.clientId).eq("journey_id", journeyId)
-      .eq("source_kind", "video_complete").eq("occurred_on", day);
+    if (!journeyId) {
+      return { day, unlocked: false, completed: false, response: null, missionId: null, videoId: data.videoId ?? null };
+    }
+    const videoId = data.videoId ?? null;
+    const taskRef = data.taskRef ?? (videoId ? "default" : "daily");
+    const missionId = await resolvePostVideoTaskMission(
+      data.clientId, journeyId, day, videoId, taskRef,
+    );
+    const unlocked = videoId
+      ? await isVideoCompleted(data.clientId, journeyId, day, videoId)
+      : await anyVideoCompleted(data.clientId, journeyId, day);
     const { data: row } = await admin
-      .from("miles_ledger").select("metadata, occurred_on")
-      .eq("client_id", data.clientId).eq("journey_id", journeyId)
-      .eq("source_kind", "post_video_task").eq("occurred_on", day)
+      .from("client_task_responses")
+      .select("response, completed_at, linked_video_id, task_ref")
+      .eq("client_id", data.clientId).eq("mission_id", missionId)
       .maybeSingle();
     return {
       day,
-      unlocked: (videosDone ?? 0) > 0,
+      missionId,
+      videoId,
+      unlocked,
       completed: !!row,
-      response: (row?.metadata as any)?.response ?? null,
+      response: (row?.response as string | null) ?? null,
+      completedAt: (row?.completed_at as string | null) ?? null,
     };
   });
 
@@ -449,33 +518,57 @@ export const submitPostVideoTask = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({
     clientId: z.string().uuid(),
     videoId: z.string().uuid().optional(),
+    taskRef: z.string().trim().min(1).max(80).optional(),
     response: z.string().trim().min(2).max(2000),
   }).parse(i))
   .handler(async ({ data }) => {
-    const admin = await getAdmin();
     const day = todayKey();
-    const { data: client } = await admin
-      .from("clients").select("id, tenant_id, active_journey_id")
-      .eq("id", data.clientId).maybeSingle();
-    if (!client) throw new Error("Cliente não encontrada.");
-    const journeyId = (client as any).active_journey_id;
-    if (!journeyId) throw new Error("Jornada ativa não definida.");
-    // Desbloqueio: exige >=1 video_complete hoje
-    const { count: videosDone } = await admin
-      .from("miles_ledger")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", client.id).eq("journey_id", journeyId)
-      .eq("source_kind", "video_complete").eq("occurred_on", day);
-    if (!videosDone || videosDone <= 0) {
-      throw new Error("Conclua um vídeo antes de responder a tarefa do dia.");
+    const { client, journeyId } = await resolveActiveJourney(data.clientId);
+    const videoId = data.videoId ?? null;
+    const taskRef = data.taskRef ?? (videoId ? "default" : "daily");
+
+    // Regra de desbloqueio server-side
+    const unlocked = videoId
+      ? await isVideoCompleted(client.id, journeyId, day, videoId)
+      : await anyVideoCompleted(client.id, journeyId, day);
+    if (!unlocked) {
+      throw new Error(
+        videoId
+          ? "Conclua este vídeo antes de responder a tarefa."
+          : "Conclua pelo menos um vídeo do dia antes de responder.",
+      );
     }
-    const key = `post_video_task:${day}`;
-    const res = await award(
-      client.id, "post_video_task", day, key, "Tarefa pós-vídeo",
-      { response: data.response, videoId: data.videoId ?? null },
+
+    const missionId = await resolvePostVideoTaskMission(
+      client.id, journeyId, day, videoId, taskRef,
     );
-    return { ok: true, day, ...res };
+
+    // Persistir resposta (fonte primária)
+    const admin = await getAdmin();
+    const { error: upErr } = await admin
+      .from("client_task_responses")
+      .upsert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+        mission_id: missionId,
+        linked_video_id: videoId,
+        task_ref: taskRef,
+        due_date: day,
+        response: data.response,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: "client_id,mission_id" });
+    if (upErr) throw upErr;
+
+    // Conceder Milhas de forma idempotente por missão
+    const key = `post_video_task:${journeyId}:${missionId}`;
+    const res = await award(
+      client.id, "post_video_task", missionId, key, "Tarefa pós-vídeo",
+      { missionId, videoId, taskRef, day },
+    );
+    return { ok: true, day, missionId, videoId, ...res };
   });
+
 
 // =====================================================================
 // Foto de Evolução semanal — 1x por semana ISO, +15 Milhas.
