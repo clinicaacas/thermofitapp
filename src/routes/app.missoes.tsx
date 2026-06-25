@@ -121,6 +121,8 @@ function Page() {
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
       {clientId && <DailyRoutineCard clientId={clientId} />}
+      {clientId && <PostVideoTaskCard clientId={clientId} />}
+      {clientId && <WeeklyPhotoCard clientId={clientId} />}
 
       {progress && (progress as any).journeyId && (
         <SealsAndMilestonesPanel progress={progress as any} />
