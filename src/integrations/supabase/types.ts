@@ -339,6 +339,48 @@ export type Database = {
           },
         ]
       }
+      client_journey_milestones: {
+        Row: {
+          client_id: string
+          id: string
+          miles_threshold: number
+          milestone_code: string
+          reached_at: string
+          tenant_id: string
+        }
+        Insert: {
+          client_id: string
+          id?: string
+          miles_threshold: number
+          milestone_code: string
+          reached_at?: string
+          tenant_id: string
+        }
+        Update: {
+          client_id?: string
+          id?: string
+          miles_threshold?: number
+          milestone_code?: string
+          reached_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_journey_milestones_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_journey_milestones_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_letters: {
         Row: {
           body: string
@@ -393,8 +435,11 @@ export type Database = {
           completed_at: string
           created_at: string
           id: string
+          idempotency_key: string | null
           miles_awarded: number
           mission_id: string
+          source_kind: string | null
+          source_ref: string | null
           tenant_id: string
         }
         Insert: {
@@ -402,8 +447,11 @@ export type Database = {
           completed_at?: string
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           miles_awarded?: number
           mission_id: string
+          source_kind?: string | null
+          source_ref?: string | null
           tenant_id: string
         }
         Update: {
@@ -411,8 +459,11 @@ export type Database = {
           completed_at?: string
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           miles_awarded?: number
           mission_id?: string
+          source_kind?: string | null
+          source_ref?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -607,6 +658,51 @@ export type Database = {
           },
           {
             foreignKeyName: "client_progress_photos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_seals: {
+        Row: {
+          awarded_at: string
+          client_id: string
+          id: string
+          metadata: Json
+          miles_awarded: number
+          seal_code: string
+          tenant_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          client_id: string
+          id?: string
+          metadata?: Json
+          miles_awarded?: number
+          seal_code: string
+          tenant_id: string
+        }
+        Update: {
+          awarded_at?: string
+          client_id?: string
+          id?: string
+          metadata?: Json
+          miles_awarded?: number
+          seal_code?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_seals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_seals_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1179,6 +1275,158 @@ export type Database = {
           },
           {
             foreignKeyName: "messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      miles_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          client_id: string
+          created_at: string
+          id: string
+          justification: string
+          payload: Json
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          justification: string
+          payload?: Json
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          justification?: string
+          payload?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "miles_audit_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "miles_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      miles_ledger: {
+        Row: {
+          awarded_at: string
+          awarded_by: string | null
+          client_id: string
+          id: string
+          idempotency_key: string
+          metadata: Json
+          miles: number
+          occurred_on: string
+          reason: string
+          source_kind: string
+          source_ref: string | null
+          tenant_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          awarded_by?: string | null
+          client_id: string
+          id?: string
+          idempotency_key: string
+          metadata?: Json
+          miles: number
+          occurred_on?: string
+          reason?: string
+          source_kind: string
+          source_ref?: string | null
+          tenant_id: string
+        }
+        Update: {
+          awarded_at?: string
+          awarded_by?: string | null
+          client_id?: string
+          id?: string
+          idempotency_key?: string
+          metadata?: Json
+          miles?: number
+          occurred_on?: string
+          reason?: string
+          source_kind?: string
+          source_ref?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "miles_ledger_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "miles_ledger_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_settings: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_miles: number
+          id: string
+          label: string
+          metadata: Json
+          mission_kind: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_miles?: number
+          id?: string
+          label: string
+          metadata?: Json
+          mission_kind: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_miles?: number
+          id?: string
+          label?: string
+          metadata?: Json
+          mission_kind?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1933,6 +2181,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_miles: {
+        Args: {
+          _client_id: string
+          _idempotency_key: string
+          _metadata?: Json
+          _miles: number
+          _reason?: string
+          _source_kind: string
+          _source_ref: string
+        }
+        Returns: {
+          awarded_at: string
+          awarded_by: string | null
+          client_id: string
+          id: string
+          idempotency_key: string
+          metadata: Json
+          miles: number
+          occurred_on: string
+          reason: string
+          source_kind: string
+          source_ref: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "miles_ledger"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       broadcast_client_photo_event: {
         Args: { p_change: string; p_client_id: string; p_photo_id: string }
         Returns: undefined
@@ -1942,6 +2221,7 @@ export type Database = {
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
+      get_today_mission_summary: { Args: { _client_id: string }; Returns: Json }
       is_profile_manager: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
