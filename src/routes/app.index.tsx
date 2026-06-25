@@ -4,6 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell, useEnabledModules } from "@/components/client-app-shell";
 import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
+import { DailyRoutineCard } from "@/components/daily-routine-card";
+import { PostVideoTaskCard } from "@/components/post-video-task-card";
+import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
 import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
