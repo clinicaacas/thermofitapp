@@ -12,6 +12,7 @@ import {
   saveVideoProgress,
 } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
+import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
@@ -109,6 +110,7 @@ function Page() {
       <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
+      {clientId && <DailyRoutineCard clientId={clientId} />}
 
       {videoMissions.length > 0 && (
         <section className="mt-4">
