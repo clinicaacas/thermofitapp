@@ -212,3 +212,168 @@ export const completeWeeklyPhoto = createServerFn({ method: "POST" })
       "Foto semanal de evolução",
     );
   });
+
+// =====================================================================
+// Rotina Diária — Check-in, Alimentação, Treino, Foto do Treino
+// Persistência em client_daily_responses (UNIQUE client_id+response_date)
+// permite editar a resposta no mesmo dia. Milhas ficam idempotentes pelo
+// miles_ledger (idempotency_key = "<kind>:<YYYY-MM-DD>").
+// =====================================================================
+
+export const getDailyRoutine = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const day = todayKey();
+    const { data: row } = await admin
+      .from("client_daily_responses")
+      .select(
+        "checkin_done, meal_choice, workout_choice, workout_photo_path, workout_photo_note",
+      )
+      .eq("client_id", data.clientId)
+      .eq("response_date", day)
+      .maybeSingle();
+    return {
+      date: day,
+      checkinDone: !!row?.checkin_done,
+      mealChoice: (row?.meal_choice as string | null) ?? null,
+      workoutChoice: (row?.workout_choice as string | null) ?? null,
+      workoutPhotoPath: (row?.workout_photo_path as string | null) ?? null,
+      workoutPhotoNote: (row?.workout_photo_note as string | null) ?? null,
+    };
+  });
+
+async function upsertDaily(
+  clientId: string,
+  patch: Record<string, unknown>,
+) {
+  const client = await loadClient(clientId);
+  const admin = await getAdmin();
+  const day = todayKey();
+  // Garantir row do dia, depois aplicar patch.
+  await admin
+    .from("client_daily_responses")
+    .upsert(
+      { tenant_id: client.tenant_id, client_id: clientId, response_date: day },
+      { onConflict: "client_id,response_date" },
+    );
+  const { error } = await admin
+    .from("client_daily_responses")
+    .update(patch)
+    .eq("client_id", clientId)
+    .eq("response_date", day);
+  if (error) throw error;
+  return { client, day };
+}
+
+export const submitCheckin = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    await upsertDaily(data.clientId, {
+      checkin_done: true,
+      checkin_at: new Date().toISOString(),
+    });
+    const key = `checkin:${todayKey()}`;
+    const res = await award(data.clientId, "checkin", todayKey(), key, "Check-in diário");
+    return { ok: true, ...res };
+  });
+
+export const submitMeal = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        choice: z.enum(["otima", "ok", "dificil"]),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    await upsertDaily(data.clientId, {
+      meal_choice: data.choice,
+      meal_at: new Date().toISOString(),
+    });
+    const key = `meal:${todayKey()}`;
+    const res = await award(data.clientId, "meal", todayKey(), key, "Alimentação registrada", {
+      choice: data.choice,
+    });
+    return { ok: true, ...res };
+  });
+
+export const submitWorkout = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        choice: z.enum(["musc_cardio", "cardio", "descanso"]),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    await upsertDaily(data.clientId, {
+      workout_choice: data.choice,
+      workout_at: new Date().toISOString(),
+    });
+    if (data.choice === "descanso") {
+      // Sem pontuação e sem penalização
+      return { ok: true, awarded: false, miles: 0 };
+    }
+    const key = `workout:${todayKey()}`;
+    const res = await award(data.clientId, "workout", todayKey(), key, "Treino realizado", {
+      choice: data.choice,
+    });
+    return { ok: true, ...res };
+  });
+
+export const submitWorkoutPhoto = createServerFn({ method: "POST" })
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        contentBase64: z.string().min(20),
+        mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+        note: z.string().max(500).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const day = todayKey();
+
+    // Exige que o treino do dia tenha sido marcado como realizado
+    const { data: row } = await admin
+      .from("client_daily_responses")
+      .select("workout_choice")
+      .eq("client_id", client.id)
+      .eq("response_date", day)
+      .maybeSingle();
+    const wc = row?.workout_choice as string | null;
+    if (wc !== "musc_cardio" && wc !== "cardio") {
+      throw new Error("Marque o treino realizado antes de enviar a foto.");
+    }
+
+    const ext = data.mimeType === "image/png" ? "png" : data.mimeType === "image/webp" ? "webp" : "jpg";
+    const path = `workout/${client.id}/${day}.${ext}`;
+    const bytes = Buffer.from(data.contentBase64, "base64");
+    const { error: upErr } = await admin.storage
+      .from("client-photos")
+      .upload(path, bytes, { contentType: data.mimeType, upsert: true });
+    if (upErr) throw upErr;
+
+    await upsertDaily(client.id, {
+      workout_photo_path: path,
+      workout_photo_note: data.note ?? null,
+      workout_photo_at: new Date().toISOString(),
+    });
+
+    const key = `workout_photo:${day}`;
+    const res = await award(
+      client.id,
+      "workout_photo",
+      day,
+      key,
+      "Foto do treino (bônus)",
+      { path },
+    );
+    return { ok: true, path, ...res };
+  });
