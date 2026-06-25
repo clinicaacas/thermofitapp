@@ -445,9 +445,9 @@ async function resolvePostVideoTaskMission(
     _client_id: clientId,
     _journey_id: journeyId,
     _day: day,
-    _video_id: videoId,
+    _video_id: videoId as any,
     _task_ref: taskRef,
-  });
+  } as any);
   if (error) throw error;
   const missionId = (data as any) as string | null;
   if (!missionId) throw new Error("Não foi possível resolver a missão de tarefa pós-vídeo.");
