@@ -13,6 +13,8 @@ import {
 } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
+import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
+import { PostVideoTaskCard } from "@/components/post-video-task-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
