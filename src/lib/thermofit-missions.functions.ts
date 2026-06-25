@@ -413,3 +413,128 @@ export const submitWorkoutPhoto = createServerFn({ method: "POST" })
     );
     return { ok: true, path, ...res };
   });
+
+// =====================================================================
+// Tarefa pós-vídeo — desbloqueada após pelo menos 1 vídeo concluído no dia.
+// 1x por dia, +10 Milhas, idempotente por (cliente, jornada, dia).
+// =====================================================================
+export const getPostVideoTaskState = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const day = todayKey();
+    const { data: client } = await admin
+      .from("clients").select("active_journey_id").eq("id", data.clientId).maybeSingle();
+    const journeyId = (client as any)?.active_journey_id ?? null;
+    if (!journeyId) return { unlocked: false, completed: false, response: null, day };
+    const { count: videosDone } = await admin
+      .from("miles_ledger")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", data.clientId).eq("journey_id", journeyId)
+      .eq("source_kind", "video_complete").eq("occurred_on", day);
+    const { data: row } = await admin
+      .from("miles_ledger").select("metadata, occurred_on")
+      .eq("client_id", data.clientId).eq("journey_id", journeyId)
+      .eq("source_kind", "post_video_task").eq("occurred_on", day)
+      .maybeSingle();
+    return {
+      day,
+      unlocked: (videosDone ?? 0) > 0,
+      completed: !!row,
+      response: (row?.metadata as any)?.response ?? null,
+    };
+  });
+
+export const submitPostVideoTask = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({
+    clientId: z.string().uuid(),
+    videoId: z.string().uuid().optional(),
+    response: z.string().trim().min(2).max(2000),
+  }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const day = todayKey();
+    const { data: client } = await admin
+      .from("clients").select("id, tenant_id, active_journey_id")
+      .eq("id", data.clientId).maybeSingle();
+    if (!client) throw new Error("Cliente não encontrada.");
+    const journeyId = (client as any).active_journey_id;
+    if (!journeyId) throw new Error("Jornada ativa não definida.");
+    // Desbloqueio: exige >=1 video_complete hoje
+    const { count: videosDone } = await admin
+      .from("miles_ledger")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", client.id).eq("journey_id", journeyId)
+      .eq("source_kind", "video_complete").eq("occurred_on", day);
+    if (!videosDone || videosDone <= 0) {
+      throw new Error("Conclua um vídeo antes de responder a tarefa do dia.");
+    }
+    const key = `post_video_task:${day}`;
+    const res = await award(
+      client.id, "post_video_task", day, key, "Tarefa pós-vídeo",
+      { response: data.response, videoId: data.videoId ?? null },
+    );
+    return { ok: true, day, ...res };
+  });
+
+// =====================================================================
+// Foto de Evolução semanal — 1x por semana ISO, +15 Milhas.
+// Upload privado em client-photos/weekly/<clientId>/<isoWeek>.<ext>.
+// Validação MIME (header), tamanho (<=8MB), ownership e jornada ativa.
+// =====================================================================
+function detectImageMime(bytes: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (bytes.length < 12) return null;
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes.slice(0, 4).toString("ascii") === "RIFF" && bytes.slice(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  return null;
+}
+
+export const getWeeklyPhotoState = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const week = isoWeekKey();
+    const { data: client } = await admin
+      .from("clients").select("active_journey_id").eq("id", data.clientId).maybeSingle();
+    const journeyId = (client as any)?.active_journey_id ?? null;
+    if (!journeyId) return { week, completed: false, path: null };
+    const { data: row } = await admin
+      .from("miles_ledger").select("metadata")
+      .eq("client_id", data.clientId).eq("journey_id", journeyId)
+      .eq("source_kind", "weekly_photo")
+      .eq("idempotency_key", `weekly_photo:${week}`)
+      .maybeSingle();
+    return { week, completed: !!row, path: (row?.metadata as any)?.path ?? null };
+  });
+
+export const submitWeeklyPhoto = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({
+    clientId: z.string().uuid(),
+    contentBase64: z.string().min(20),
+    mimeHint: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+  }).parse(i))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { data: client } = await admin
+      .from("clients").select("id, tenant_id, active_journey_id")
+      .eq("id", data.clientId).maybeSingle();
+    if (!client) throw new Error("Cliente não encontrada.");
+    const journeyId = (client as any).active_journey_id;
+    if (!journeyId) throw new Error("Jornada ativa não definida.");
+    const bytes = Buffer.from(data.contentBase64, "base64");
+    if (bytes.length === 0) throw new Error("Arquivo vazio.");
+    if (bytes.length > 8 * 1024 * 1024) throw new Error("Arquivo maior que 8MB.");
+    const realMime = detectImageMime(bytes);
+    if (!realMime) throw new Error("Formato de imagem inválido (use JPG, PNG ou WEBP).");
+    const week = isoWeekKey();
+    const ext = realMime === "image/png" ? "png" : realMime === "image/webp" ? "webp" : "jpg";
+    const path = `weekly/${client.id}/${week}.${ext}`;
+    const { error: upErr } = await admin.storage
+      .from("client-photos")
+      .upload(path, bytes, { contentType: realMime, upsert: true });
+    if (upErr) throw upErr;
+    const key = `weekly_photo:${week}`;
+    const res = await award(client.id, "weekly_photo", week, key, "Foto de evolução semanal", { path, week });
+    return { ok: true, path, week, ...res };
+  });
