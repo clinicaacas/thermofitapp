@@ -259,7 +259,7 @@ async function upsertDaily(
     );
   const { error } = await admin
     .from("client_daily_responses")
-    .update(patch)
+    .update(patch as any)
     .eq("client_id", clientId)
     .eq("response_date", day);
   if (error) throw error;
