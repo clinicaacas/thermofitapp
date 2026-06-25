@@ -11,7 +11,7 @@ import {
   getClientVideoPlayback,
   saveVideoProgress,
 } from "@/lib/thermofit-client-app.functions";
-import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
+import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 
