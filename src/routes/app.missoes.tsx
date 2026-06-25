@@ -110,6 +110,7 @@ function Page() {
       <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
+      {clientId && <DailyRoutineCard clientId={clientId} />}
 
       {videoMissions.length > 0 && (
         <section className="mt-4">
