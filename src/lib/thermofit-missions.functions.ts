@@ -106,12 +106,13 @@ function isoWeekKey(): string {
 
 async function award(
   clientId: string,
-  kind: MissionKind,
+  rawKind: string,
   ref: string,
   idempotencyKey: string,
   reason = "",
   metadata: Record<string, unknown> = {},
 ) {
+  const kind = canon(rawKind);
   const client = await loadClient(clientId);
   const miles = await getMilesFor(client.tenant_id, kind);
   if (miles <= 0) {
