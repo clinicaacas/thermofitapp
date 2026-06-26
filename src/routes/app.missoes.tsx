@@ -84,15 +84,27 @@ function Page() {
     },
   });
 
-  const missions = data?.missions ?? [];
+  // Filtra da lista genérica os tipos que já possuem componente próprio
+  // (DailyRoutineCard, PostVideoTaskCard, WeeklyPhotoCard, e Vídeos do dia).
+  const HANDLED_TYPES = new Set([
+    "daily_checkin",
+    "daily_meal",
+    "daily_workout",
+    "hydration_goal",
+    "video_complete",
+    "post_video_task",
+    "weekly_photo",
+    "workout_photo",
+  ]);
+  const allMissions = data?.missions ?? [];
+  const missions = allMissions.filter(
+    (m: any) => !m.mission_type || !HANDLED_TYPES.has(m.mission_type),
+  );
   const videoMissions = videoData?.missions ?? [];
   const journeyDay = videoData?.journeyDay ?? 0;
-  // Contador único: prefere o resumo oficial do backend.
-  const done = (summary as any)?.completed
-    ?? (missions.filter((m: any) => m.completed).length
-      + videoMissions.filter((v: any) => v.is_completed).length);
-  const total = (summary as any)?.total
-    ?? (missions.length + videoMissions.length);
+  // Contador único: usa o resumo oficial do backend (fonte única de verdade).
+  const done = (summary as any)?.completed ?? 0;
+  const total = (summary as any)?.total ?? 0;
   const pct = total > 0 ? (done / total) * 100 : 0;
 
   const openVideoId = videoParam || null;
