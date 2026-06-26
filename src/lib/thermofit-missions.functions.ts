@@ -609,10 +609,10 @@ async function resolveJourneyWeek(clientId: string) {
   const journeyId = (client as any).active_journey_id as string | null;
   if (!journeyId) throw new Error("Jornada ativa não definida.");
   const { data: journey } = await admin
-    .from("client_journeys").select("started_at")
+    .from("client_journeys").select("started_on")
     .eq("id", journeyId).maybeSingle();
-  if (!journey?.started_at) throw new Error("Jornada sem data de início.");
-  const start = new Date(String(journey.started_at).slice(0, 10) + "T00:00:00Z");
+  if (!journey?.started_on) throw new Error("Jornada sem data de início.");
+  const start = new Date(String(journey.started_on).slice(0, 10) + "T00:00:00Z");
   const today = new Date(todayKey() + "T00:00:00Z");
   const diffDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
   const week = Math.min(12, Math.max(1, Math.floor(diffDays / 7) + 1));
