@@ -75,10 +75,10 @@ export function WeeklyPhotoCard({ clientId }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>
-            Foto de evolução da semana
+            Foto de evolução — {weekLabel}
           </h3>
           <p className="text-xs" style={{ color: "#6B7280" }}>
-            {completed ? "Enviada nesta semana." : "Envie 1 foto por semana • +15 Milhas"}
+            {completed ? "Enviada nesta semana da jornada." : "Envie 1 foto por semana • +15 Milhas"}
           </p>
         </div>
         {completed ? (
