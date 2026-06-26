@@ -510,7 +510,7 @@ export const getPostVideoTaskState = createServerFn({ method: "GET" })
     );
     const unlocked = videoId
       ? await isVideoCompleted(data.clientId, journeyId, day, videoId)
-      : await anyVideoCompleted(data.clientId, journeyId, day);
+      : await allRequiredVideosCompleted(data.clientId, journeyId, day);
     const { data: row } = await admin
       .from("client_task_responses")
       .select("response, completed_at, linked_video_id, task_ref")
@@ -543,7 +543,7 @@ export const submitPostVideoTask = createServerFn({ method: "POST" })
     // Regra de desbloqueio server-side
     const unlocked = videoId
       ? await isVideoCompleted(client.id, journeyId, day, videoId)
-      : await anyVideoCompleted(client.id, journeyId, day);
+      : await allRequiredVideosCompleted(client.id, journeyId, day);
     if (!unlocked) {
       throw new Error(
         videoId
