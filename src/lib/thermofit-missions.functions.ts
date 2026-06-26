@@ -548,7 +548,7 @@ export const submitPostVideoTask = createServerFn({ method: "POST" })
       throw new Error(
         videoId
           ? "Conclua este vídeo antes de responder a tarefa."
-          : "Conclua pelo menos um vídeo do dia antes de responder.",
+          : "Conclua todos os vídeos obrigatórios do dia antes de responder.",
       );
     }
 
