@@ -26,6 +26,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   const { data } = useQuery({
     queryKey: ["weekly-photo-state", clientId],
@@ -35,17 +36,19 @@ export function WeeklyPhotoCard({ clientId }: Props) {
   });
 
   const mut = useMutation({
-    mutationFn: (vars: { contentBase64: string; mimeHint: "image/jpeg" | "image/png" | "image/webp" }) =>
+    mutationFn: (vars: { contentBase64: string; mimeHint: "image/jpeg" | "image/png" | "image/webp"; note?: string }) =>
       submitFn({ data: { clientId, ...vars } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["weekly-photo-state", clientId] });
       qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
       qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
       qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      setNote("");
     },
   });
 
   const completed = !!data?.completed;
+  const weekLabel = data?.week ? `Semana ${data.week}` : "Semana da jornada";
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,7 +58,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
     try {
       if (file.size > 8 * 1024 * 1024) throw new Error("Arquivo maior que 8MB.");
       const { b64, mime } = await fileToBase64(file);
-      await mut.mutateAsync({ contentBase64: b64, mimeHint: mime });
+      await mut.mutateAsync({ contentBase64: b64, mimeHint: mime, note: note.trim() || undefined });
     } catch (err: any) {
       setError(err?.message ?? "Falha ao enviar.");
     } finally {
@@ -72,10 +75,10 @@ export function WeeklyPhotoCard({ clientId }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>
-            Foto de evolução da semana
+            Foto de evolução — {weekLabel}
           </h3>
           <p className="text-xs" style={{ color: "#6B7280" }}>
-            {completed ? "Enviada nesta semana." : "Envie 1 foto por semana • +15 Milhas"}
+            {completed ? "Enviada nesta semana da jornada." : "Envie 1 foto por semana • +15 Milhas"}
           </p>
         </div>
         {completed ? (
@@ -97,11 +100,19 @@ export function WeeklyPhotoCard({ clientId }: Props) {
 
       {!completed && (
         <>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, 500))}
+            placeholder="Observação (opcional)"
+            rows={2}
+            className="mt-3 w-full rounded-xl px-3 py-2 text-sm"
+            style={{ border: "1px solid #E5D6BD", background: "#FFFDF8", color: "#1F2933" }}
+          />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={busy || mut.isPending}
-            className="mt-3 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"
+            className="mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"
             style={{ background: "#C9A24A", color: "#FFFFFF" }}
           >
             <Camera className="h-4 w-4" />

@@ -584,9 +584,9 @@ export const submitPostVideoTask = createServerFn({ method: "POST" })
 
 
 // =====================================================================
-// Foto de Evolução semanal — 1x por semana ISO, +15 Milhas.
-// Upload privado em client-photos/weekly/<clientId>/<isoWeek>.<ext>.
-// Validação MIME (header), tamanho (<=8MB), ownership e jornada ativa.
+// Foto de Evolução semanal — 1x por semana da jornada (1..12), +15 Milhas.
+// Fonte oficial: public.client_progress_photos + bucket privado client-photos.
+// Não criar sistema paralelo de fotos.
 // =====================================================================
 function detectImageMime(bytes: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
   if (bytes.length < 12) return null;
@@ -596,22 +596,49 @@ function detectImageMime(bytes: Buffer): "image/jpeg" | "image/png" | "image/web
   return null;
 }
 
+function extForMime(mime: "image/jpeg" | "image/png" | "image/webp"): "jpg" | "png" | "webp" {
+  return mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+}
+
+async function resolveJourneyWeek(clientId: string) {
+  const admin = await getAdmin();
+  const { data: client } = await admin
+    .from("clients").select("id, tenant_id, active_journey_id")
+    .eq("id", clientId).maybeSingle();
+  if (!client) throw new Error("Cliente não encontrada.");
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) throw new Error("Jornada ativa não definida.");
+  const { data: journey } = await admin
+    .from("client_journeys").select("started_on")
+    .eq("id", journeyId).maybeSingle();
+  if (!journey?.started_on) throw new Error("Jornada sem data de início.");
+  const start = new Date(String(journey.started_on).slice(0, 10) + "T00:00:00Z");
+  const today = new Date(todayKey() + "T00:00:00Z");
+  const diffDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  const week = Math.min(12, Math.max(1, Math.floor(diffDays / 7) + 1));
+  return { client: client as { id: string; tenant_id: string }, journeyId, week };
+}
+
 export const getWeeklyPhotoState = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const week = isoWeekKey();
     const { data: client } = await admin
       .from("clients").select("active_journey_id").eq("id", data.clientId).maybeSingle();
     const journeyId = (client as any)?.active_journey_id ?? null;
-    if (!journeyId) return { week, completed: false, path: null };
+    if (!journeyId) return { week: null, completed: false, storageKey: null, notes: null };
+    const { week } = await resolveJourneyWeek(data.clientId);
     const { data: row } = await admin
-      .from("miles_ledger").select("metadata")
-      .eq("client_id", data.clientId).eq("journey_id", journeyId)
-      .eq("source_kind", "weekly_photo")
-      .eq("idempotency_key", `weekly_photo:${week}`)
-      .maybeSingle();
-    return { week, completed: !!row, path: (row?.metadata as any)?.path ?? null };
+      .from("client_progress_photos")
+      .select("id, storage_key, notes, taken_at")
+      .eq("client_id", data.clientId).eq("journey_id", journeyId).eq("week", week)
+      .order("taken_at", { ascending: false }).limit(1).maybeSingle();
+    return {
+      week,
+      completed: !!row,
+      storageKey: (row?.storage_key as string | null) ?? null,
+      notes: (row?.notes as string | null) ?? null,
+    };
   });
 
 export const submitWeeklyPhoto = createServerFn({ method: "POST" })
@@ -619,28 +646,62 @@ export const submitWeeklyPhoto = createServerFn({ method: "POST" })
     clientId: z.string().uuid(),
     contentBase64: z.string().min(20),
     mimeHint: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+    note: z.string().trim().max(500).optional(),
   }).parse(i))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data: client } = await admin
-      .from("clients").select("id, tenant_id, active_journey_id")
-      .eq("id", data.clientId).maybeSingle();
-    if (!client) throw new Error("Cliente não encontrada.");
-    const journeyId = (client as any).active_journey_id;
-    if (!journeyId) throw new Error("Jornada ativa não definida.");
+    const { client, journeyId, week } = await resolveJourneyWeek(data.clientId);
+
+    // LGPD: respeitar consentimento de uso interno de fotos.
+    const { data: consent } = await admin
+      .from("consents").select("photos_internal")
+      .eq("client_id", client.id).maybeSingle();
+    if (consent && (consent as any).photos_internal === false) {
+      throw new Error("Consentimento de fotos desativado.");
+    }
+
     const bytes = Buffer.from(data.contentBase64, "base64");
     if (bytes.length === 0) throw new Error("Arquivo vazio.");
     if (bytes.length > 8 * 1024 * 1024) throw new Error("Arquivo maior que 8MB.");
     const realMime = detectImageMime(bytes);
     if (!realMime) throw new Error("Formato de imagem inválido (use JPG, PNG ou WEBP).");
-    const week = isoWeekKey();
-    const ext = realMime === "image/png" ? "png" : realMime === "image/webp" ? "webp" : "jpg";
-    const path = `weekly/${client.id}/${week}.${ext}`;
+    if (data.mimeHint && data.mimeHint !== realMime) {
+      throw new Error("Extensão/MIME incoerente com o conteúdo do arquivo.");
+    }
+    const ext = extForMime(realMime);
+
+    // Chave oficial do bucket: <tenant>/<client>/weekly-<journey>-w<N>-<ts>.<ext>
+    const storageKey = `${client.tenant_id}/${client.id}/weekly-${journeyId}-w${week}-${Date.now()}.${ext}`;
     const { error: upErr } = await admin.storage
       .from("client-photos")
-      .upload(path, bytes, { contentType: realMime, upsert: true });
+      .upload(storageKey, bytes, { contentType: realMime, upsert: false });
     if (upErr) throw upErr;
-    const key = `weekly_photo:${week}`;
-    const res = await award(client.id, "weekly_photo", week, key, "Foto de evolução semanal", { path, week });
-    return { ok: true, path, week, ...res };
+
+    const { data: inserted, error: insErr } = await admin
+      .from("client_progress_photos")
+      .insert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+        week,
+        storage_key: storageKey,
+        notes: data.note ?? null,
+        source: "client_upload",
+        visible_to_client: true,
+      })
+      .select("id")
+      .single();
+    if (insErr) {
+      await admin.storage.from("client-photos").remove([storageKey]);
+      throw insErr;
+    }
+
+    // +15 Milhas uma única vez por semana da jornada.
+    const key = `weekly_photo:${journeyId}:w${week}`;
+    const res = await award(
+      client.id, "weekly_photo", `w${week}`, key, "Foto de evolução semanal",
+      { storageKey, journeyId, week, photoId: inserted.id },
+    );
+    return { ok: true, week, storageKey, photoId: inserted.id, ...res };
   });
+
