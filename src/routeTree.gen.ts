@@ -46,6 +46,7 @@ import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 import { Route as AppVacuumIndexRouteImport } from './routes/app.vacuum.index'
+import { Route as ClientesIdMissoesRouteImport } from './routes/clientes.$id.missoes'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 import { Route as AppVacuumTreinoRouteImport } from './routes/app.vacuum.treino'
 
@@ -234,6 +235,11 @@ const AppVacuumIndexRoute = AppVacuumIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppVacuumRoute,
 } as any)
+const ClientesIdMissoesRoute = ClientesIdMissoesRouteImport.update({
+  id: '/missoes',
+  path: '/missoes',
+  getParentRoute: () => ClientesIdRoute,
+} as any)
 const ClientesIdConteudosRoute = ClientesIdConteudosRouteImport.update({
   id: '/conteudos',
   path: '/conteudos',
@@ -284,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesByTo {
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesById {
@@ -365,6 +373,7 @@ export interface FileRoutesById {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRouteTypes {
@@ -408,6 +417,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/videos'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum'
   id:
     | '__root__'
@@ -488,6 +499,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum/'
   fileRoutesById: FileRoutesById
 }
@@ -776,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumIndexRouteImport
       parentRoute: typeof AppVacuumRoute
     }
+    '/clientes/$id/missoes': {
+      id: '/clientes/$id/missoes'
+      path: '/missoes'
+      fullPath: '/clientes/$id/missoes'
+      preLoaderRoute: typeof ClientesIdMissoesRouteImport
+      parentRoute: typeof ClientesIdRoute
+    }
     '/clientes/$id/conteudos': {
       id: '/clientes/$id/conteudos'
       path: '/conteudos'
@@ -847,10 +866,12 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface ClientesIdRouteChildren {
   ClientesIdConteudosRoute: typeof ClientesIdConteudosRoute
+  ClientesIdMissoesRoute: typeof ClientesIdMissoesRoute
 }
 
 const ClientesIdRouteChildren: ClientesIdRouteChildren = {
   ClientesIdConteudosRoute: ClientesIdConteudosRoute,
+  ClientesIdMissoesRoute: ClientesIdMissoesRoute,
 }
 
 const ClientesIdRouteWithChildren = ClientesIdRoute._addFileChildren(
