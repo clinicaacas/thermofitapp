@@ -532,7 +532,7 @@ export const listClientMissions = createServerFn({ method: "GET" })
     const [{ data: missions, error: mErr }, { data: completions, error: cErr }] = await Promise.all([
       admin
         .from("client_missions")
-        .select("id, title, description, miles, due_date")
+        .select("id, title, description, miles, due_date, mission_type")
         .eq("tenant_id", client.tenant_id)
         .eq("client_id", client.id)
         .eq("active", true)
