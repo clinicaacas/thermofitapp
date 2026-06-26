@@ -60,13 +60,13 @@ function Page() {
           </div>
           <nav className="flex items-center gap-1 rounded-md border border-input bg-card p-1 text-xs">
             <button
-              onClick={() => navigate({ search: (s) => ({ ...s, tab: "central" }) })}
+              onClick={() => navigate({ search: (s: any) => ({ ...s, tab: "central" }) })}
               className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 ${tab === "central" ? "bg-accent" : "hover:bg-accent"}`}
             >
               <BarChart3 className="h-3.5 w-3.5" /> Central
             </button>
             <button
-              onClick={() => navigate({ search: (s) => ({ ...s, tab: "configuracoes" }) })}
+              onClick={() => navigate({ search: (s: any) => ({ ...s, tab: "configuracoes" }) })}
               className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 ${tab === "configuracoes" ? "bg-accent" : "hover:bg-accent"}`}
             >
               <SettingsIcon className="h-3.5 w-3.5" /> Configurações
@@ -123,7 +123,7 @@ function Central() {
         <div className="grid gap-2 sm:grid-cols-4">
           <select
             value={search.clientId}
-            onChange={(e) => navigate({ search: (s) => ({ ...s, clientId: e.target.value }) })}
+            onChange={(e) => navigate({ search: (s: any) => ({ ...s, clientId: e.target.value }) })}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             <option value="">Todas as clientes</option>
@@ -133,14 +133,14 @@ function Central() {
           </select>
           <select
             value={search.type}
-            onChange={(e) => navigate({ search: (s) => ({ ...s, type: e.target.value }) })}
+            onChange={(e) => navigate({ search: (s: any) => ({ ...s, type: e.target.value }) })}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {TYPE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select
             value={search.status}
-            onChange={(e) => navigate({ search: (s) => ({ ...s, status: e.target.value }) })}
+            onChange={(e) => navigate({ search: (s: any) => ({ ...s, status: e.target.value }) })}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {STATUS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -148,7 +148,7 @@ function Central() {
           <input
             type="date"
             value={search.date}
-            onChange={(e) => navigate({ search: (s) => ({ ...s, date: e.target.value }) })}
+            onChange={(e) => navigate({ search: (s: any) => ({ ...s, date: e.target.value }) })}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           />
         </div>
@@ -160,7 +160,7 @@ function Central() {
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <Th>Cliente</Th><Th>Dia</Th><Th>Sem.</Th><Th>Tipo</Th>
-                <Th>Missão</Th><Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th></Th>
+                <Th>Missão</Th><Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th>{" "}</Th>
               </tr>
             </thead>
             <tbody>
@@ -219,7 +219,7 @@ function Configuracoes() {
     <div className="rounded-md border border-input bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-          <tr><Th>Tipo</Th><Th>Rótulo</Th><Th>Milhas padrão</Th><Th>Ativo</Th><Th></Th></tr>
+          <tr><Th>Tipo</Th><Th>Rótulo</Th><Th>Milhas padrão</Th><Th>Ativo</Th><Th>{" "}</Th></tr>
         </thead>
         <tbody>
           {isLoading && <tr><td colSpan={5} className="p-6 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></td></tr>}

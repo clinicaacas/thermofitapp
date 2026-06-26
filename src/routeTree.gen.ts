@@ -13,6 +13,7 @@ import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
+import { Route as MissoesAdminRouteImport } from './routes/missoes-admin'
 import { Route as MensagensRouteImport } from './routes/mensagens'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LgpdRouteImport } from './routes/lgpd'
@@ -66,6 +67,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const PremiosRoute = PremiosRouteImport.update({
   id: '/premios',
   path: '/premios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissoesAdminRoute = MissoesAdminRouteImport.update({
+  id: '/missoes-admin',
+  path: '/missoes-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MensagensRoute = MensagensRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -450,6 +461,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -491,6 +503,7 @@ export interface RootRouteChildren {
   LgpdRoute: typeof LgpdRoute
   LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
+  MissoesAdminRoute: typeof MissoesAdminRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       path: '/premios'
       fullPath: '/premios'
       preLoaderRoute: typeof PremiosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missoes-admin': {
+      id: '/missoes-admin'
+      path: '/missoes-admin'
+      fullPath: '/missoes-admin'
+      preLoaderRoute: typeof MissoesAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mensagens': {
@@ -849,6 +869,7 @@ const rootRouteChildren: RootRouteChildren = {
   LgpdRoute: LgpdRoute,
   LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
+  MissoesAdminRoute: MissoesAdminRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
