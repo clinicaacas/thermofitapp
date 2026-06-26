@@ -15,11 +15,13 @@ import {
   Settings,
   Plane,
   LogOut,
+  Target,
 } from "lucide-react";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { to: "/clientes", label: "Clientes", icon: Users },
+  { to: "/missoes-admin", label: "Missões", icon: Target },
   { to: "/alertas", label: "Alertas", icon: AlertTriangle },
   { to: "/mensagens", label: "Suporte", icon: MessageCircle },
   { to: "/aprovacoes", label: "Aprovações", icon: CheckSquare },

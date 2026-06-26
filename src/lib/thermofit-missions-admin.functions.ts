@@ -1,0 +1,436 @@
+// Central Administrativa de Missões — funções consolidadas.
+// Reutiliza tabelas existentes; não cria estruturas paralelas.
+// Acesso restrito a dono/admin/super_admin do tenant.
+
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+type Ctx = { supabase: any; userId: string };
+
+async function callerTenant(context: Ctx) {
+  const { data, error } = await context.supabase
+    .from("profiles")
+    .select("tenant_id, profile, status")
+    .eq("id", context.userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.status !== "ativo") throw new Error("Usuário sem acesso ativo.");
+  const role = data.profile as string;
+  return { tenantId: data.tenant_id as string, role };
+}
+
+function isManager(role: string) {
+  return role === "super_admin" || role === "dono" || role === "admin";
+}
+
+function todayISO(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// ============================================================
+// Tipos consolidados
+// ============================================================
+export type MissionRow = {
+  refId: string;          // chave estável "kind:client:date:sub"
+  clientId: string;
+  clientName: string;
+  journeyId: string | null;
+  journeyDay: number | null;
+  week: number | null;
+  type: string;           // canonical kind
+  typeLabel: string;
+  title: string;
+  status: "completed" | "pending" | "blocked" | "late";
+  date: string;           // YYYY-MM-DD
+  miles: number;
+  origin: "auto" | "manual" | "derived";
+  updatedAt: string | null;
+  missionId: string | null; // só quando vem de client_missions
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  daily_checkin: "Check-in",
+  daily_meal: "Alimentação",
+  daily_workout: "Treino",
+  workout_photo: "Foto do treino",
+  hydration_goal: "Hidratação",
+  video_complete: "Vídeo",
+  post_video_task: "Tarefa pós-vídeo",
+  weekly_photo: "Foto de evolução",
+  manual: "Missão manual",
+};
+
+function dayDiff(a: string, b: string): number {
+  const da = Date.parse(a + "T00:00:00Z");
+  const db = Date.parse(b + "T00:00:00Z");
+  return Math.floor((da - db) / 86400000);
+}
+
+// ============================================================
+// listMissionsCentral
+// ============================================================
+export const listMissionsCentral = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: {
+    from?: string; to?: string;
+    clientId?: string | null;
+    type?: string | null;
+    status?: string | null;
+  } | undefined) => input ?? {})
+  .handler(async ({ data, context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role) && role !== "equipe") throw new Error("Sem permissão.");
+    const today = todayISO();
+    const from = data.from ?? today;
+    const to = data.to ?? today;
+
+    const sb = (context as Ctx).supabase;
+
+    // Clientes do tenant + jornada ativa
+    const { data: clientsRaw, error: cErr } = await sb
+      .from("clients")
+      .select("id, name, tenant_id, active_journey_id, client_journeys!clients_active_journey_id_fkey(id, started_on, status)")
+      .eq("tenant_id", tenantId);
+    if (cErr) throw cErr;
+    const clients = (clientsRaw ?? []).filter((c: any) => (data.clientId ? c.id === data.clientId : true));
+    const journeysByClient = new Map<string, { id: string; startedOn: string } | null>();
+    for (const c of clients) {
+      const j = c.client_journeys;
+      journeysByClient.set(c.id, j ? { id: j.id, startedOn: j.started_on } : null);
+    }
+    const nameById = new Map<string, string>(clients.map((c: any) => [c.id as string, c.name as string]));
+    const clientIds = clients.map((c: any) => c.id);
+    if (clientIds.length === 0) return { rows: [] as MissionRow[] };
+
+    const rows: MissionRow[] = [];
+
+    function pushRow(r: MissionRow) {
+      if (data.type && r.type !== data.type) return;
+      if (data.status && r.status !== data.status) return;
+      rows.push(r);
+    }
+
+    function jDay(clientId: string, date: string) {
+      const j = journeysByClient.get(clientId);
+      if (!j) return { day: null as number | null, week: null as number | null, jid: null as string | null };
+      const d = dayDiff(date, j.startedOn) + 1;
+      const w = Math.max(1, Math.ceil(d / 7));
+      return { day: d, week: w, jid: j.id };
+    }
+
+    // 1) client_missions + completions
+    const { data: missions } = await sb
+      .from("client_missions")
+      .select("id, client_id, journey_id, title, miles, due_date, mission_type, week_number, linked_video_id, task_ref, created_by, updated_at, created_at, active")
+      .in("client_id", clientIds)
+      .gte("due_date", from).lte("due_date", to);
+    const missionIds = (missions ?? []).map((m: any) => m.id);
+    const completionsByMission = new Map<string, any>();
+    if (missionIds.length > 0) {
+      const { data: comps } = await sb
+        .from("client_mission_completions")
+        .select("mission_id, completed_at, miles_awarded")
+        .in("mission_id", missionIds);
+      for (const c of comps ?? []) completionsByMission.set(c.mission_id, c);
+    }
+    for (const m of missions ?? []) {
+      const comp = completionsByMission.get(m.id);
+      const kind = m.mission_type ?? "manual";
+      const jinfo = jDay(m.client_id, m.due_date);
+      const isPast = m.due_date < today;
+      pushRow({
+        refId: `cm:${m.id}`,
+        clientId: m.client_id,
+        clientName: nameById.get(m.client_id) ?? "—",
+        journeyId: m.journey_id,
+        journeyDay: jinfo.day,
+        week: m.week_number ?? jinfo.week,
+        type: kind,
+        typeLabel: TYPE_LABEL[kind] ?? kind,
+        title: m.title,
+        status: comp ? "completed" : isPast ? "late" : "pending",
+        date: m.due_date,
+        miles: comp?.miles_awarded ?? m.miles ?? 0,
+        origin: m.created_by ? "manual" : "auto",
+        updatedAt: comp?.completed_at ?? m.updated_at ?? m.created_at,
+        missionId: m.id,
+      });
+    }
+
+    // 2) client_daily_responses → derived rows (check-in, alimentação, treino, foto treino)
+    const { data: dailies } = await sb
+      .from("client_daily_responses")
+      .select("client_id, journey_id, response_date, checkin_done, checkin_at, meal_choice, meal_at, workout_choice, workout_at, workout_photo_path, workout_photo_at, updated_at")
+      .in("client_id", clientIds)
+      .gte("response_date", from).lte("response_date", to);
+    for (const d of dailies ?? []) {
+      const jinfo = jDay(d.client_id, d.response_date);
+      const base = {
+        clientId: d.client_id,
+        clientName: nameById.get(d.client_id) ?? "—",
+        journeyId: d.journey_id,
+        journeyDay: jinfo.day,
+        week: jinfo.week,
+        date: d.response_date,
+        origin: "derived" as const,
+        missionId: null,
+      };
+      // Só agrega se não houver linha equivalente vinda de client_missions
+      const has = (kind: string) => rows.some((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === kind);
+      if (!has("daily_checkin")) pushRow({
+        ...base, refId: `dr:${d.client_id}:${d.response_date}:checkin`,
+        type: "daily_checkin", typeLabel: TYPE_LABEL.daily_checkin, title: "Check-in diário",
+        status: d.checkin_done ? "completed" : "pending", miles: 0, updatedAt: d.checkin_at ?? d.updated_at,
+      });
+      if (!has("daily_meal")) pushRow({
+        ...base, refId: `dr:${d.client_id}:${d.response_date}:meal`,
+        type: "daily_meal", typeLabel: TYPE_LABEL.daily_meal, title: "Alimentação do dia",
+        status: d.meal_choice ? "completed" : "pending", miles: 0, updatedAt: d.meal_at ?? d.updated_at,
+      });
+      if (!has("daily_workout")) pushRow({
+        ...base, refId: `dr:${d.client_id}:${d.response_date}:workout`,
+        type: "daily_workout", typeLabel: TYPE_LABEL.daily_workout, title: "Treino do dia",
+        status: d.workout_choice ? "completed" : "pending", miles: 0, updatedAt: d.workout_at ?? d.updated_at,
+      });
+      if (!has("workout_photo")) pushRow({
+        ...base, refId: `dr:${d.client_id}:${d.response_date}:wphoto`,
+        type: "workout_photo", typeLabel: TYPE_LABEL.workout_photo, title: "Foto do treino",
+        status: d.workout_photo_path ? "completed" : "pending", miles: 0, updatedAt: d.workout_photo_at ?? d.updated_at,
+      });
+    }
+
+    // 3) Hidratação — agrega por (cliente, dia) ≥ 2000ml = completed
+    const { data: hydro } = await sb
+      .from("client_hydration_logs")
+      .select("client_id, log_date, ml")
+      .in("client_id", clientIds)
+      .gte("log_date", from).lte("log_date", to);
+    const hydroAgg = new Map<string, { client_id: string; date: string; ml: number }>();
+    for (const h of hydro ?? []) {
+      const k = `${h.client_id}:${h.log_date}`;
+      const cur = hydroAgg.get(k) ?? { client_id: h.client_id, date: h.log_date, ml: 0 };
+      cur.ml += Number(h.ml) || 0;
+      hydroAgg.set(k, cur);
+    }
+    for (const [, agg] of hydroAgg) {
+      const has = rows.some((r) => r.clientId === agg.client_id && r.date === agg.date && r.type === "hydration_goal");
+      if (has) continue;
+      const jinfo = jDay(agg.client_id, agg.date);
+      pushRow({
+        refId: `hy:${agg.client_id}:${agg.date}`,
+        clientId: agg.client_id,
+        clientName: nameById.get(agg.client_id) ?? "—",
+        journeyId: jinfo.jid, journeyDay: jinfo.day, week: jinfo.week,
+        type: "hydration_goal", typeLabel: TYPE_LABEL.hydration_goal,
+        title: `Hidratação (${agg.ml} ml)`,
+        status: agg.ml >= 2000 ? "completed" : "pending",
+        date: agg.date, miles: 0, origin: "derived", updatedAt: null, missionId: null,
+      });
+    }
+
+    rows.sort((a, b) => (b.date.localeCompare(a.date)) || a.clientName.localeCompare(b.clientName));
+    return { rows };
+  });
+
+// ============================================================
+// getMissionsOverview
+// ============================================================
+export const getMissionsOverview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role) && role !== "equipe") throw new Error("Sem permissão.");
+    const today = todayISO();
+    const sb = (context as Ctx).supabase;
+
+    const { data: clientsRaw } = await sb
+      .from("clients")
+      .select("id, active_journey_id")
+      .eq("tenant_id", tenantId);
+    const activeClients = (clientsRaw ?? []).filter((c: any) => c.active_journey_id);
+    const ids = activeClients.map((c: any) => c.id);
+
+    let missionsToday = 0, completedToday = 0, milesToday = 0, lowAdherence = 0;
+    if (ids.length > 0) {
+      const { count: tot } = await sb
+        .from("client_missions")
+        .select("id", { count: "exact", head: true })
+        .in("client_id", ids).eq("due_date", today).eq("active", true);
+      missionsToday = tot ?? 0;
+
+      const { data: comps } = await sb
+        .from("client_mission_completions")
+        .select("mission_id, miles_awarded, client_missions!inner(due_date, client_id)")
+        .in("client_id", ids)
+        .eq("client_missions.due_date", today);
+      completedToday = (comps ?? []).length;
+
+      const { data: ml } = await sb
+        .from("miles_ledger")
+        .select("miles")
+        .in("client_id", ids).eq("occurred_on", today);
+      milesToday = (ml ?? []).reduce((s: number, r: any) => s + (r.miles || 0), 0);
+
+      // baixa adesão: <50% últimos 7 dias
+      const sevenAgo = new Date(Date.parse(today + "T00:00:00Z") - 6 * 86400000)
+        .toISOString().slice(0, 10);
+      const { data: weekM } = await sb
+        .from("client_missions")
+        .select("client_id, id")
+        .in("client_id", ids).gte("due_date", sevenAgo).lte("due_date", today).eq("active", true);
+      const { data: weekC } = await sb
+        .from("client_mission_completions")
+        .select("mission_id, client_id")
+        .in("client_id", ids);
+      const totByClient = new Map<string, number>();
+      const cmpIds = new Set((weekC ?? []).map((c: any) => c.mission_id));
+      const doneByClient = new Map<string, number>();
+      for (const m of weekM ?? []) {
+        totByClient.set(m.client_id, (totByClient.get(m.client_id) ?? 0) + 1);
+        if (cmpIds.has(m.id)) doneByClient.set(m.client_id, (doneByClient.get(m.client_id) ?? 0) + 1);
+      }
+      for (const [cid, tot2] of totByClient) {
+        const done = doneByClient.get(cid) ?? 0;
+        if (tot2 > 0 && done / tot2 < 0.5) lowAdherence += 1;
+      }
+    }
+
+    return {
+      activeJourneys: activeClients.length,
+      missionsToday,
+      completedToday,
+      pendingToday: Math.max(missionsToday - completedToday, 0),
+      milesToday,
+      lowAdherence,
+    };
+  });
+
+// ============================================================
+// listMissionSettings / updateMissionSetting
+// ============================================================
+export const listMissionSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role)) throw new Error("Sem permissão.");
+    const { data, error } = await (context as Ctx).supabase
+      .from("mission_settings")
+      .select("id, mission_kind, label, default_miles, active, metadata")
+      .eq("tenant_id", tenantId)
+      .order("mission_kind");
+    if (error) throw error;
+    return { settings: data ?? [] };
+  });
+
+export const updateMissionSetting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; label?: string; defaultMiles?: number; active?: boolean }) =>
+    z.object({
+      id: z.string().uuid(),
+      label: z.string().min(1).max(120).optional(),
+      defaultMiles: z.number().int().min(0).max(1000).optional(),
+      active: z.boolean().optional(),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role)) throw new Error("Sem permissão.");
+    const patch: any = {};
+    if (data.label !== undefined) patch.label = data.label;
+    if (data.defaultMiles !== undefined) patch.default_miles = data.defaultMiles;
+    if (data.active !== undefined) patch.active = data.active;
+    const { error } = await (context as Ctx).supabase
+      .from("mission_settings").update(patch)
+      .eq("id", data.id).eq("tenant_id", tenantId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// ============================================================
+// createManualMission
+// ============================================================
+export const createManualMission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: {
+    clientId: string;
+    title: string;
+    description?: string | null;
+    miles: number;
+    dueDate: string;
+  }) => z.object({
+    clientId: z.string().uuid(),
+    title: z.string().min(2).max(160),
+    description: z.string().max(1000).nullable().optional(),
+    miles: z.number().int().min(0).max(500),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role)) throw new Error("Sem permissão.");
+    const sb = (context as Ctx).supabase;
+    const { data: client } = await sb
+      .from("clients").select("id, tenant_id, active_journey_id")
+      .eq("id", data.clientId).eq("tenant_id", tenantId).maybeSingle();
+    if (!client) throw new Error("Cliente não encontrada neste tenant.");
+    if (!client.active_journey_id) throw new Error("Cliente sem jornada ativa.");
+    const { data: row, error } = await sb.from("client_missions").insert({
+      tenant_id: tenantId,
+      client_id: data.clientId,
+      journey_id: client.active_journey_id,
+      title: data.title,
+      description: data.description ?? null,
+      miles: data.miles,
+      due_date: data.dueDate,
+      active: true,
+      mission_type: "manual",
+      created_by: (context as Ctx).userId,
+    }).select("id").single();
+    if (error) throw error;
+    return { id: row.id };
+  });
+
+// ============================================================
+// adjustMilesManual — com audit log obrigatório
+// ============================================================
+export const adjustMilesManual = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { clientId: string; miles: number; justification: string }) =>
+    z.object({
+      clientId: z.string().uuid(),
+      miles: z.number().int().refine((n) => n !== 0, "Milhas não podem ser zero"),
+      justification: z.string().min(5).max(500),
+    }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId, role } = await callerTenant(context as Ctx);
+    if (!isManager(role)) throw new Error("Sem permissão.");
+    const sb = (context as Ctx).supabase;
+    const { data: client } = await sb.from("clients").select("id, tenant_id, active_journey_id")
+      .eq("id", data.clientId).eq("tenant_id", tenantId).maybeSingle();
+    if (!client) throw new Error("Cliente não encontrada neste tenant.");
+    const key = `manual:${data.clientId}:${Date.now()}`;
+    const { error: rpcErr } = await sb.rpc("award_miles", {
+      _client_id: data.clientId,
+      _source_kind: "manual_adjust",
+      _source_ref: key,
+      _miles: data.miles,
+      _idempotency_key: key,
+      _reason: data.justification,
+      _metadata: {},
+      _journey_id: client.active_journey_id,
+    });
+    if (rpcErr) throw rpcErr;
+    await sb.from("miles_audit_log").insert({
+      tenant_id: tenantId,
+      client_id: data.clientId,
+      actor_id: (context as Ctx).userId,
+      action: "manual_adjust",
+      justification: data.justification,
+      payload: { miles: data.miles, key },
+    });
+    return { ok: true };
+  });

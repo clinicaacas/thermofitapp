@@ -13,6 +13,7 @@ import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
+import { Route as MissoesAdminRouteImport } from './routes/missoes-admin'
 import { Route as MensagensRouteImport } from './routes/mensagens'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LgpdRouteImport } from './routes/lgpd'
@@ -45,6 +46,7 @@ import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 import { Route as AppVacuumIndexRouteImport } from './routes/app.vacuum.index'
+import { Route as ClientesIdMissoesRouteImport } from './routes/clientes.$id.missoes'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 import { Route as AppVacuumTreinoRouteImport } from './routes/app.vacuum.treino'
 
@@ -66,6 +68,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const PremiosRoute = PremiosRouteImport.update({
   id: '/premios',
   path: '/premios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissoesAdminRoute = MissoesAdminRouteImport.update({
+  id: '/missoes-admin',
+  path: '/missoes-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MensagensRoute = MensagensRouteImport.update({
@@ -228,6 +235,11 @@ const AppVacuumIndexRoute = AppVacuumIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppVacuumRoute,
 } as any)
+const ClientesIdMissoesRoute = ClientesIdMissoesRouteImport.update({
+  id: '/missoes',
+  path: '/missoes',
+  getParentRoute: () => ClientesIdRoute,
+} as any)
 const ClientesIdConteudosRoute = ClientesIdConteudosRouteImport.update({
   id: '/conteudos',
   path: '/conteudos',
@@ -251,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -277,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesByTo {
@@ -290,6 +304,7 @@ export interface FileRoutesByTo {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -315,6 +330,7 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum': typeof AppVacuumIndexRoute
 }
 export interface FileRoutesById {
@@ -330,6 +346,7 @@ export interface FileRoutesById {
   '/lgpd': typeof LgpdRoute
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
+  '/missoes-admin': typeof MissoesAdminRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -356,6 +373,7 @@ export interface FileRoutesById {
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
+  '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
 }
 export interface FileRouteTypes {
@@ -372,6 +390,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -398,6 +417,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -411,6 +431,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -436,6 +457,7 @@ export interface FileRouteTypes {
     | '/videos'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum'
   id:
     | '__root__'
@@ -450,6 +472,7 @@ export interface FileRouteTypes {
     | '/lgpd'
     | '/login'
     | '/mensagens'
+    | '/missoes-admin'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -476,6 +499,7 @@ export interface FileRouteTypes {
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
+    | '/clientes/$id/missoes'
     | '/app/vacuum/'
   fileRoutesById: FileRoutesById
 }
@@ -491,6 +515,7 @@ export interface RootRouteChildren {
   LgpdRoute: typeof LgpdRoute
   LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
+  MissoesAdminRoute: typeof MissoesAdminRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -530,6 +555,13 @@ declare module '@tanstack/react-router' {
       path: '/premios'
       fullPath: '/premios'
       preLoaderRoute: typeof PremiosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missoes-admin': {
+      id: '/missoes-admin'
+      path: '/missoes-admin'
+      fullPath: '/missoes-admin'
+      preLoaderRoute: typeof MissoesAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mensagens': {
@@ -756,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumIndexRouteImport
       parentRoute: typeof AppVacuumRoute
     }
+    '/clientes/$id/missoes': {
+      id: '/clientes/$id/missoes'
+      path: '/missoes'
+      fullPath: '/clientes/$id/missoes'
+      preLoaderRoute: typeof ClientesIdMissoesRouteImport
+      parentRoute: typeof ClientesIdRoute
+    }
     '/clientes/$id/conteudos': {
       id: '/clientes/$id/conteudos'
       path: '/conteudos'
@@ -827,10 +866,12 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface ClientesIdRouteChildren {
   ClientesIdConteudosRoute: typeof ClientesIdConteudosRoute
+  ClientesIdMissoesRoute: typeof ClientesIdMissoesRoute
 }
 
 const ClientesIdRouteChildren: ClientesIdRouteChildren = {
   ClientesIdConteudosRoute: ClientesIdConteudosRoute,
+  ClientesIdMissoesRoute: ClientesIdMissoesRoute,
 }
 
 const ClientesIdRouteWithChildren = ClientesIdRoute._addFileChildren(
@@ -849,6 +890,7 @@ const rootRouteChildren: RootRouteChildren = {
   LgpdRoute: LgpdRoute,
   LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
+  MissoesAdminRoute: MissoesAdminRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -862,13 +904,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
