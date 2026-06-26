@@ -212,7 +212,8 @@ function Page() {
           <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-6">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-7">
+          <ActionLink to="/clientes/$id/missoes" params={{ id }} icon={<Target className="h-3.5 w-3.5" />} label="Missões" />
           <a
             href="#fotos-evolucao"
             className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
