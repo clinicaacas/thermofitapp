@@ -132,15 +132,6 @@ function Page() {
       <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
       </div>
-      {clientId && <DailyRoutineCard clientId={clientId} />}
-      {clientId && <PostVideoTaskCard clientId={clientId} />}
-      {clientId && <WeeklyPhotoCard clientId={clientId} />}
-
-      {progress && (progress as any).journeyId && (
-        <SealsAndMilestonesPanel progress={progress as any} />
-      )}
-
-
       {videoMissions.length > 0 && (
         <section className="mt-4">
           <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
@@ -195,6 +186,15 @@ function Page() {
           </ul>
         </section>
       )}
+
+      {clientId && <PostVideoTaskCard clientId={clientId} />}
+      {clientId && <DailyRoutineCard clientId={clientId} />}
+      {clientId && <WeeklyPhotoCard clientId={clientId} />}
+
+      {progress && (progress as any).journeyId && (
+        <SealsAndMilestonesPanel progress={progress as any} />
+      )}
+
 
       <section className="mt-4">
         {missions.length > 0 && (
