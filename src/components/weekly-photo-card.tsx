@@ -100,11 +100,19 @@ export function WeeklyPhotoCard({ clientId }: Props) {
 
       {!completed && (
         <>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, 500))}
+            placeholder="Observação (opcional)"
+            rows={2}
+            className="mt-3 w-full rounded-xl px-3 py-2 text-sm"
+            style={{ border: "1px solid #E5D6BD", background: "#FFFDF8", color: "#1F2933" }}
+          />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={busy || mut.isPending}
-            className="mt-3 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"
+            className="mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"
             style={{ background: "#C9A24A", color: "#FFFFFF" }}
           >
             <Camera className="h-4 w-4" />
