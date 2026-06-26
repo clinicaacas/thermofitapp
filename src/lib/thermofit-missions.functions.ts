@@ -466,13 +466,26 @@ async function isVideoCompleted(
   return (count ?? 0) > 0;
 }
 
-async function anyVideoCompleted(clientId: string, journeyId: string, day: string) {
+async function allRequiredVideosCompleted(clientId: string, journeyId: string, day: string) {
   const admin = await getAdmin();
-  const { count } = await admin
-    .from("miles_ledger").select("id", { count: "exact", head: true })
+  // Vídeos obrigatórios do dia = missões video_complete ativas com due_date = day.
+  const { data: required, error } = await admin
+    .from("client_missions")
+    .select("linked_video_id")
     .eq("client_id", clientId).eq("journey_id", journeyId)
-    .eq("source_kind", "video_complete").eq("occurred_on", day);
-  return (count ?? 0) > 0;
+    .eq("mission_type", "video_complete").eq("due_date", day).eq("active", true);
+  if (error) throw error;
+  const ids = (required ?? [])
+    .map((r: any) => r.linked_video_id as string | null)
+    .filter((v): v is string => !!v);
+  if (ids.length === 0) return false; // nenhum vídeo obrigatório => mantém bloqueado
+  const { data: done } = await admin
+    .from("miles_ledger").select("source_ref")
+    .eq("client_id", clientId).eq("journey_id", journeyId)
+    .eq("source_kind", "video_complete").eq("occurred_on", day)
+    .in("source_ref", ids);
+  const doneSet = new Set((done ?? []).map((r: any) => r.source_ref as string));
+  return ids.every((id) => doneSet.has(id));
 }
 
 export const getPostVideoTaskState = createServerFn({ method: "GET" })
@@ -497,7 +510,7 @@ export const getPostVideoTaskState = createServerFn({ method: "GET" })
     );
     const unlocked = videoId
       ? await isVideoCompleted(data.clientId, journeyId, day, videoId)
-      : await anyVideoCompleted(data.clientId, journeyId, day);
+      : await allRequiredVideosCompleted(data.clientId, journeyId, day);
     const { data: row } = await admin
       .from("client_task_responses")
       .select("response, completed_at, linked_video_id, task_ref")
@@ -530,12 +543,12 @@ export const submitPostVideoTask = createServerFn({ method: "POST" })
     // Regra de desbloqueio server-side
     const unlocked = videoId
       ? await isVideoCompleted(client.id, journeyId, day, videoId)
-      : await anyVideoCompleted(client.id, journeyId, day);
+      : await allRequiredVideosCompleted(client.id, journeyId, day);
     if (!unlocked) {
       throw new Error(
         videoId
           ? "Conclua este vídeo antes de responder a tarefa."
-          : "Conclua pelo menos um vídeo do dia antes de responder.",
+          : "Conclua todos os vídeos obrigatórios do dia antes de responder.",
       );
     }
 
