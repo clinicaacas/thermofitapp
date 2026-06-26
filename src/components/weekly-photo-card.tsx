@@ -26,6 +26,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   const { data } = useQuery({
     queryKey: ["weekly-photo-state", clientId],
@@ -35,17 +36,19 @@ export function WeeklyPhotoCard({ clientId }: Props) {
   });
 
   const mut = useMutation({
-    mutationFn: (vars: { contentBase64: string; mimeHint: "image/jpeg" | "image/png" | "image/webp" }) =>
+    mutationFn: (vars: { contentBase64: string; mimeHint: "image/jpeg" | "image/png" | "image/webp"; note?: string }) =>
       submitFn({ data: { clientId, ...vars } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["weekly-photo-state", clientId] });
       qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
       qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
       qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      setNote("");
     },
   });
 
   const completed = !!data?.completed;
+  const weekLabel = data?.week ? `Semana ${data.week}` : "Semana da jornada";
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,7 +58,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
     try {
       if (file.size > 8 * 1024 * 1024) throw new Error("Arquivo maior que 8MB.");
       const { b64, mime } = await fileToBase64(file);
-      await mut.mutateAsync({ contentBase64: b64, mimeHint: mime });
+      await mut.mutateAsync({ contentBase64: b64, mimeHint: mime, note: note.trim() || undefined });
     } catch (err: any) {
       setError(err?.message ?? "Falha ao enviar.");
     } finally {
