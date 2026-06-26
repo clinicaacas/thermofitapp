@@ -1,65 +1,58 @@
-# Plano — Jornada de Vídeos + Missões do Dia + Execução Guiada (Vacuum)
+# Central Administrativa de Missões
 
-Escopo grande. Divido em **7 entregas sequenciais**, cada uma testável de ponta a ponta. Cada entrega abre uma migration própria (você aprova antes de rodar) e só depois mexo no código que depende dela.
+Apesar do prefixo "For the code present, I get the error below", a solicitação é uma feature grande (nova rota administrativa + aba no perfil da cliente + função consolidada de backend). Vou planejar antes de implementar para evitar retrabalho.
 
-Nada de mexer em login, permissões, rotas principais ou sidebar.
+## 1. Menu lateral
+- Adicionar item `Missões` em `src/components/app-sidebar.tsx` entre **Clientes** e **Alertas**, ícone `Target` (lucide). Sem duplicar.
 
----
+## 2. Backend — função consolidada (sem novas tabelas)
+Criar `src/lib/thermofit-missions-admin.functions.ts` com:
 
-## Entrega 1 — Fundação da jornada (Fases 1 + 6)
+- `listMissionsCentral({ tenantId, filters })` — server fn protegida com `requireSupabaseAuth` + `is_profile_manager`. Une registros das fontes existentes em linhas com formato canônico:
+  ```
+  { clientId, clientName, journeyId, journeyDay, week, type, title, status, date, miles, origin, updatedAt, refId }
+  ```
+  Fontes:
+  - `client_missions` + `client_mission_completions` (vídeos, tarefas, foto semanal, manuais, daily templates já gerados)
+  - `client_daily_responses` (check-in, alimentação, treino, foto treino) — projetar uma "linha" por flag concluída
+  - `client_hydration_logs` (agregado por dia → status hidratação)
+  - `client_video_progress` (progresso de vídeos não materializados ainda em missão)
+  - `client_progress_photos` (foto evolução)
+  - `miles_ledger` para `miles` reais por evento
+  Deduplica por chave `(clientId, journeyDay, type, refId)`.
 
-Objetivo: ter o "dia da jornada" funcionando de ponta a ponta e garantir que o admin já salva tudo certo.
+- `getMissionsOverview({ tenantId, date })` — agrega contadores do topo (jornadas ativas, missões hoje, concluídas, pendentes, milhas hoje, baixa adesão = clientes com <50% últimos 7 dias).
 
-- Util `getClientJourneyDay(startDate)` em `src/lib/journey.ts` usando timezone `America/Sao_Paulo` (dia 0 = data de início; dia 1 = dia seguinte; etc.).
-- Garantir em `clients` um campo de data de início da jornada (`journey_start_date`); se não existir, migration adicionando com default `created_at::date`. Backfill nas clientes existentes.
-- Revisar o form de vídeo (`video-form.tsx`) para que o campo "Liberar no dia da jornada" aceite **0** como valor válido (não tratar como vazio), placeholder "Ex: 0 para o primeiro dia, 1 para o segundo dia". Confirmar persistência de `release_day`, `min_watch_percent` (default 90) e `miles_on_complete`.
+- `getClientMissionsDetail({ clientId })` — consolida missões do dia, vídeos, tarefas, rotinas, milhas, selos, marcos, histórico, respostas, fotos. Usa `get_today_mission_summary` + `get_journey_progress` já existentes.
 
-## Entrega 2 — Aba Vídeos como biblioteca (Fase 2)
+- `createManualMission({ ... })` — insere em `client_missions` com `mission_type='manual'`, validando que não colide com automática (índices parciais já cuidam dos demais tipos).
 
-- Ajustar `listClientVideos` em `thermofit-client-app.functions.ts` para filtrar `release_day <= dia_atual_da_jornada` (usando `journey_start_date` da cliente).
-- Em `src/routes/app.videos.tsx`, manter cards atuais, mas agrupar por `release_day` ("Dia 00", "Dia 01"…) com filtro por categoria preservado.
+- `adjustMissionStatus({ missionId, status, justification })` — somente missões manuais; grava em `miles_audit_log`.
 
-## Entrega 3 — Progresso e conclusão (Fase 4)
+- `adjustMilesManual({ clientId, miles, reason })` — escreve em `miles_ledger` via `award_miles` com idempotency único + `miles_audit_log`.
 
-- Migration: tabela `client_video_progress` (`tenant_id`, `client_id`, `video_id`, `progress_percent`, `watched_seconds`, `last_position_seconds`, `is_completed`, `completed_at`, timestamps), com unique `(client_id, video_id)`. GRANTs + RLS (cliente só lê/escreve o próprio; admins do tenant leem).
-- Server fns: `saveVideoProgress({ clientId, videoId, positionSeconds, durationSeconds })` — calcula `%`, marca `is_completed=true` ao atingir `min_watch_percent`, credita milhas **uma vez** (idempotente via `completed_at IS NULL`).
-- No player (`app.videos.tsx`), salvar progresso a cada ~10s e ao fechar; auto-conclusão ao atingir o percentual mínimo.
+Todas as funções: ler com `context.supabase` (RLS do gestor) ou validar role via `has_role` e usar `supabaseAdmin` (dynamic import) apenas para escrita auditada.
 
-## Entrega 4 — Aba Missões do dia (Fases 3 + 5)
+## 3. Rotas frontend
+- `src/routes/missoes-admin.tsx` (URL `/missoes-admin` — `missoes` colidiria com possível rota cliente; uso `missoes-admin` para evitar conflito). Layout: header com 6 KPIs, filtros (cliente, status, tipo, data, semana), tabela consolidada. Clique → `/clientes/$id?tab=missoes`.
+- `src/routes/missoes-admin.configuracoes.tsx` — aba Configurações reutilizando `mission_settings` (CRUD via server fn já parcial em `thermofit-missions.functions.ts`; estender se faltar).
+- Atualizar `src/routes/clientes.$id.tsx` para incluir aba **Missões** mostrando blocos de detalhe + ações (criar manual, ajustar status/milhas com justificativa).
 
-- Server fn `listTodayMissions({ clientId })`: vídeos com `status=ativo`, `release_day = dia_atual` e sem `client_video_progress.is_completed`.
-- Card da missão: thumbnail, título, categoria, milhas, % mínima, botão "Assistir" abrindo o mesmo player da aba Vídeos. Concluir o vídeo remove da lista automaticamente.
+## 4. Permissões
+- Em cada server fn admin: `requireSupabaseAuth` + checagem `has_role(admin|dono|super_admin)`; equipe somente leitura.
+- Cliente final nunca vê: rota fora de `/app`, sidebar admin não é renderizada para `kind=client` (já é).
 
-## Entrega 5 — Admin de exercícios do Vacuum (Fases 8 + 9 parte admin)
+## 5. Validações & testes
+- Smoke runtime via `supabase--read_query` para conferir agregação esperada para a tenant ACAS (Celestina).
+- Build/typecheck automático.
+- Nenhum dado existente é modificado (todas as escritas novas são `INSERT` em `client_missions`, `miles_ledger`, `miles_audit_log`).
 
-- Migration: adicionar em `vacuum_exercises` os campos `media_url`, `media_type` (`gif|video|lottie|image`), `instruction_text`, `duration_seconds`, `sets`, `reps`, `miles_reward`. Bucket `vacuum-assets` já existe e é reutilizado.
-- Em `admin-vacuum-settings.tsx`: editar mídia (upload GIF/WebM/MP4/Lottie), instrução, tempo, séries, reps, milhas. Botão "Gerar animação" fica para depois (Fase 9 completa) — por ora upload manual + placeholder.
+## Limitações esperadas
+- "Baixa adesão" e "atrasada" são derivações em runtime (sem coluna persistida).
+- Edição de missões automáticas continua bloqueada por design.
+- Não vou cobrir E2E navegacional automatizado nesta entrega; apenas smoke SQL + typecheck.
 
-## Entrega 6 — Execução guiada + Respiração (Fases 7 + 10 + 11)
-
-- Migration: tabela `client_exercise_progress` (`tenant_id`, `client_id`, `exercise_id`, `module='vacuum'`, `status`, `started_at`, `completed_at`, `duration_seconds`, `miles_awarded`, timestamps) + GRANTs + RLS. Constraint para evitar duplicar milhas no mesmo dia.
-- Nova rota `src/routes/app.vacuum.treino.tsx`: tela guiada com `nome`, mídia, instrução, timer (séries × duração), botões iniciar/pausar/próximo, barra de progresso do treino.
-- Primeiro exercício (Respiração Diafragmática): timer com texto dinâmico "Inspire 4s / Expire 6s" sobreposto à animação. Ao concluir, registra progresso + milhas e libera o próximo.
-- Botão "Começar Treino" em `app.vacuum.tsx` passa a navegar para essa nova rota.
-
-## Entrega 7 — Geração automática da mídia (Fase 9 completa, opcional)
-
-- Botão "Gerar animação do movimento" no admin chama uma server fn que usa `imagegen` para gerar uma imagem-referência (ou sequência curta) da execução; salva no bucket e associa.
-- Se a geração falhar, mantém upload manual. Não bloqueia cadastro.
-
----
-
-## Detalhes técnicos
-
-- Server fns novas/alteradas ficam em `src/lib/thermofit-client-app.functions.ts` e `src/lib/thermofit-vacuum.functions.ts` (já existentes).
-- Progresso de vídeo é escrito via `requireSupabaseAuth` validando que `auth.uid()` corresponde ao `client_id` (mesma checagem usada em `logVacuumEvent`).
-- Milhas: incrementa `clients.miles_total` (ou tabela equivalente já usada) dentro da mesma transação da conclusão, e só quando `completed_at` muda de `NULL` para timestamp.
-- Loaders das rotas `/app/*` continuam públicas pelo `clientId` na URL (padrão do app da cliente).
-
----
-
-## Confirmações antes de começar
-
-1. Posso seguir nas **7 entregas em sequência** nesta mesma conversa, cada uma com a migration própria para você aprovar?
-2. Confirmo que **`clients.journey_start_date`** é a fonte da verdade do dia da jornada (com fallback para `created_at` quando vazio). Ok?
-3. A **Entrega 7 (geração automática de animação)** é opcional e pode ficar para depois — posso entregar Entregas 1–6 primeiro e só fazer a 7 se você pedir?
+## Arquivos a alterar/criar
+- editar: `src/components/app-sidebar.tsx`, `src/routes/clientes.$id.tsx`
+- criar: `src/lib/thermofit-missions-admin.functions.ts`, `src/routes/missoes-admin.tsx`, `src/routes/missoes-admin.configuracoes.tsx`
+- possível extensão pequena em `src/lib/thermofit-missions.functions.ts` para reuso de settings CRUD
