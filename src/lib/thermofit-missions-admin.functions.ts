@@ -104,7 +104,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       const j = c.client_journeys;
       journeysByClient.set(c.id, j ? { id: j.id, startedOn: j.started_on } : null);
     }
-    const nameById = new Map(clients.map((c: any) => [c.id as string, c.name as string]));
+    const nameById = new Map<string, string>(clients.map((c: any) => [c.id as string, c.name as string]));
     const clientIds = clients.map((c: any) => c.id);
     if (clientIds.length === 0) return { rows: [] as MissionRow[] };
 
