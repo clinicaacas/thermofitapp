@@ -620,10 +620,11 @@ function UsersTab() {
     });
   }, [tenant.team, tenantFilter]);
 
-  function copyAccess(u: TeamUser, temporaryPassword: string) {
+  function copyAccess(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) { setLinkError(invalid); return; }
-    navigator.clipboard.writeText(accessText(u, accessBaseUrl, temporaryPassword));
+    // Segurança: apenas nome, e-mail, link e orientação. Nunca senha/token/sessão.
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -633,15 +634,18 @@ function UsersTab() {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) { setLinkError(invalid); return; }
     const result = await resetUserPassword(u.id);
-    if (!result.ok || !result.user || !result.temporaryPassword) {
+    if (!result.ok || !result.user) {
       setLinkError(result.reason ?? "Não foi possível redefinir a senha.");
       return;
     }
-    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl, result.temporaryPassword));
+    // Apenas dados de acesso seguros vão para o clipboard. A senha temporária é exibida
+    // separadamente no modal de criação (uso pessoal do administrador) e nunca é copiada.
+    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
+
 
   function toggleMembership(tenantId: string, checked: boolean) {
     setForm((f) => {
