@@ -539,10 +539,11 @@ function publicUrlError(url: string) {
   return null;
 }
 
-function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
+function accessText(u: TeamUser, baseUrl: string) {
   const link = `${baseUrl}/login`;
-  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha: ${temporaryPassword}\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
+  return `Olá ${u.name},\n\nSeu acesso ao sistema ThermoFit Acas está pronto.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail de acesso: ${u.email}\n\nOrientação: ao entrar pela primeira vez, utilize a opção "Esqueci minha senha" para definir uma senha pessoal. Este acesso é individual e não deve ser compartilhado.`;
 }
+
 
 const TENANT_ROLE_LABEL: Record<TenantRole, string> = {
   dono: "Dono",
