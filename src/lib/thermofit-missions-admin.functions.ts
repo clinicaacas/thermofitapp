@@ -142,6 +142,14 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     for (const m of missions ?? []) {
       const comp = completionsByMission.get(m.id);
       const kind = m.mission_type ?? "manual";
+      if (
+        kind === "post_video_task" &&
+        !m.linked_video_id &&
+        (!m.task_ref || m.task_ref === "daily") &&
+        !comp
+      ) {
+        continue;
+      }
       const jinfo = jDay(m.client_id, m.due_date);
       const isPast = m.due_date < today;
       pushRow({
