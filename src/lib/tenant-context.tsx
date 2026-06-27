@@ -26,6 +26,22 @@ export type Plan = {
   active: boolean;
 };
 
+export type TenantRole = "dono" | "admin" | "equipe";
+
+export type Membership = {
+  tenantId: string;
+  tenantName: string;
+  role: TenantRole;
+  status: "ativo" | "inativo";
+};
+
+export type ManagedTenant = {
+  id: string;
+  clinicName: string;
+  status: string;
+  accountType: string | null;
+};
+
 export type TeamUser = {
   id: string;
   name: string;
@@ -39,6 +55,7 @@ export type TeamUser = {
   lastAccess?: string;
   kind?: "team" | "client";
   clientId?: string;
+  memberships?: Membership[];
 };
 
 export type Tenant = {
