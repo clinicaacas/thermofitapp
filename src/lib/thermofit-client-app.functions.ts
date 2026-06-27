@@ -170,7 +170,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const admin = await getAdmin();
     const { data: video, error: vErr } = await admin
       .from("videos")
-      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds")
+      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
       .eq("id", data.videoId)
       .eq("tenant_id", client.tenant_id)
       .maybeSingle();
@@ -193,12 +193,15 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const shouldComplete = !alreadyCompleted && pct >= minPct;
     const watched = Math.max(existing?.watched_seconds ?? 0, position);
     const progressPercent = Math.max(existing?.progress_percent ?? 0, pct);
+    const journeyId = (client as any).active_journey_id as string | null;
+    if (!journeyId) throw new Error("Jornada ativa não definida para salvar o vídeo.");
 
     // 1) Persiste progresso SEM marcar conclusão/miles_awarded.
     // miles_awarded só pode ser definido após confirmação do ledger.
     const basePayload: any = {
       tenant_id: video.tenant_id,
       client_id: client.id,
+      journey_id: journeyId,
       video_id: video.id,
       progress_percent: progressPercent,
       watched_seconds: watched,
@@ -213,28 +216,57 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     // Sem try/catch silencioso: falha de ledger propaga e impede marcar como concluído.
     let ledgerConfirmed = false;
     if (shouldComplete) {
-      const { data: ms } = await admin
-        .from("mission_settings")
-        .select("default_miles, active")
-        .eq("tenant_id", video.tenant_id)
-        .eq("mission_kind", "video_complete")
-        .maybeSingle();
-      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      const miles = await missionMiles(
+        admin,
+        video.tenant_id,
+        "video_complete",
+        Number(video.miles_on_complete ?? 5),
+      );
+      const idempotencyKey = `video_complete:${video.id}`;
+      let ledgerRow: any = null;
       if (miles > 0) {
-        const { error: awardErr } = await admin.rpc("award_miles", {
+        const { data: awardData, error: awardErr } = await admin.rpc("award_miles", {
           _client_id: client.id,
           _source_kind: "video_complete",
           _source_ref: video.id,
           _miles: miles,
-          _idempotency_key: `video_complete:${video.id}`,
+          _idempotency_key: idempotencyKey,
           _reason: "Vídeo concluído",
-          _metadata: { progressPercent } as any,
+          _metadata: { progressPercent, positionSeconds: position, durationSeconds: duration } as any,
+          _journey_id: journeyId,
         });
         if (awardErr) throw awardErr;
+        ledgerRow = awardData;
         ledgerConfirmed = true;
       } else {
         // Miles desativadas → ainda assim marca como concluído, sem crédito.
         ledgerConfirmed = true;
+      }
+
+      const dueDate = addDaysISO(client.start_date, Number(video.release_day ?? 0));
+      const { data: missionId, error: ensureErr } = await admin.rpc("ensure_video_mission", {
+        _client_id: client.id,
+        _journey_id: journeyId,
+        _day: dueDate,
+        _video_id: video.id,
+      });
+      if (ensureErr) throw ensureErr;
+      if (missionId) {
+        const { data: mission, error: missionErr } = await admin
+          .from("client_missions")
+          .select("id, tenant_id, client_id, journey_id")
+          .eq("id", missionId)
+          .maybeSingle();
+        if (missionErr) throw missionErr;
+        await ensureMissionCompletion(
+          admin,
+          mission,
+          Number(ledgerRow?.miles ?? miles ?? 0),
+          "video_complete",
+          video.id,
+          idempotencyKey,
+          ledgerRow?.awarded_at ?? new Date().toISOString(),
+        );
       }
 
       // 3) Só agora marca is_completed + miles_awarded, após ledger confirmar.
@@ -243,7 +275,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
         .update({
           is_completed: true,
           completed_at: new Date().toISOString(),
-          miles_awarded: video.miles_on_complete ?? 0,
+          miles_awarded: Number(ledgerRow?.miles ?? miles ?? 0),
         })
         .eq("client_id", client.id)
         .eq("video_id", video.id);
