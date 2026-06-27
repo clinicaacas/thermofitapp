@@ -382,7 +382,7 @@ export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler
   return {
     hasActiveSuperAdmin: Boolean(count && count > 0),
     hasMainTenant: Boolean(tenant?.id),
-    masterAdminId: master.id,
+    masterAdminId: master?.id ?? null,
   };
 });
 
