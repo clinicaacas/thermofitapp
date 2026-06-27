@@ -131,6 +131,7 @@ const clientPayloadSchema = z.object({
   clinicalNotes: z.string().trim().max(2000).default(""),
   hydrationGoalMl: z.number().int().min(0).max(20000).default(2000),
   status: z.enum(["ativa", "pausada", "inativa"]).default("ativa"),
+  tenantId: z.string().uuid().optional(),
   consents: z
     .object({
       terms: z.boolean().default(false),
