@@ -9,6 +9,12 @@ const PUBLIC_APP_URL = "https://thermofitapp.lovable.app";
 
 const profileSchema = z.enum(["super_admin", "dono", "admin", "equipe"]);
 const statusSchema = z.enum(["ativo", "inativo", "bloqueado", "convite_pendente"]);
+const tenantRoleSchema = z.enum(["dono", "admin", "equipe"]);
+const membershipInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  role: tenantRoleSchema,
+  status: z.enum(["ativo", "inativo"]).default("ativo"),
+});
 
 type SupabaseAdmin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
