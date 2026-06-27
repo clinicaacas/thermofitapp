@@ -1763,6 +1763,8 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           id: string
+          journey_id: string | null
+          justification: string
           notes: string
           reward_id: string
           status: string
@@ -1776,6 +1778,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           id?: string
+          journey_id?: string | null
+          justification?: string
           notes?: string
           reward_id: string
           status?: string
@@ -1789,6 +1793,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           id?: string
+          journey_id?: string | null
+          justification?: string
           notes?: string
           reward_id?: string
           status?: string
@@ -1827,7 +1833,10 @@ export type Database = {
           description: string
           id: string
           image_url: string
+          milestone_miles: number
           name: string
+          reward_type: string | null
+          sort_order: number
           status: string
           stock: number
           tenant_id: string
@@ -1840,7 +1849,10 @@ export type Database = {
           description?: string
           id?: string
           image_url?: string
+          milestone_miles?: number
           name: string
+          reward_type?: string | null
+          sort_order?: number
           status?: string
           stock?: number
           tenant_id: string
@@ -1853,7 +1865,10 @@ export type Database = {
           description?: string
           id?: string
           image_url?: string
+          milestone_miles?: number
           name?: string
+          reward_type?: string | null
+          sort_order?: number
           status?: string
           stock?: number
           tenant_id?: string
