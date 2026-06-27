@@ -659,6 +659,14 @@ export const submitMeal = createServerFn({ method: "POST" })
     const res = await award(data.clientId, "meal", todayKey(), key, "Alimentação registrada", {
       choice: data.choice,
     });
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_meal",
+      "daily_meal",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
