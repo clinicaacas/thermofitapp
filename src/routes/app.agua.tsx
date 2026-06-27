@@ -49,23 +49,28 @@ function Page() {
   const goal = data?.goal ?? 2000;
   const pct = Math.min(100, Math.round((total / goal) * 100));
   const remaining = Math.max(0, goal - total);
+  const completed = goal > 0 && total >= goal;
   const busy = addMut.isPending || undoMut.isPending || isLoading;
 
   return (
     <ClientAppShell title="Hidratação">
       <div className="space-y-4">
-        <div className="rounded-2xl border border-[#E5D6BD] bg-white p-6 text-center">
-          <Droplet className="mx-auto h-10 w-10 text-[#8A6A3D]" />
+        <div className={`rounded-2xl border p-6 text-center ${completed ? "border-[#BFD8B7] bg-[#E8F2E5]" : "border-[#E5D6BD] bg-white"}`}>
+          <Droplet className={`mx-auto h-10 w-10 ${completed ? "text-[#3F7A3A]" : "text-[#8A6A3D]"}`} />
           <p className="mt-2 text-3xl font-bold text-[#3D2E1C]">
             {total}
             <span className="ml-1 text-base font-medium text-[#7A6A52]">/ {goal} ml</span>
           </p>
-          <p className="mt-1 text-xs text-[#7A6A52]">
-            {remaining === 0 ? "Meta atingida hoje!" : `Faltam ${remaining} ml`}
-          </p>
-          <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-[#F3E8D2]">
+          {completed ? (
+            <span className="mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold text-[#2F6D34]" style={{ background: "#BFD8B7" }}>
+              Meta concluída · +10 Milhas
+            </span>
+          ) : (
+            <p className="mt-1 text-xs text-[#7A6A52]">Faltam {remaining} ml</p>
+          )}
+          <div className={`mt-4 h-3 w-full overflow-hidden rounded-full ${completed ? "bg-[#BFD8B7]" : "bg-[#F3E8D2]"}`}>
             <div
-              className="h-full rounded-full bg-[#8A6A3D] transition-all"
+              className={`h-full rounded-full transition-all ${completed ? "bg-[#3F7A3A]" : "bg-[#8A6A3D]"}`}
               style={{ width: `${pct}%` }}
             />
           </div>

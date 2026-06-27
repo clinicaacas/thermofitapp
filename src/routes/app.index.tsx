@@ -249,11 +249,17 @@ function Page() {
                 Registrar <ChevronRight className="h-3 w-3" />
               </Link>
             </div>
-            <p className="mt-1.5 text-[11px]" style={{ color: hydrationDone ? "#3F7A3A" : "#6B7280" }}>
-              {hydrationDone
-                ? "Meta concluída · +10 Milhas"
-                : `meta ${(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L`}
-            </p>
+            <div className="mt-1.5">
+              {hydrationDone ? (
+                <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
+                  Meta concluída · +10 Milhas
+                </span>
+              ) : (
+                <p className="text-[11px]" style={{ color: "#6B7280" }}>
+                  meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
+                </p>
+              )}
+            </div>
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}>
               <div
                 className="h-full rounded-full"
