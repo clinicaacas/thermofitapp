@@ -54,6 +54,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
     qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
   });
+  useMissionsRealtime(clientId || null);
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
     queryKey: ["client-video-missions", clientId],
