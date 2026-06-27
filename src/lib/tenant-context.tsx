@@ -237,19 +237,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     },
     updatePlan: (id, patch) =>
       setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))),
-    addUser: async (u) => {
+    addUser: async (u, memberships) => {
       const limit = currentPlan?.userLimit ?? 0;
       const unlimited = u.profile === "super_admin" || tenant.planId === "interno" || limit === -1;
       if (!unlimited && tenant.team.length >= limit) {
         return { ok: false, reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.` };
       }
       try {
-        const result = await createUser({ data: u });
+        const result = await createUser({ data: { ...u, memberships: memberships ?? [] } as any });
         await refreshTenant();
         return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword, existed: result.existed };
       } catch (err) {
         console.error("Erro ao criar usuário", err);
-        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação." };
+        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível salvar o usuário." };
       }
     },
     updateUser: async (id, patch) => {
@@ -269,6 +269,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     removeUser: async (id) => {
       await deleteUser({ data: { userId: id } });
       await refreshTenant();
+    },
+    setMembership: async (userId, tenantId, role, status = "ativo") => {
+      try {
+        await setMembershipFn({ data: { userId, tenantId, role, status } });
+        await refreshTenant();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Falha ao salvar vínculo." };
+      }
+    },
+    removeMembership: async (userId, tenantId) => {
+      try {
+        await removeMembershipFn({ data: { userId, tenantId } });
+        await refreshTenant();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Falha ao remover vínculo." };
+      }
     },
   };
 
