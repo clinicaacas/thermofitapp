@@ -301,49 +301,43 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       const workoutLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:daily_workout`);
       const workoutPhotoLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:workout_photo`);
       const workoutPhotoUrl = await signedClientPhotoUrl(d.workout_photo_path);
-      const checkinPatch = {
-        status: d.checkin_done ? "completed" as const : "pending" as const,
-        miles: Number(checkinLedger?.miles ?? 0),
-        updatedAt: d.checkin_at ?? d.updated_at,
-        details: { checkinDone: !!d.checkin_done, completedAt: d.checkin_at ?? null, ledger: checkinLedger ?? null },
+
+      const mkPatch = (kind: string, ledger: any, completed: boolean, updatedAt: any, extraDetails: any) => {
+        const miles = Number(ledger?.miles ?? 0);
+        const predicted = predictedFor(kind, 0);
+        return {
+          status: (completed ? "completed" : "pending") as "completed" | "pending",
+          miles,
+          predictedMiles: predicted,
+          inconsistent: completed && miles <= 0,
+          updatedAt,
+          details: { ...extraDetails, ledger: ledger ?? null },
+        };
       };
+
+      const checkinPatch = mkPatch("daily_checkin", checkinLedger, !!d.checkin_done, d.checkin_at ?? d.updated_at, { checkinDone: !!d.checkin_done, completedAt: d.checkin_at ?? null });
       if (has("daily_checkin")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_checkin", checkinPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:checkin`, type: "daily_checkin", typeLabel: TYPE_LABEL.daily_checkin, title: "Check-in diário", ...checkinPatch });
 
-      const mealPatch = {
-        status: d.meal_choice ? "completed" as const : "pending" as const,
-        miles: Number(mealLedger?.miles ?? 0),
-        updatedAt: d.meal_at ?? d.updated_at,
-        details: { mealChoice: d.meal_choice ?? null, completedAt: d.meal_at ?? null, ledger: mealLedger ?? null },
-      };
+      const mealPatch = mkPatch("daily_meal", mealLedger, !!d.meal_choice, d.meal_at ?? d.updated_at, { mealChoice: d.meal_choice ?? null, completedAt: d.meal_at ?? null });
       if (has("daily_meal")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_meal", mealPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:meal`, type: "daily_meal", typeLabel: TYPE_LABEL.daily_meal, title: "Alimentação do dia", ...mealPatch });
 
-      const workoutPatch = {
-        status: d.workout_choice ? "completed" as const : "pending" as const,
-        miles: Number(workoutLedger?.miles ?? 0),
-        updatedAt: d.workout_at ?? d.updated_at,
-        details: { workoutChoice: d.workout_choice ?? null, completedAt: d.workout_at ?? null, ledger: workoutLedger ?? null },
-      };
+      const workoutPatch = mkPatch("daily_workout", workoutLedger, !!d.workout_choice, d.workout_at ?? d.updated_at, { workoutChoice: d.workout_choice ?? null, completedAt: d.workout_at ?? null });
       if (has("daily_workout")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_workout", workoutPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:workout`, type: "daily_workout", typeLabel: TYPE_LABEL.daily_workout, title: "Treino do dia", ...workoutPatch });
 
-      const workoutPhotoPatch = {
-        status: d.workout_photo_path ? "completed" as const : "pending" as const,
-        miles: Number(workoutPhotoLedger?.miles ?? 0),
-        updatedAt: d.workout_photo_at ?? d.updated_at,
-        details: {
-          workoutChoice: d.workout_choice ?? null,
-          photoPath: d.workout_photo_path ?? null,
-          note: d.workout_photo_note ?? null,
-          photoUrl: workoutPhotoUrl,
-          completedAt: d.workout_photo_at ?? null,
-          ledger: workoutPhotoLedger ?? null,
-        },
-      };
+      const workoutPhotoPatch = mkPatch("workout_photo", workoutPhotoLedger, !!d.workout_photo_path, d.workout_photo_at ?? d.updated_at, {
+        workoutChoice: d.workout_choice ?? null,
+        photoPath: d.workout_photo_path ?? null,
+        note: d.workout_photo_note ?? null,
+        photoUrl: workoutPhotoUrl,
+        completedAt: d.workout_photo_at ?? null,
+      });
       if (has("workout_photo")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "workout_photo", workoutPhotoPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:wphoto`, type: "workout_photo", typeLabel: TYPE_LABEL.workout_photo, title: "Foto do treino", ...workoutPhotoPatch });
     }
+
 
     // 3) Hidratação — agrega por (cliente, dia) ≥ 2000ml = completed
     const { data: hydro } = await sb
