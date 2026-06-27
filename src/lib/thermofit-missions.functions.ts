@@ -754,6 +754,14 @@ export const submitWorkoutPhoto = createServerFn({ method: "POST" })
       "Foto do treino (bônus)",
       { path },
     );
+    await completeDailyStructuralMission(
+      client.id,
+      "workout_photo",
+      "workout_photo",
+      day,
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, path, ...res };
   });
 
