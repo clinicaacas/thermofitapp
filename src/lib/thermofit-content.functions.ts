@@ -600,7 +600,9 @@ export const getClientRewardsAdminView = createServerFn({ method: "GET" })
       journeyId,
       balance,
       milesToday,
+      rewards,
       ledger: (ledgerRes.data ?? []) as any[],
+
       redemptions: ((redRes.data ?? []) as any[]).map((r) => ({
         id: r.id,
         rewardId: r.reward_id,
