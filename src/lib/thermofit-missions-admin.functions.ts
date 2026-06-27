@@ -165,15 +165,24 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       .gte("due_date", from).lte("due_date", to);
     const missionIds = (missions ?? []).map((m: any) => m.id);
     const completionsByMission = new Map<string, any>();
+    const taskResponsesByMission = new Map<string, any>();
     if (missionIds.length > 0) {
-      const { data: comps } = await sb
-        .from("client_mission_completions")
-        .select("mission_id, completed_at, miles_awarded")
-        .in("mission_id", missionIds);
+      const [{ data: comps }, { data: taskResponses }] = await Promise.all([
+        sb
+          .from("client_mission_completions")
+          .select("mission_id, completed_at, miles_awarded, source_kind, source_ref, idempotency_key")
+          .in("mission_id", missionIds),
+        sb
+          .from("client_task_responses")
+          .select("mission_id, response, completed_at, linked_video_id, task_ref")
+          .in("mission_id", missionIds),
+      ]);
       for (const c of comps ?? []) completionsByMission.set(c.mission_id, c);
+      for (const t of taskResponses ?? []) taskResponsesByMission.set(t.mission_id, t);
     }
     for (const m of missions ?? []) {
       const comp = completionsByMission.get(m.id);
+      const taskResponse = taskResponsesByMission.get(m.id);
       const kind = m.mission_type ?? "manual";
       if (
         kind === "post_video_task" &&
@@ -206,7 +215,10 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
           missionId: m.id,
           linkedVideoId: m.linked_video_id ?? null,
           taskRef: m.task_ref ?? null,
+          response: taskResponse?.response ?? null,
+          taskCompletedAt: taskResponse?.completed_at ?? null,
           ledger: ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`) ?? null,
+          completion: comp ?? null,
         },
       });
     }
