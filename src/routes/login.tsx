@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Plane } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IOSInstallHint } from "@/components/ios-install-hint";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/login")({
@@ -71,8 +72,10 @@ function LoginPage() {
               </Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
-                autoComplete="email"
+                inputMode="email"
+                autoComplete="username"
                 required
                 placeholder="seu@email.com"
                 value={email}
@@ -95,6 +98,7 @@ function LoginPage() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
@@ -122,6 +126,8 @@ function LoginPage() {
           <div className="mt-6 text-center text-[12px] text-neutral-500">
             Clínica Acas — Sistema ThermoFit
           </div>
+
+          <IOSInstallHint />
         </div>
       </div>
     </div>
