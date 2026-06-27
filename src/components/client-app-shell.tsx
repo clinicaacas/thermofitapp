@@ -101,14 +101,7 @@ export function ClientAppShell({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-full"
-            style={{ background: "#FFFFFF", border: "1px solid #E5E0D8" }}
-            aria-label="Notificações"
-          >
-            <Bell className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </button>
+          <NotificationsBell clientId={clientId} />
         </header>
 
         {(title || subtitle) && (
