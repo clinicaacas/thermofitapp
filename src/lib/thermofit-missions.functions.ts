@@ -342,31 +342,14 @@ export const getTodayMissionSummary = createServerFn({ method: "GET" })
       return { date: day, journeyId: null, total: 0, completed: 0, pending: 0, blocked: 0, milesToday: 0, milesTotal: 0 };
     }
 
-    await admin.rpc("ensure_daily_missions", {
-      _client_id: client.id,
-      _journey_id: journeyId,
-      _day: day,
-    });
-    const journeyDay = getClientJourneyDay((client as any).start_date);
-    const { data: todaysVideos, error: videosErr } = await admin
-      .from("videos")
-      .select("id")
-      .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
-      .eq("release_day", journeyDay);
-    if (videosErr) throw videosErr;
-    for (const v of todaysVideos ?? []) {
-      const { error: ensureVideoErr } = await admin.rpc("ensure_video_mission", {
-        _client_id: client.id,
-        _journey_id: journeyId,
-        _day: day,
-        _video_id: v.id,
-      });
-      if (ensureVideoErr) throw ensureVideoErr;
-    }
-    // Read-only: sincronização de hidratação e foto semanal ocorre nos eventos reais
-    // (addHydration / upload de foto). Não chamamos sync aqui para que abrir a tela
-    // não gere Milhas nem conclua missões.
+    // READ-ONLY: nenhuma escrita (sem ensure_daily_missions, sem ensure_video_mission,
+    // sem sync de hidratação/foto, sem award_miles). A criação estrutural de missões
+    // ocorre apenas em fluxos de escrita explícitos:
+    //  - generate_journey_missions / ensureClientJourney → ao ativar a jornada
+    //  - saveVideoProgress → cria missão de vídeo no primeiro progresso
+    //  - addHydration / saveDailyResponse → criam missões diárias no primeiro evento
+    //  - upload de foto → cria/conclui weekly_photo
+    // Abrir a tela apenas lê os dados existentes.
 
     const [{ data: missions, error: mErr }, { data: completions, error: cErr }, { data: dayMiles }, { data: allMiles }, { data: videoDone }, { data: routine }] = await Promise.all([
       admin
