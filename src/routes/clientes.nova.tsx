@@ -26,8 +26,17 @@ function Page() {
   const create = useServerFn(createClientRecord);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { tenant, allTenants, callerIsSuperAdmin } = useTenant();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const tenantOptions = useMemo(() => {
+    if (!callerIsSuperAdmin) return [{ id: tenant.id, clinicName: tenant.clinicName }];
+    const list = allTenants.length > 0 ? allTenants : [{ id: tenant.id, clinicName: tenant.clinicName }];
+    return list.map((t) => ({ id: t.id, clinicName: t.clinicName }));
+  }, [callerIsSuperAdmin, allTenants, tenant.id, tenant.clinicName]);
+  const [tenantId, setTenantId] = useState<string>(tenant.id);
+
 
   const [form, setForm] = useState({
     name: "",
