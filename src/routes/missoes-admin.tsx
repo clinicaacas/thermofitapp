@@ -154,31 +154,95 @@ function Central() {
         </div>
       </div>
 
-      <div className="rounded-md border border-input bg-card">
-        <div className="overflow-x-auto">
+      <ClientGroups rows={list} loading={rows.isLoading} />
+    </div>
+  );
+}
+
+type CentralRow = {
+  refId: string; clientId: string; clientName: string; journeyDay: number | null;
+  week: number | null; typeLabel: string; title: string; status: string;
+  date: string; miles: number; origin: string;
+};
+
+function ClientGroups({ rows, loading }: { rows: CentralRow[]; loading: boolean }) {
+  const groups = useMemo(() => {
+    const map = new Map<string, { clientId: string; clientName: string; rows: CentralRow[] }>();
+    for (const r of rows) {
+      const g = map.get(r.clientId) ?? { clientId: r.clientId, clientName: r.clientName, rows: [] };
+      g.rows.push(r);
+      map.set(r.clientId, g);
+    }
+    const list = Array.from(map.values()).map((g) => {
+      const pending = g.rows.filter((r) => r.status !== "completed").length;
+      const completed = g.rows.length - pending;
+      const miles = g.rows.reduce((acc, r) => acc + (r.status === "completed" ? r.miles : 0), 0);
+      const lastDay = g.rows.reduce((acc, r) => Math.max(acc, r.journeyDay ?? 0), 0);
+      const lastWeek = g.rows.reduce((acc, r) => Math.max(acc, r.week ?? 0), 0);
+      return { ...g, pending, completed, miles, lastDay, lastWeek };
+    });
+    list.sort((a, b) => (b.pending - a.pending) || a.clientName.localeCompare(b.clientName));
+    return list;
+  }, [rows]);
+
+  if (loading) {
+    return <div className="rounded-md border border-input bg-card p-6 text-center text-muted-foreground"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></div>;
+  }
+  if (groups.length === 0) {
+    return <div className="rounded-md border border-input bg-card p-6 text-center text-muted-foreground">Nenhum registro.</div>;
+  }
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => <ClientGroup key={g.clientId} group={g} />)}
+    </div>
+  );
+}
+
+function ClientGroup({ group }: { group: { clientId: string; clientName: string; rows: CentralRow[]; pending: number; completed: number; miles: number; lastDay: number; lastWeek: number } }) {
+  const [open, setOpen] = useState(group.pending > 0);
+  const total = group.rows.length;
+  const pct = total > 0 ? Math.round((group.completed / total) * 100) : 0;
+  return (
+    <div className="rounded-md border border-input bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-accent/40"
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{group.clientName}</span>
+            <span className="text-xs text-muted-foreground">Dia {group.lastDay || "—"} · Semana {group.lastWeek || "—"}</span>
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {group.completed} de {total} concluídas ({pct}%) · {group.miles} milhas
+            {group.pending > 0 ? ` · ${group.pending} pendente${group.pending > 1 ? "s" : ""}` : " · sem pendências"}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/clientes/$id/missoes"
+            params={{ id: group.clientId }}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-md border border-input px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            Abrir perfil
+          </Link>
+          <span className="text-xs text-muted-foreground">{open ? "▾" : "▸"}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="overflow-x-auto border-t border-border">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
               <tr>
-                <Th>Cliente</Th><Th>Dia</Th><Th>Sem.</Th><Th>Tipo</Th>
-                <Th>Missão</Th><Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th>{" "}</Th>
+                <Th>Dia</Th><Th>Sem.</Th><Th>Tipo</Th><Th>Missão</Th>
+                <Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th>{" "}</Th>
               </tr>
             </thead>
             <tbody>
-              {rows.isLoading && (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                </td></tr>
-              )}
-              {!rows.isLoading && list.length === 0 && (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Nenhum registro.</td></tr>
-              )}
-              {list.map((r) => (
-                <tr key={r.refId} className="border-t border-border hover:bg-accent/40">
-                  <Td>
-                    <Link to="/clientes/$id/missoes" params={{ id: r.clientId }} className="text-primary hover:underline">
-                      {r.clientName}
-                    </Link>
-                  </Td>
+              {group.rows.map((r) => (
+                <tr key={r.refId} className="border-t border-border hover:bg-accent/30">
                   <Td>{r.journeyDay ?? "—"}</Td>
                   <Td>{r.week ?? "—"}</Td>
                   <Td>{r.typeLabel}</Td>
@@ -188,7 +252,7 @@ function Central() {
                   <Td>{r.miles}</Td>
                   <Td><span className="text-xs text-muted-foreground">{r.origin}</span></Td>
                   <Td>
-                    <Link to="/clientes/$id/missoes" params={{ id: r.clientId }} className="text-xs text-primary hover:underline">
+                    <Link to="/clientes/$id/missoes" params={{ id: group.clientId }} className="text-xs text-primary hover:underline">
                       Abrir
                     </Link>
                   </Td>
@@ -197,7 +261,7 @@ function Central() {
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }

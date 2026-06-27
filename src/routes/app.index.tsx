@@ -150,44 +150,60 @@ function Page() {
       </section>
 
       {/* Missões de hoje */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-            Missões de hoje
-          </p>
-          <Link
-            to="/app/missoes"
-            search={{ clientId }}
-            className="inline-flex items-center gap-0.5 text-xs font-medium"
-            style={{ color: "#8A6A3D" }}
+      {(() => {
+        const allDone = missionsTotal > 0 && missionsDone >= missionsTotal;
+        const pct = missionsTotal > 0 ? Math.min(100, (missionsDone / missionsTotal) * 100) : 0;
+        const bg = allDone ? "#E8F2E5" : "#FFFFFF";
+        const border = allDone ? "1px solid #BFD8B7" : "1px solid #E5E0D8";
+        const iconBg = allDone ? "#BFD8B7" : "#F3E8D2";
+        const iconColor = allDone ? "#3F7A3A" : "#8A6A3D";
+        return (
+          <section
+            className="mt-2 rounded-2xl p-3"
+            style={{ background: bg, border }}
           >
-            Ver todas <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <div className="mt-2 flex items-center gap-3">
-          <div
-            className="grid h-9 w-9 place-items-center rounded-xl"
-            style={{ background: "#F3E8D2" }}
-          >
-            <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              {missionsDone} de {missionsTotal} missões
-            </p>
-            <p className="text-[11px]" style={{ color: "#6B7280" }}>
-              {missionsTotal === 0
-                ? "Nenhuma missão programada para hoje."
-                : missionsDone === missionsTotal
-                  ? "Tudo concluído!"
-                  : "Toque em Ver todas para concluir."}
-            </p>
-          </div>
-        </div>
-      </section>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                Missões de hoje
+              </p>
+              <Link
+                to="/app/missoes"
+                search={{ clientId }}
+                className="inline-flex items-center gap-0.5 text-xs font-medium"
+                style={{ color: allDone ? "#3F7A3A" : "#8A6A3D" }}
+              >
+                Ver todas <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <div
+                className="grid h-9 w-9 place-items-center rounded-xl"
+                style={{ background: iconBg }}
+              >
+                <Plane className="h-4 w-4" style={{ color: iconColor }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                  {missionsDone} de {missionsTotal} concluídas
+                </p>
+                <p className="text-[11px]" style={{ color: allDone ? "#3F7A3A" : "#6B7280" }}>
+                  {missionsTotal === 0
+                    ? "Nenhuma missão programada para hoje."
+                    : allDone
+                      ? "Todas as missões de hoje foram concluídas"
+                      : "Toque em Ver todas para concluir."}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#D6A93F" }}
+              />
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Cards interativos de missão vivem apenas na aba Missões. */}
 
@@ -195,46 +211,53 @@ function Page() {
 
 
       {/* Hidratação */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="grid h-9 w-9 place-items-center rounded-xl"
-              style={{ background: "#DCEEFF" }}
-            >
-              <Droplet className="h-4 w-4" style={{ color: "#2F80ED" }} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#2F80ED" }}>
-                HIDRATAÇÃO
-              </p>
-              <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
-                {hydration}ml
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/app/agua"
-            search={{ clientId }}
-            className="inline-flex items-center gap-0.5 text-xs font-medium"
-            style={{ color: "#2F80ED" }}
+      {(() => {
+        const hydrationDone = hydration >= hydrationGoal && hydrationGoal > 0;
+        return (
+          <section
+            className="mt-2 rounded-2xl p-3"
+            style={{ background: hydrationDone ? "#E8F2E5" : "#FFFFFF", border: hydrationDone ? "1px solid #BFD8B7" : "1px solid #E5E0D8" }}
           >
-            Registrar <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <p className="mt-1.5 text-[11px]" style={{ color: "#6B7280" }}>
-          meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
-        </p>
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
-          <div
-            className="h-full rounded-full"
-            style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: "#2F80ED" }}
-          />
-        </div>
-      </section>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="grid h-9 w-9 place-items-center rounded-xl"
+                  style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}
+                >
+                  <Droplet className="h-4 w-4" style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold tracking-wider" style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }}>
+                    HIDRATAÇÃO
+                  </p>
+                  <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
+                    {hydration}ml
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/app/agua"
+                search={{ clientId }}
+                className="inline-flex items-center gap-0.5 text-xs font-medium"
+                style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }}
+              >
+                Registrar <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <p className="mt-1.5 text-[11px]" style={{ color: hydrationDone ? "#3F7A3A" : "#6B7280" }}>
+              {hydrationDone
+                ? "Meta concluída · +10 Milhas"
+                : `meta ${(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L`}
+            </p>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: hydrationDone ? "#3F7A3A" : "#2F80ED" }}
+              />
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Bloco "Me conta sua jornada" removido — duplicava o card de
           check-in/rotina que vive exclusivamente em Missões. */}
