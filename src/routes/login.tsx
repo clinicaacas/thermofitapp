@@ -97,6 +97,7 @@ function LoginPage() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
