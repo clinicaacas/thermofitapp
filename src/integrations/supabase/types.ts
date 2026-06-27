@@ -2461,72 +2461,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      award_miles:
-        | {
-            Args: {
-              _client_id: string
-              _idempotency_key: string
-              _metadata?: Json
-              _miles: number
-              _reason?: string
-              _source_kind: string
-              _source_ref: string
-            }
-            Returns: {
-              awarded_at: string
-              awarded_by: string | null
-              client_id: string
-              id: string
-              idempotency_key: string
-              journey_id: string
-              metadata: Json
-              miles: number
-              occurred_on: string
-              reason: string
-              source_kind: string
-              source_ref: string | null
-              tenant_id: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "miles_ledger"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              _client_id: string
-              _idempotency_key: string
-              _journey_id?: string
-              _metadata?: Json
-              _miles: number
-              _reason?: string
-              _source_kind: string
-              _source_ref: string
-            }
-            Returns: {
-              awarded_at: string
-              awarded_by: string | null
-              client_id: string
-              id: string
-              idempotency_key: string
-              journey_id: string
-              metadata: Json
-              miles: number
-              occurred_on: string
-              reason: string
-              source_kind: string
-              source_ref: string | null
-              tenant_id: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "miles_ledger"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      award_miles: {
+        Args: {
+          _client_id: string
+          _idempotency_key: string
+          _journey_id?: string
+          _metadata?: Json
+          _miles: number
+          _reason?: string
+          _source_kind: string
+          _source_ref: string
+        }
+        Returns: {
+          awarded_at: string
+          awarded_by: string | null
+          client_id: string
+          id: string
+          idempotency_key: string
+          journey_id: string
+          metadata: Json
+          miles: number
+          occurred_on: string
+          reason: string
+          source_kind: string
+          source_ref: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "miles_ledger"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       broadcast_client_photo_event: {
         Args: { p_change: string; p_client_id: string; p_photo_id: string }
         Returns: undefined
