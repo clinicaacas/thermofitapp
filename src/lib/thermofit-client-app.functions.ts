@@ -289,14 +289,57 @@ export const listClientRewards = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    const { data: rows, error } = await admin
-      .from("rewards")
-      .select("*")
-      .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
-      .order("cost_miles", { ascending: true });
+    const journeyId = (client as any).active_journey_id as string | null;
+
+    const [{ data: rows, error }, { data: ledgerRows }, { data: redRows }] = await Promise.all([
+      admin
+        .from("rewards")
+        .select("id, name, description, cost_miles, milestone_miles, reward_type, sort_order, image_url, status")
+        .eq("tenant_id", client.tenant_id)
+        .eq("status", "ativo")
+        .order("milestone_miles", { ascending: true })
+        .order("cost_miles", { ascending: true }),
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id).eq("journey_id", journeyId ?? ""),
+      journeyId
+        ? admin
+            .from("reward_redemptions")
+            .select("reward_id, status, created_at, decided_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
     if (error) throw error;
-    return { rewards: rows ?? [] };
+    const balance = (ledgerRows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
+    const byReward = new Map<string, any>();
+    for (const r of (redRows ?? []) as any[]) {
+      // Mantém o registro ativo mais recente (ignora cancelados)
+      if (r.status === "cancelado") continue;
+      const prev = byReward.get(r.reward_id);
+      if (!prev || new Date(r.created_at) > new Date(prev.created_at)) byReward.set(r.reward_id, r);
+    }
+    const rewards = (rows ?? []).map((r: any) => {
+      const threshold = r.milestone_miles ?? r.cost_miles ?? 0;
+      const red = byReward.get(r.id);
+      let state: "bloqueado" | "liberado" | "solicitado" | "entregue" = "bloqueado";
+      if (red?.status === "entregue") state = "entregue";
+      else if (red?.status === "solicitado" || red?.status === "pendente" || red?.status === "aprovado") state = "solicitado";
+      else if (balance >= threshold) state = "liberado";
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description ?? "",
+        milestoneMiles: threshold,
+        rewardType: r.reward_type ?? null,
+        sortOrder: r.sort_order ?? 0,
+        imageUrl: r.image_url ?? "",
+        state,
+        missing: Math.max(threshold - balance, 0),
+        redemption: red
+          ? { status: red.status, createdAt: red.created_at, decidedAt: red.decided_at }
+          : null,
+      };
+    });
+    return { rewards, balance, journeyId };
   });
 
 const helpSchema = z.object({
@@ -699,19 +742,19 @@ export const getClientMiles = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    const [{ data: ledgerRows, error: lErr }, { data: spentRows, error: sErr }] = await Promise.all([
-      admin.from("miles_ledger").select("miles").eq("client_id", client.id),
-      admin
-        .from("reward_redemptions")
-        .select("cost_miles, status")
+    const journeyId = (client as any).active_journey_id as string | null;
+    let earned = 0;
+    if (journeyId) {
+      const { data: rows, error } = await admin
+        .from("miles_ledger")
+        .select("miles")
         .eq("client_id", client.id)
-        .in("status", ["pendente", "aprovado", "entregue"]),
-    ]);
-    if (lErr) throw lErr;
-    if (sErr) throw sErr;
-    const earned = (ledgerRows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
-    const spent = (spentRows ?? []).reduce((s: number, r: any) => s + (r.cost_miles ?? 0), 0);
-    return { earned, spent, balance: earned - spent };
+        .eq("journey_id", journeyId);
+      if (error) throw error;
+      earned = (rows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
+    }
+    // Regra oficial: prêmios NÃO debitam Milhas. balance = earned.
+    return { earned, spent: 0, balance: earned, journeyId };
   });
 
 export const requestRewardRedemption = createServerFn({ method: "POST" })
@@ -721,40 +764,64 @@ export const requestRewardRedemption = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyId = (client as any).active_journey_id as string | null;
+    if (!journeyId) throw new Error("Jornada ativa não encontrada.");
+
     const { data: reward, error: rErr } = await admin
       .from("rewards")
-      .select("id, cost_miles, stock, status, tenant_id")
+      .select("id, milestone_miles, cost_miles, status, tenant_id, name")
       .eq("id", data.rewardId)
       .eq("tenant_id", client.tenant_id)
       .maybeSingle();
     if (rErr) throw rErr;
     if (!reward) throw new Error("Prêmio não encontrado.");
     if (reward.status !== "ativo") throw new Error("Prêmio indisponível.");
-    if ((reward.stock ?? 0) <= 0) throw new Error("Sem estoque.");
+    const threshold = (reward as any).milestone_miles ?? reward.cost_miles ?? 0;
 
-    const [{ data: earnedRows }, { data: spentRows }] = await Promise.all([
-      admin.from("client_mission_completions").select("miles_awarded").eq("client_id", client.id),
-      admin
-        .from("reward_redemptions")
-        .select("cost_miles")
-        .eq("client_id", client.id)
-        .in("status", ["pendente", "aprovado", "entregue"]),
-    ]);
-    const earned = (earnedRows ?? []).reduce((s: number, r: any) => s + (r.miles_awarded ?? 0), 0);
-    const spent = (spentRows ?? []).reduce((s: number, r: any) => s + (r.cost_miles ?? 0), 0);
-    const balance = earned - spent;
-    if (balance < (reward.cost_miles ?? 0)) {
-      throw new Error("Milhas insuficientes para este prêmio.");
+    const { data: ledgerRows, error: lErr } = await admin
+      .from("miles_ledger")
+      .select("miles")
+      .eq("client_id", client.id)
+      .eq("journey_id", journeyId);
+    if (lErr) throw lErr;
+    const balance = (ledgerRows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
+    if (balance < threshold) {
+      throw new Error("Você ainda não atingiu as Milhas necessárias para este prêmio.");
+    }
+
+    // Upsert via UNIQUE parcial (client_id, reward_id, journey_id) onde status<>'cancelado'
+    const { data: existing } = await admin
+      .from("reward_redemptions")
+      .select("id, status")
+      .eq("client_id", client.id)
+      .eq("reward_id", reward.id)
+      .eq("journey_id", journeyId)
+      .neq("status", "cancelado")
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.status === "entregue") throw new Error("Este prêmio já foi entregue.");
+      return { ok: true, alreadyRequested: true };
     }
 
     const { error } = await admin.from("reward_redemptions").insert({
       tenant_id: client.tenant_id,
       client_id: client.id,
       reward_id: reward.id,
-      cost_miles: reward.cost_miles,
-      status: "pendente",
+      journey_id: journeyId,
+      cost_miles: 0,
+      status: "solicitado",
     });
     if (error) throw error;
+
+    await admin.from("miles_audit_log").insert({
+      tenant_id: client.tenant_id,
+      client_id: client.id,
+      actor_id: null,
+      action: "reward.requested",
+      justification: `Cliente solicitou prêmio: ${reward.name}`,
+      payload: { reward_id: reward.id, journey_id: journeyId },
+    });
     return { ok: true };
   });
 
@@ -765,12 +832,104 @@ export const listClientRedemptions = createServerFn({ method: "GET" })
     const admin = await getAdmin();
     const { data: rows, error } = await admin
       .from("reward_redemptions")
-      .select("id, status, cost_miles, created_at, reward_id, rewards(name)")
+      .select("id, status, created_at, decided_at, reward_id, rewards(name, milestone_miles, reward_type)")
       .eq("client_id", client.id)
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
     return { redemptions: rows ?? [] };
+  });
+
+export const listClientAchievements = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const journeyId = (client as any).active_journey_id as string | null;
+    if (!journeyId) {
+      return { seals: [], milestones: [], balance: 0 };
+    }
+    const [{ data: seals }, { data: milestones }, { data: ledger }] = await Promise.all([
+      admin
+        .from("client_seals")
+        .select("seal_code, miles_awarded, awarded_at")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId),
+      admin
+        .from("client_journey_milestones")
+        .select("milestone_code, miles_threshold, reached_at")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId),
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id).eq("journey_id", journeyId),
+    ]);
+    const balance = (ledger ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
+    return { seals: seals ?? [], milestones: milestones ?? [], balance };
+  });
+
+export const listClientNotifications = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    const admin = await getAdmin();
+    const journeyId = (client as any).active_journey_id as string | null;
+    const items: Array<{ id: string; kind: string; title: string; body: string; createdAt: string }> = [];
+    if (!journeyId) return { notifications: items };
+
+    const [{ data: seals }, { data: milestones }, { data: redemptions }] = await Promise.all([
+      admin
+        .from("client_seals")
+        .select("id, seal_code, miles_awarded, awarded_at")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .order("awarded_at", { ascending: false })
+        .limit(5),
+      admin
+        .from("client_journey_milestones")
+        .select("id, milestone_code, miles_threshold, reached_at")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .order("reached_at", { ascending: false })
+        .limit(5),
+      admin
+        .from("reward_redemptions")
+        .select("id, status, decided_at, created_at, rewards(name)")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .in("status", ["entregue", "solicitado"])
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
+    for (const s of seals ?? []) {
+      items.push({
+        id: `seal-${(s as any).id}`,
+        kind: "seal",
+        title: "Novo Selo conquistado",
+        body: `Você ganhou +${(s as any).miles_awarded} Milhas (${(s as any).seal_code}).`,
+        createdAt: (s as any).awarded_at,
+      });
+    }
+    for (const m of milestones ?? []) {
+      if ((m as any).milestone_code === "milestone_checkin") continue;
+      items.push({
+        id: `ms-${(m as any).id}`,
+        kind: "milestone",
+        title: "Marco alcançado",
+        body: `Você atingiu ${(m as any).miles_threshold} Milhas!`,
+        createdAt: (m as any).reached_at,
+      });
+    }
+    for (const r of redemptions ?? []) {
+      const name = (r as any).rewards?.name ?? "Prêmio";
+      items.push({
+        id: `rd-${(r as any).id}`,
+        kind: "reward",
+        title: (r as any).status === "entregue" ? "Prêmio entregue" : "Prêmio solicitado",
+        body: name,
+        createdAt: (r as any).decided_at ?? (r as any).created_at,
+      });
+    }
+    items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return { notifications: items.slice(0, 15) };
   });
 
 // ============ FOTOS DE EVOLUÇÃO ============

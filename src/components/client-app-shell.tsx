@@ -3,7 +3,8 @@ import { Link, useRouterState, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, Video, Droplet, Target, Activity, Bell, Plane } from "lucide-react";
-import { getAppSettingsForClient } from "@/lib/thermofit-client-app.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getAppSettingsForClient, listClientNotifications } from "@/lib/thermofit-client-app.functions";
 
 const nav = [
   { to: "/app", key: "inicio", label: "Início", icon: Home },
@@ -100,14 +101,7 @@ export function ClientAppShell({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-full"
-            style={{ background: "#FFFFFF", border: "1px solid #E5E0D8" }}
-            aria-label="Notificações"
-          >
-            <Bell className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </button>
+          <NotificationsBell clientId={clientId} />
         </header>
 
         {(title || subtitle) && (
@@ -177,5 +171,57 @@ export function ClientAppShell({
         </nav>
       </div>
     </div>
+  );
+}
+
+function NotificationsBell({ clientId }: { clientId?: string }) {
+  const fetchNotif = useServerFn(listClientNotifications);
+  const { data } = useQuery({
+    queryKey: ["client-notifications", clientId],
+    queryFn: () => fetchNotif({ data: { clientId: clientId! } }),
+    enabled: !!clientId,
+    refetchOnWindowFocus: false,
+  });
+  const items = data?.notifications ?? [];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="relative grid h-8 w-8 place-items-center rounded-full"
+          style={{ background: "#FFFFFF", border: "1px solid #E5E0D8" }}
+          aria-label="Notificações"
+        >
+          <Bell className="h-4 w-4" style={{ color: "#8A6A3D" }} />
+          {items.length > 0 && (
+            <span
+              className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-bold text-white"
+              style={{ background: "#C53030" }}
+            >
+              {items.length}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-0">
+        <div className="border-b px-3 py-2 text-sm font-semibold" style={{ color: "#3D2E1C" }}>
+          Notificações
+        </div>
+        {items.length === 0 ? (
+          <p className="px-3 py-4 text-xs text-muted-foreground">
+            Você não tem notificações no momento.
+          </p>
+        ) : (
+          <ul className="max-h-80 divide-y overflow-y-auto">
+            {items.map((n: any) => (
+              <li key={n.id} className="px-3 py-2 text-xs">
+                <p className="font-medium" style={{ color: "#3D2E1C" }}>{n.title}</p>
+                <p className="text-muted-foreground">{n.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

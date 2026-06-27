@@ -415,24 +415,44 @@ export const decideRedemption = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        status: z.enum(["entregue", "cancelado"]),
+        status: z.enum(["solicitado", "entregue", "cancelado"]),
         notes: z.string().trim().max(500).default(""),
+        justification: z.string().trim().max(500).default(""),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerTenant(context);
+    const { data: current, error: cErr } = await context.supabase
+      .from("reward_redemptions")
+      .select("id, client_id, reward_id, status")
+      .eq("tenant_id", tenantId)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (cErr) throw cErr;
+    if (!current) throw new Error("Resgate não encontrado.");
+
     const { error } = await context.supabase
       .from("reward_redemptions")
       .update({
         status: data.status,
         notes: data.notes,
+        justification: data.justification,
         decided_by: context.userId,
         decided_at: new Date().toISOString(),
       })
       .eq("tenant_id", tenantId)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
+    await context.supabase.from("miles_audit_log").insert({
+      tenant_id: tenantId,
+      client_id: current.client_id,
+      actor_id: context.userId,
+      action: `reward.${data.status}`,
+      justification: data.justification || data.notes || "",
+      payload: { reward_id: current.reward_id, from: current.status, to: data.status },
+    });
     await logAudit(context, tenantId, `redemption.${data.status}`, "redemption", data.id, {});
     return { ok: true };
   });

@@ -140,7 +140,7 @@ function Page() {
                     <div className="text-sm font-medium text-foreground">{r.rewardName}</div>
                     <div className="text-xs text-muted-foreground">{r.clientName} • {r.costMiles} milhas • {r.status}</div>
                   </div>
-                  {r.status === "pendente" && (
+                  {(r.status === "pendente" || r.status === "solicitado" || r.status === "aprovado" || r.status === "liberado") && (
                     <div className="flex gap-2">
                       <button onClick={() => onDecide(r.id, "entregue")} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white">
                         <Check className="h-3 w-3" /> Entregar
