@@ -204,7 +204,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         kind === "post_video_task" &&
         !m.linked_video_id &&
         (!m.task_ref || m.task_ref === "daily") &&
-        !comp
+        !taskResponse
       ) {
         continue;
       }
@@ -242,7 +242,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     // 2) client_daily_responses → derived rows (check-in, alimentação, treino, foto treino)
     const { data: dailies } = await sb
       .from("client_daily_responses")
-      .select("client_id, journey_id, response_date, checkin_done, checkin_at, meal_choice, meal_at, workout_choice, workout_at, workout_photo_path, workout_photo_at, updated_at")
+      .select("client_id, journey_id, response_date, checkin_done, checkin_at, meal_choice, meal_at, workout_choice, workout_at, workout_photo_path, workout_photo_note, workout_photo_at, updated_at")
       .in("client_id", clientIds)
       .gte("response_date", from).lte("response_date", to);
     for (const d of dailies ?? []) {
@@ -300,6 +300,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         details: {
           workoutChoice: d.workout_choice ?? null,
           photoPath: d.workout_photo_path ?? null,
+          note: d.workout_photo_note ?? null,
           photoUrl: workoutPhotoUrl,
           completedAt: d.workout_photo_at ?? null,
           ledger: workoutPhotoLedger ?? null,

@@ -47,9 +47,9 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["client-stats", clientId],
     ["admin-client-photos", clientId],
   ];
-  for (const k of keys) qc.invalidateQueries({ queryKey: k });
-  qc.invalidateQueries({ queryKey: ["missions-central"] });
-  qc.invalidateQueries({ queryKey: ["missions-overview"] });
+  for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["missions-central"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "all" });
 }
 
 export function useMissionsRealtime(clientId: string | null | undefined) {

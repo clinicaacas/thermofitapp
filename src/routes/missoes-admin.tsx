@@ -207,7 +207,7 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
   const pct = total > 0 ? Math.round((group.completed / total) * 100) : 0;
   const hasPending = group.pending > 0;
   useEffect(() => {
-    setOpen(group.pending > 0);
+    if (group.pending > 0) setOpen(true);
   }, [group.pending]);
   return (
     <div className={`overflow-hidden rounded-lg border bg-card shadow-sm ${hasPending ? "border-amber-300" : "border-input"}`}>
