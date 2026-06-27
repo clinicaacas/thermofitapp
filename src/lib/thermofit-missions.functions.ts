@@ -364,8 +364,9 @@ export const getTodayMissionSummary = createServerFn({ method: "GET" })
       });
       if (ensureVideoErr) throw ensureVideoErr;
     }
-    await syncHydrationCompletion(admin, client, day);
-    await syncWeeklyPhotoMission(admin, client.id);
+    // Read-only: sincronização de hidratação e foto semanal ocorre nos eventos reais
+    // (addHydration / upload de foto). Não chamamos sync aqui para que abrir a tela
+    // não gere Milhas nem conclua missões.
 
     const [{ data: missions, error: mErr }, { data: completions, error: cErr }, { data: dayMiles }, { data: allMiles }, { data: videoDone }, { data: routine }] = await Promise.all([
       admin
