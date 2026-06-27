@@ -1281,7 +1281,33 @@ export const deleteClientPhoto = createServerFn({ method: "POST" })
 
 // ============ JORNADA ============
 
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+export const startClientJourney = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        startDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (use AAAA-MM-DD).")
+          .optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: out, error } = await context.supabase.rpc("start_client_journey", {
+      _client_id: data.clientId,
+      _start_date: data.startDate ?? null,
+    });
+    if (error) throw error;
+    await emitClientPhotoEvent(await getAdmin(), data.clientId, "updated", null);
+    return { ok: true, ...(out as any) };
+  });
+
 export const adminRestartClientJourney = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
     z
       .object({
@@ -1292,23 +1318,17 @@ export const adminRestartClientJourney = createServerFn({ method: "POST" })
       })
       .parse(i),
   )
-  .handler(async ({ data }) => {
-    const admin = await getAdmin();
-    const newJourneyId = crypto.randomUUID();
-    const { data: updated, error } = await admin
-      .from("clients")
-      .update({
-        active_journey_id: newJourneyId,
-        start_date: data.startDate,
-      })
-      .eq("id", data.clientId)
-      .select("id, active_journey_id, start_date")
-      .single();
+  .handler(async ({ data, context }) => {
+    const { data: out, error } = await context.supabase.rpc("start_client_journey", {
+      _client_id: data.clientId,
+      _start_date: data.startDate,
+    });
     if (error) throw error;
-    // Sinaliza para que o painel da cliente se atualize sem refresh.
-    await emitClientPhotoEvent(admin, data.clientId, "updated", null);
-    return { ok: true, journeyId: updated.active_journey_id, startDate: updated.start_date };
+    await emitClientPhotoEvent(await getAdmin(), data.clientId, "updated", null);
+    const payload = (out ?? {}) as { journeyId?: string; startedOn?: string };
+    return { ok: true, journeyId: payload.journeyId, startDate: payload.startedOn };
   });
+
 
 
 // ============ PULSO SEMANAL ============
