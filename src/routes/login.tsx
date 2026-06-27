@@ -71,14 +71,17 @@ function LoginPage() {
               </Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
-                autoComplete="email"
+                inputMode="email"
+                autoComplete="username"
                 required
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-11 rounded-md border-neutral-200 bg-white"
               />
+            </div>
             </div>
 
             <div className="space-y-1.5">
