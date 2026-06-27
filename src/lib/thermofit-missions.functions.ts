@@ -692,6 +692,14 @@ export const submitWorkout = createServerFn({ method: "POST" })
     const res = await award(data.clientId, "workout", todayKey(), key, "Treino realizado", {
       choice: data.choice,
     });
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_workout",
+      "daily_workout",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
