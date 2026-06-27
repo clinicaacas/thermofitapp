@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { Target, Check, Play, X } from "lucide-react";
+import { Target, Check, Play, X, Droplet } from "lucide-react";
 import {
   listClientMissions,
   toggleMissionCompletion,
   listTodayVideoMissions,
   getClientVideoPlayback,
   saveVideoProgress,
+  getHydrationToday,
 } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
@@ -41,6 +42,7 @@ function Page() {
   const fetchVideoMissions = useServerFn(listTodayVideoMissions);
   const fetchSummary = useServerFn(getTodayMissionSummary);
   const fetchProgress = useServerFn(getJourneyProgress);
+  const fetchHydration = useServerFn(getHydrationToday);
   const toggleFn = useServerFn(toggleMissionCompletion);
   const qc = useQueryClient();
 
@@ -76,6 +78,13 @@ function Page() {
     staleTime: 0,
   });
 
+  const { data: hydrationData } = useQuery({
+    queryKey: ["client-hydration", clientId],
+    queryFn: () => fetchHydration({ data: { clientId } }),
+    enabled: !!clientId,
+    staleTime: 0,
+  });
+
   const toggle = useMutation({
     mutationFn: (v: { missionId: string; done: boolean }) =>
       toggleFn({ data: { clientId, ...v } }),
@@ -106,6 +115,7 @@ function Page() {
   const done = (summary as any)?.completed ?? 0;
   const total = (summary as any)?.total ?? 0;
   const pct = total > 0 ? (done / total) * 100 : 0;
+  const allDone = total > 0 && done >= total;
 
   const openVideoId = videoParam || null;
   const openVideoMeta = openVideoId
@@ -129,8 +139,8 @@ function Page() {
       title="Missões de hoje"
       subtitle={`Dia ${String(journeyDay).padStart(2, "0")} · ${done} de ${total} concluídas`}
     >
-      <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#C9A24A" }} />
+      <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: allDone ? "#BFD8B7" : "#F3E8D2" }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#C9A24A" }} />
       </div>
       {videoMissions.length > 0 && (
         <section className="mt-4">
@@ -189,6 +199,7 @@ function Page() {
 
       {clientId && <PostVideoTaskCard clientId={clientId} />}
       {clientId && <DailyRoutineCard clientId={clientId} />}
+      <HydrationMissionCard data={hydrationData} />
       {clientId && <WeeklyPhotoCard clientId={clientId} />}
 
       {progress && (progress as any).journeyId && (
@@ -271,6 +282,45 @@ function Page() {
         />
       )}
     </ClientAppShell>
+  );
+}
+
+function HydrationMissionCard({ data }: { data: any }) {
+  const total = Number(data?.total ?? 0);
+  const goal = Number(data?.goal ?? 2000);
+  const done = goal > 0 && total >= goal;
+  const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
+  return (
+    <section
+      className="mt-3 rounded-2xl p-4"
+      style={{ background: done ? "#E8F2E5" : "#FFFFFF", border: done ? "1px solid #BFD8B7" : "1px solid #E5D6BD" }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+            <Droplet className="h-4 w-4" style={{ color: done ? "#3F7A3A" : "#2F80ED" }} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>Hidratação</h3>
+            <p className="text-xs" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
+              {total}/{goal} ml
+            </p>
+          </div>
+        </div>
+        {done ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
+            <Check className="h-3 w-3" /> Meta concluída · +10 Milhas
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#DCEEFF", color: "#2F80ED" }}>
+            {Math.max(0, goal - total)} ml restantes
+          </span>
+        )}
+      </div>
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "#3F7A3A" : "#2F80ED" }} />
+      </div>
+    </section>
   );
 }
 
