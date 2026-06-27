@@ -9,6 +9,7 @@ import {
   submitWorkout,
   submitWorkoutPhoto,
 } from "@/lib/thermofit-missions.functions";
+import { invalidateClientMissionData } from "@/hooks/use-missions-realtime";
 
 type Props = { clientId: string };
 
@@ -46,10 +47,7 @@ export function DailyRoutineCard({ clientId }: Props) {
   });
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["daily-routine", clientId] });
-    qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
-    qc.invalidateQueries({ queryKey: ["client-miles", clientId] });
-    qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+    invalidateClientMissionData(qc, clientId);
   };
 
   const checkin = useMutation({

@@ -16,7 +16,7 @@ import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
 import { PostVideoTaskCard } from "@/components/post-video-task-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
-import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -80,9 +80,7 @@ function Page() {
     mutationFn: (v: { missionId: string; done: boolean }) =>
       toggleFn({ data: { clientId, ...v } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
-      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
+      invalidateClientMissionData(qc, clientId);
     },
   });
 
@@ -320,14 +318,7 @@ function MissionVideoPlayer({
 
   const runPostCompletionRefresh = useCallback(() => {
     window.setTimeout(() => {
-      qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-videos", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
-      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
-      qc.invalidateQueries({ queryKey: ["journey-progress", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-miles", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-rewards", clientId] });
+      invalidateClientMissionData(qc, clientId);
     }, 350);
   }, [clientId, qc]);
 

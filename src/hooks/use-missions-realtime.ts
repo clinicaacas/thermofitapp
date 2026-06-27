@@ -22,7 +22,7 @@ const TABLES = [
 
 // Query keys que precisam ser invalidadas em qualquer evento.
 // Todas as telas consomem destas chaves — nunca calcular paralelo.
-function invalidateAll(qc: ReturnType<typeof useQueryClient>, clientId: string) {
+export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient>, clientId: string) {
   const keys = [
     ["mission-summary", clientId],
     ["client-missions", clientId],
@@ -36,9 +36,17 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>, clientId: string) 
     ["post-video-task-state", clientId],
     ["daily-routine", clientId],
     ["client-rewards", clientId],
+    ["client-redemptions", clientId],
     ["client-achievements", clientId],
+    ["client-notifications", clientId],
+    ["client-rewards-admin", clientId],
+    ["client-missions-today", clientId],
+    ["client-stats", clientId],
+    ["admin-client-photos", clientId],
   ];
   for (const k of keys) qc.invalidateQueries({ queryKey: k });
+  qc.invalidateQueries({ queryKey: ["missions-central"] });
+  qc.invalidateQueries({ queryKey: ["missions-overview"] });
 }
 
 export function useMissionsRealtime(clientId: string | null | undefined) {
@@ -55,7 +63,7 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
           table,
           filter: `client_id=eq.${clientId}`,
         },
-        () => invalidateAll(qc, clientId),
+        () => invalidateClientMissionData(qc, clientId),
       );
     }
     channel.subscribe();
