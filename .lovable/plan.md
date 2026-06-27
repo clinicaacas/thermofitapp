@@ -1,58 +1,85 @@
-# Central Administrativa de Missões
 
-Apesar do prefixo "For the code present, I get the error below", a solicitação é uma feature grande (nova rota administrativa + aba no perfil da cliente + função consolidada de backend). Vou planejar antes de implementar para evitar retrabalho.
+# Plano — Módulo Prêmios e Conquistas (entrega única)
 
-## 1. Menu lateral
-- Adicionar item `Missões` em `src/components/app-sidebar.tsx` entre **Clientes** e **Alertas**, ícone `Target` (lucide). Sem duplicar.
+## 1. Banco de dados (migração única)
 
-## 2. Backend — função consolidada (sem novas tabelas)
-Criar `src/lib/thermofit-missions-admin.functions.ts` com:
+**`rewards`** — adicionar colunas se faltarem: `reward_type` (mimo|sessao|voucher|ensaio), `milestone_miles` (int), `sort_order`.
 
-- `listMissionsCentral({ tenantId, filters })` — server fn protegida com `requireSupabaseAuth` + `is_profile_manager`. Une registros das fontes existentes em linhas com formato canônico:
-  ```
-  { clientId, clientName, journeyId, journeyDay, week, type, title, status, date, miles, origin, updatedAt, refId }
-  ```
-  Fontes:
-  - `client_missions` + `client_mission_completions` (vídeos, tarefas, foto semanal, manuais, daily templates já gerados)
-  - `client_daily_responses` (check-in, alimentação, treino, foto treino) — projetar uma "linha" por flag concluída
-  - `client_hydration_logs` (agregado por dia → status hidratação)
-  - `client_video_progress` (progresso de vídeos não materializados ainda em missão)
-  - `client_progress_photos` (foto evolução)
-  - `miles_ledger` para `miles` reais por evento
-  Deduplica por chave `(clientId, journeyDay, type, refId)`.
+**`reward_redemptions`** — adicionar:
+- `journey_id uuid` (preencher para registros existentes via `clients.active_journey_id`)
+- `status` ampliado para enum textual: `bloqueado | liberado | solicitado | entregue | cancelado`
+- UNIQUE `(client_id, reward_id, journey_id)` parcial onde `status <> 'cancelado'`
+- `decided_by`, `decided_at`, `justification`
 
-- `getMissionsOverview({ tenantId, date })` — agrega contadores do topo (jornadas ativas, missões hoje, concluídas, pendentes, milhas hoje, baixa adesão = clientes com <50% últimos 7 dias).
+**Audit:** reuso de `miles_audit_log` com `source_kind='reward_status_change'`.
 
-- `getClientMissionsDetail({ clientId })` — consolida missões do dia, vídeos, tarefas, rotinas, milhas, selos, marcos, histórico, respostas, fotos. Usa `get_today_mission_summary` + `get_journey_progress` já existentes.
+**Seed idempotente** (`ON CONFLICT (tenant_id, reward_type) DO UPDATE`) dos 4 prêmios oficiais por tenant:
+- Mimo 300 | Sessão 600 | Voucher R$300 900 | Ensaio 1200
 
-- `createManualMission({ ... })` — insere em `client_missions` com `mission_type='manual'`, validando que não colide com automática (índices parciais já cuidam dos demais tipos).
+**Marco Check-in (0):** ajustar `evaluate_client_milestones` para incluir threshold 0 + código `milestone_checkin` (concede registro sem milhas extras, idempotente).
 
-- `adjustMissionStatus({ missionId, status, justification })` — somente missões manuais; grava em `miles_audit_log`.
+**Realtime:** `ALTER PUBLICATION supabase_realtime ADD TABLE` para `miles_ledger`, `client_seals`, `client_journey_milestones`, `reward_redemptions`.
 
-- `adjustMilesManual({ clientId, miles, reason })` — escreve em `miles_ledger` via `award_miles` com idempotency único + `miles_audit_log`.
+## 2. Backend (`thermofit-client-app.functions.ts` e `thermofit-content.functions.ts`)
 
-Todas as funções: ler com `context.supabase` (RLS do gestor) ou validar role via `has_role` e usar `supabaseAdmin` (dynamic import) apenas para escrita auditada.
+- `getClientMiles`: SOMENTE `SUM(miles)` de `miles_ledger` filtrado por `journey_id = clients.active_journey_id`. Remover subtração de spent.
+- `listClientRewards`: retornar prêmios + estado computado por cliente (`bloqueado | liberado | solicitado | entregue`) baseado em saldo + `reward_redemptions` da jornada ativa, ordenados por `milestone_miles`.
+- `requestRewardRedemption`: validar `saldo >= milestone_miles`, upsert em `reward_redemptions` com status `solicitado` (sem débito), respeitando UNIQUE; gravar audit.
+- `decideRedemption` (admin): aceitar `entregue | cancelado`, gravar `decided_by/at`, `justification`, audit.
+- `listClientNotifications` (novo, stub real): retorna últimos eventos relevantes do ledger/selos/marcos/redemptions; vazio = vazio.
 
-## 3. Rotas frontend
-- `src/routes/missoes-admin.tsx` (URL `/missoes-admin` — `missoes` colidiria com possível rota cliente; uso `missoes-admin` para evitar conflito). Layout: header com 6 KPIs, filtros (cliente, status, tipo, data, semana), tabela consolidada. Clique → `/clientes/$id?tab=missoes`.
-- `src/routes/missoes-admin.configuracoes.tsx` — aba Configurações reutilizando `mission_settings` (CRUD via server fn já parcial em `thermofit-missions.functions.ts`; estender se faltar).
-- Atualizar `src/routes/clientes.$id.tsx` para incluir aba **Missões** mostrando blocos de detalhe + ações (criar manual, ajustar status/milhas com justificativa).
+## 3. App da Cliente — `src/routes/app.premios.tsx`
 
-## 4. Permissões
-- Em cada server fn admin: `requireSupabaseAuth` + checagem `has_role(admin|dono|super_admin)`; equipe somente leitura.
-- Cliente final nunca vê: rota fora de `/app`, sidebar admin não é renderizada para `kind=client` (já é).
+Reescrever para layout das referências:
+- Cabeçalho ThermoFit + data + sino funcional (popover com lista ou "Você não tem notificações no momento.")
+- Card premium "Saldo de Milhas" com saldo real
+- Tabs segmentadas **Prêmios** / **Conquistas**
+- Aba Prêmios: cards com ícone por tipo, nome, milhas, badge de estado (Faltam X / Liberado / Solicitado / Entregue). Botão "Solicitar prêmio" só quando `liberado`.
+- Aba Conquistas: grade circular dourado/cinza, Selos (7/14/21/Programa) + Marcos (Check-in 0, 300, 600, 900, 1300) com estado real de `client_seals` e `client_journey_milestones`.
 
-## 5. Validações & testes
-- Smoke runtime via `supabase--read_query` para conferir agregação esperada para a tenant ACAS (Celestina).
-- Build/typecheck automático.
-- Nenhum dado existente é modificado (todas as escritas novas são `INSERT` em `client_missions`, `miles_ledger`, `miles_audit_log`).
+## 4. Realtime + invalidação cruzada
 
-## Limitações esperadas
-- "Baixa adesão" e "atrasada" são derivações em runtime (sem coluna persistida).
-- Edição de missões automáticas continua bloqueada por design.
-- Não vou cobrir E2E navegacional automatizado nesta entrega; apenas smoke SQL + typecheck.
+Hook `useRewardsRealtime(clientId)` em `app.premios.tsx`:
+- `supabase.channel` em `miles_ledger`, `client_seals`, `client_journey_milestones`, `reward_redemptions` filtrado por `client_id`
+- Em qualquer evento, `qc.invalidateQueries` para `client-miles`, `client-rewards`, `client-redemptions`, `client-achievements`, `journey-progress`, `today-mission-summary`.
 
-## Arquivos a alterar/criar
-- editar: `src/components/app-sidebar.tsx`, `src/routes/clientes.$id.tsx`
-- criar: `src/lib/thermofit-missions-admin.functions.ts`, `src/routes/missoes-admin.tsx`, `src/routes/missoes-admin.configuracoes.tsx`
-- possível extensão pequena em `src/lib/thermofit-missions.functions.ts` para reuso de settings CRUD
+Adicionar invalidação cruzada nas mutações já existentes (missões, hidratação, vídeos) para incluir `client-rewards` e `client-achievements`.
+
+## 5. Painel Admin (`src/routes/premios.tsx` + perfil da cliente)
+
+- Catálogo: manter CRUD existente, adicionar campo `reward_type` e `milestone_miles`.
+- Lista de redenções: mostrar todos status, ação "Marcar entregue" / "Cancelar" com modal de justificativa.
+- Perfil da cliente: nova seção "Prêmios e Conquistas" com saldo, lista por status, selos, marcos, histórico do ledger com origem.
+
+## 6. `mission_settings`
+
+Não destrutivo: garantir 8 chaves oficiais via `ensure_mission_settings` (já existe). Marcar chaves não oficiais como `active=false` apenas se forem aliases conhecidos; deixar não-listadas intactas.
+
+## 7. Testes runtime
+
+Script `bun` server-side em tenant de teste:
+1. Conceder milhas → saldo refletido.
+2. Solicitar prêmio → sem alteração de saldo.
+3. UNIQUE bloqueia duplicata.
+4. Admin entrega → audit gravado, saldo intacto.
+5. Marco Check-in registrado em journey nova.
+6. Selo 7 dias gera milhas via `award_miles`.
+
+## Arquivos a alterar
+
+- `supabase/migrations/*` (1 migração)
+- `src/lib/thermofit-client-app.functions.ts`
+- `src/lib/thermofit-content.functions.ts`
+- `src/lib/thermofit-missions.functions.ts` (invalidação)
+- `src/routes/app.premios.tsx` (reescrita)
+- `src/routes/premios.tsx` (CRUD + redenções)
+- `src/routes/clientes.$id.tsx` (seção)
+- script `/tmp/rewards-e2e.ts`
+
+## Limitações conhecidas
+
+- Sino: implementa popover com lista derivada de eventos reais (sem tabela `notifications` dedicada); marcar-como-lido será visual local até o usuário pedir persistência.
+- Imagens de prêmios: usar ícones Lucide (Gift/Sparkles/Ticket/Camera) — sem upload de imagem nesta entrega.
+- Reativação administrativa pós-`entregue`: disponível via "Cancelar" + nova solicitação, conforme regra de unicidade parcial.
+
+Confirma para eu executar tudo em uma única rodada?
