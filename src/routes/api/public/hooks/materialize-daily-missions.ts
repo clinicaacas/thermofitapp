@@ -63,9 +63,10 @@ export const Route = createFileRoute("/api/public/hooks/materialize-daily-missio
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await supabaseAdmin.rpc("materialize_daily_missions_all", {
-          _day: day,
-        });
+        const { data, error } = await supabaseAdmin.rpc(
+          "materialize_daily_missions_all",
+          day ? { _day: day } : ({} as any),
+        );
         if (error) {
           console.error("materialize_daily_missions_all failed", error);
           return new Response(JSON.stringify({ error: "internal" }), {
