@@ -267,7 +267,7 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
                   <Td className="max-w-[280px] truncate">{r.title}</Td>
                   <Td><StatusBadge status={r.status} /></Td>
                   <Td>{r.date}</Td>
-                  <Td>{r.miles}</Td>
+                  <Td><MilesCell row={r} /></Td>
                   <Td><span className="text-xs text-muted-foreground">{r.origin}</span></Td>
                   <Td><span className="text-xs text-muted-foreground">{fmtDateTime(r.updatedAt)}</span></Td>
                   <Td>
