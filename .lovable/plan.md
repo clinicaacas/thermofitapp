@@ -1,85 +1,89 @@
+## Escopo e ordem de execução
 
-# Plano — Módulo Prêmios e Conquistas (entrega única)
+Vou tratar as 10 frentes como uma única entrega coesa. Antes de codar, abro com um mapa de auditoria do estado atual (ledger da Celestina, sumário get_today_mission_summary, vídeos com >=90% sem crédito, tarefas pós-vídeo órfãs) e só depois aplico as correções.
 
-## 1. Banco de dados (migração única)
+### 1. Auditoria inicial (somente leitura, ~6 queries)
+- Snapshot do `miles_ledger` da Celestina por `source_kind` x `occurred_on` para detectar gaps reais.
+- Lista de `client_video_progress` com `progress_percent >= 90` sem linha correspondente em `client_mission_completions` de `video_complete`.
+- Conferência das chaves idempotentes em uso (`award_miles`) para garantir formato único.
+- Inventário de `mission_settings` e `client_missions` ativas para validar a fonte única do contador.
 
-**`rewards`** — adicionar colunas se faltarem: `reward_type` (mimo|sessao|voucher|ensaio), `milestone_miles` (int), `sort_order`.
+### 2. Migração única (estrutura + reconciliação)
+- `mission_settings`: garantir 8 chaves oficiais via `ensure_mission_settings` (já existe) e ativar `weekly_photo=15`, `post_video_task=10`, `hydration_goal=10`.
+- `mission_settings`: travar `default_miles` nos valores oficiais (5/5/10/5/10/5/15/10) por tenant.
+- Coluna `client_task_responses.miles_awarded boolean default false` se ainda não existir (idempotência).
+- View materializada NÃO — manter `get_today_mission_summary` como fonte única.
+- Reescrever `get_today_mission_summary` para considerar: vídeos do dia, tarefas pós-vídeo, check-in, refeição, treino, foto treino, hidratação 2L, foto semanal quando dia==release_day.
+- Função `reconcile_client_video_miles(_client_id, _journey_id)` que, para cada `client_video_progress` >=90% sem crédito, chama `award_miles` com `source_kind='video_complete'` e `idempotency_key='video:'||video_id||':'||occurred_on`. Roda 1x para a Celestina via migração (DO block ao final).
+- Trigger `BEFORE UPDATE` em `client_video_progress` para emitir `award_miles` quando `progress_percent` cruza 90% pela primeira vez (idempotência via chave única).
 
-**`reward_redemptions`** — adicionar:
-- `journey_id uuid` (preencher para registros existentes via `clients.active_journey_id`)
-- `status` ampliado para enum textual: `bloqueado | liberado | solicitado | entregue | cancelado`
-- UNIQUE `(client_id, reward_id, journey_id)` parcial onde `status <> 'cancelado'`
-- `decided_by`, `decided_at`, `justification`
+### 3. Backend (server functions)
+- `thermofit-missions.functions.ts`:
+  - `markVideoProgress`: passa a chamar a nova RPC com `progress` real do player; concede +5 só ao cruzar 90%, idempotente.
+  - `submitPostVideoConfirm`: requer vídeo concluído antes; concede +10 1x por (cliente, task, jornada).
+  - `submitHydrationGoal`: detecta cruzamento de 2L (lê `client_hydration_logs` do dia), idempotente.
+  - `submitWeeklyPhoto`: já existe — garantir +15 1x via idempotency `weekly_photo:journey:week`.
+  - `submitCheckin/submitMeal/submitWorkout/submitWorkoutPhoto`: revisar idempotência e travar regra de "treino → libera foto", "descanso → bloqueia foto, sem milhas, sem penalidade".
+- `thermofit-missions-admin.functions.ts`:
+  - Novas funções `listPostVideoTasks`, `upsertPostVideoTask`, `togglePostVideoTask` (tipo fixo "confirmação simples" nesta entrega).
+- `thermofit-client-app.functions.ts`: garantir que `getHomeBundle` NÃO retorna mais o bloco de check-in/rotina (Home limpa).
 
-**Audit:** reuso de `miles_audit_log` com `source_kind='reward_status_change'`.
+### 4. App da Cliente
+- `app.missoes.tsx`:
+  - Vídeo do Dia: registra 90% via `timeupdate` (não só `ended`); mostra check verde persistente; reassistir não credita.
+  - Tarefa pós-vídeo: só renderiza quando há registros em `client_missions` tipo `post_video_task` ativos do dia E vídeo concluído.
+  - Rotina: refeição/treino com seleção única (radio behavior); foto treino oculta até treino registrado.
+  - Hidratação: barra ligada ao `client_hydration_logs` e mostra "+10 ao atingir 2L".
+  - Foto semanal: mantém upload, mostra check verde e Milhas creditadas; mensagens de erro humanas.
+- `app.index.tsx`: remover bloco "Me conta como foi a sua jornada hoje". Manter Suporte e atalhos.
+- `app.videos.tsx`: idem player com 90% + status verde persistente.
+- `app.premios.tsx`, `app.passaporte.tsx`: já consomem `client-miles` — adicionar invalidação cruzada.
 
-**Seed idempotente** (`ON CONFLICT (tenant_id, reward_type) DO UPDATE`) dos 4 prêmios oficiais por tenant:
-- Mimo 300 | Sessão 600 | Voucher R$300 900 | Ensaio 1200
+### 5. Painel Admin
+- `missoes-admin.tsx`: nova aba **Tarefas pós-vídeo** dentro do mesmo módulo, com CRUD por vídeo (lista de vídeos do tenant + tarefas vinculadas + toggle ativo + Milhas fixas 10).
+- `clientes.$id.missoes.tsx`: já existe — adicionar coluna de origem real (vídeo X, tarefa Y).
+- `clientes.$id.premios.tsx`: já reflete ledger; só revisar invalidação Realtime.
 
-**Marco Check-in (0):** ajustar `evaluate_client_milestones` para incluir threshold 0 + código `milestone_checkin` (concede registro sem milhas extras, idempotente).
+### 6. Realtime e invalidação cruzada
+- Hook `useMissionsRealtime(clientId)` em `app.missoes.tsx` e `app.index.tsx` escutando `miles_ledger`, `client_mission_completions`, `client_video_progress`, `client_hydration_logs`, `client_progress_photos`, `client_task_responses` filtrados por cliente.
+- Em cada evento, invalidar: `mission-summary`, `daily-routine`, `client-miles`, `client-home`, `today-mission-summary`, `client-rewards`, `client-achievements`, `journey-progress`.
+- Adicionar `ALTER PUBLICATION` para tabelas que ainda não estão no Realtime.
 
-**Realtime:** `ALTER PUBLICATION supabase_realtime ADD TABLE` para `miles_ledger`, `client_seals`, `client_journey_milestones`, `reward_redemptions`.
+### 7. Reconciliação Celestina (automática, conforme aprovado)
+- Bloco DO ao fim da migração que:
+  1. Para cada `client_video_progress` da Celestina com `progress_percent >= 90` e sem linha em `miles_ledger` com `source_ref` correspondente, chama `award_miles` com `source_kind='video_complete'` e key idempotente.
+  2. Grava 1 linha em `miles_audit_log` por crédito com `source_kind='reconciliation'` e justificativa "Reconciliação técnica Entrega 1".
+- Não toca em refeição/treino/hidratação/foto (não temos comprovação binária sem timestamp confiável).
 
-## 2. Backend (`thermofit-client-app.functions.ts` e `thermofit-content.functions.ts`)
+### 8. Teste runtime E2E
+- Script `bun /tmp/missions-e2e.ts` que, autenticado como admin via service role, executa para a Celestina:
+  1. Marca progresso de vídeo 95% → confere +5.
+  2. Repete → confere idempotência.
+  3. Marca tarefa pós-vídeo → confere +10 1x.
+  4. Check-in/refeição/treino/foto → confere +5/+5/+10/+5.
+  5. Hidratação 2L → confere +10 1x.
+  6. Snapshot final do ledger e do `get_today_mission_summary`.
+- Resultado anexado na resposta final.
 
-- `getClientMiles`: SOMENTE `SUM(miles)` de `miles_ledger` filtrado por `journey_id = clients.active_journey_id`. Remover subtração de spent.
-- `listClientRewards`: retornar prêmios + estado computado por cliente (`bloqueado | liberado | solicitado | entregue`) baseado em saldo + `reward_redemptions` da jornada ativa, ordenados por `milestone_miles`.
-- `requestRewardRedemption`: validar `saldo >= milestone_miles`, upsert em `reward_redemptions` com status `solicitado` (sem débito), respeitando UNIQUE; gravar audit.
-- `decideRedemption` (admin): aceitar `entregue | cancelado`, gravar `decided_by/at`, `justification`, audit.
-- `listClientNotifications` (novo, stub real): retorna últimos eventos relevantes do ledger/selos/marcos/redemptions; vazio = vazio.
-
-## 3. App da Cliente — `src/routes/app.premios.tsx`
-
-Reescrever para layout das referências:
-- Cabeçalho ThermoFit + data + sino funcional (popover com lista ou "Você não tem notificações no momento.")
-- Card premium "Saldo de Milhas" com saldo real
-- Tabs segmentadas **Prêmios** / **Conquistas**
-- Aba Prêmios: cards com ícone por tipo, nome, milhas, badge de estado (Faltam X / Liberado / Solicitado / Entregue). Botão "Solicitar prêmio" só quando `liberado`.
-- Aba Conquistas: grade circular dourado/cinza, Selos (7/14/21/Programa) + Marcos (Check-in 0, 300, 600, 900, 1300) com estado real de `client_seals` e `client_journey_milestones`.
-
-## 4. Realtime + invalidação cruzada
-
-Hook `useRewardsRealtime(clientId)` em `app.premios.tsx`:
-- `supabase.channel` em `miles_ledger`, `client_seals`, `client_journey_milestones`, `reward_redemptions` filtrado por `client_id`
-- Em qualquer evento, `qc.invalidateQueries` para `client-miles`, `client-rewards`, `client-redemptions`, `client-achievements`, `journey-progress`, `today-mission-summary`.
-
-Adicionar invalidação cruzada nas mutações já existentes (missões, hidratação, vídeos) para incluir `client-rewards` e `client-achievements`.
-
-## 5. Painel Admin (`src/routes/premios.tsx` + perfil da cliente)
-
-- Catálogo: manter CRUD existente, adicionar campo `reward_type` e `milestone_miles`.
-- Lista de redenções: mostrar todos status, ação "Marcar entregue" / "Cancelar" com modal de justificativa.
-- Perfil da cliente: nova seção "Prêmios e Conquistas" com saldo, lista por status, selos, marcos, histórico do ledger com origem.
-
-## 6. `mission_settings`
-
-Não destrutivo: garantir 8 chaves oficiais via `ensure_mission_settings` (já existe). Marcar chaves não oficiais como `active=false` apenas se forem aliases conhecidos; deixar não-listadas intactas.
-
-## 7. Testes runtime
-
-Script `bun` server-side em tenant de teste:
-1. Conceder milhas → saldo refletido.
-2. Solicitar prêmio → sem alteração de saldo.
-3. UNIQUE bloqueia duplicata.
-4. Admin entrega → audit gravado, saldo intacto.
-5. Marco Check-in registrado em journey nova.
-6. Selo 7 dias gera milhas via `award_miles`.
-
-## Arquivos a alterar
-
-- `supabase/migrations/*` (1 migração)
+### Arquivos a alterar
+- `supabase/migrations/<timestamp>_missions_delivery_1.sql` (única)
+- `src/lib/thermofit-missions.functions.ts`
+- `src/lib/thermofit-missions-admin.functions.ts`
 - `src/lib/thermofit-client-app.functions.ts`
-- `src/lib/thermofit-content.functions.ts`
-- `src/lib/thermofit-missions.functions.ts` (invalidação)
-- `src/routes/app.premios.tsx` (reescrita)
-- `src/routes/premios.tsx` (CRUD + redenções)
-- `src/routes/clientes.$id.tsx` (seção)
-- script `/tmp/rewards-e2e.ts`
+- `src/routes/app.missoes.tsx`
+- `src/routes/app.index.tsx`
+- `src/routes/app.videos.tsx`
+- `src/routes/missoes-admin.tsx`
+- `src/components/post-video-task-card.tsx`
+- `src/components/weekly-photo-card.tsx`
+- `src/components/daily-routine-card.tsx`
+- novo `src/hooks/use-missions-realtime.ts`
+- `/tmp/missions-e2e.ts` (script)
 
-## Limitações conhecidas
+### Limitações conhecidas
+- Tarefas pós-vídeo entram apenas com tipo "confirmação simples" (conforme aprovado); texto curto e seleção ficam para entrega futura.
+- Reconciliação automática cobre apenas vídeos (única ação com timestamp e percentual auditáveis). Refeições/treinos/hidratação dependem de auto-relato e não são reconciliados retroativamente.
+- Selos/Marcos seguem regras já implementadas via triggers — não serão alterados nesta entrega, apenas validados.
+- Detecção de 2L na hidratação considera a soma do dia local (`America/Sao_Paulo`), não o instante exato em que o usuário cruzou — credita no primeiro evento que totaliza >=2000ml.
 
-- Sino: implementa popover com lista derivada de eventos reais (sem tabela `notifications` dedicada); marcar-como-lido será visual local até o usuário pedir persistência.
-- Imagens de prêmios: usar ícones Lucide (Gift/Sparkles/Ticket/Camera) — sem upload de imagem nesta entrega.
-- Reativação administrativa pós-`entregue`: disponível via "Cancelar" + nova solicitação, conforme regra de unicidade parcial.
-
-Confirma para eu executar tudo em uma única rodada?
+Posso executar tudo nesta ordem agora?
