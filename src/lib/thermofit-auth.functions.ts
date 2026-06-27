@@ -120,11 +120,36 @@ async function assertUserManager(admin: SupabaseAdmin, userId: string, tenantId:
     console.error("Erro ao validar permissões do administrador", error);
     throw error;
   }
-  const canManage =
-    data?.status === "ativo" &&
-    data.tenant_id === tenantId &&
-    ["super_admin", "dono", "admin"].includes(data.profile);
+  if (!data || data.status !== "ativo") throw new Error("Forbidden");
+  if (data.profile === "super_admin") return;
+  // Non super-admin must have an active membership with managing role in this tenant
+  const { data: m } = await admin
+    .from("profile_tenant_memberships")
+    .select("role,status")
+    .eq("profile_id", userId)
+    .eq("tenant_id", tenantId)
+    .eq("status", "ativo")
+    .maybeSingle();
+  const canManage = m && ["dono", "admin"].includes(m.role as string);
   if (!canManage) throw new Error("Forbidden");
+}
+
+async function isSuperAdmin(admin: SupabaseAdmin, userId: string): Promise<boolean> {
+  const { data } = await admin
+    .from("profiles")
+    .select("profile,status")
+    .eq("id", userId)
+    .maybeSingle();
+  return !!data && data.profile === "super_admin" && data.status === "ativo";
+}
+
+async function countActiveSuperAdmins(admin: SupabaseAdmin): Promise<number> {
+  const { count } = await admin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("profile", "super_admin")
+    .eq("status", "ativo");
+  return count ?? 0;
 }
 
 function mapTenant(row: any) {
