@@ -825,10 +825,15 @@ export const getHydrationToday = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw error;
     const total = (rows ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    const goal = client.hydration_goal_ml ?? 2000;
+    const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
     return {
       day,
       total,
-      goal: client.hydration_goal_ml ?? 2000,
+      goal,
+      creditedToday: !!ledger,
+      creditedMiles: Number((ledger as any)?.miles ?? 0),
+      creditedAt: (ledger as any)?.awarded_at ?? null,
       logs: rows ?? [],
     };
   });
@@ -860,13 +865,7 @@ export const addHydration = createServerFn({ method: "POST" })
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     const goal = client.hydration_goal_ml ?? 2000;
     if (total >= goal) {
-      const { data: ms } = await admin
-        .from("mission_settings")
-        .select("default_miles, active")
-        .eq("tenant_id", client.tenant_id)
-        .eq("mission_kind", "hydration_goal")
-        .maybeSingle();
-      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      const miles = await missionMiles(admin, client.tenant_id, "hydration_goal", 10);
       if (miles > 0) {
         const { error: awardErr } = await admin.rpc("award_miles", {
           _client_id: client.id,
@@ -876,12 +875,15 @@ export const addHydration = createServerFn({ method: "POST" })
           _idempotency_key: `hydration_goal:${day}`,
           _reason: "Meta de hidratação atingida",
           _metadata: { total, goal } as any,
+          _journey_id: (client as any).active_journey_id,
         });
         if (awardErr) throw awardErr;
       }
+      await syncHydrationMissionCompletion(admin, client, day, total, goal);
     }
 
-    return { ok: true };
+    const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
+    return { ok: true, total, goal, creditedToday: !!ledger, creditedMiles: Number((ledger as any)?.miles ?? 0) };
   });
 
 export const undoLastHydration = createServerFn({ method: "POST" })
@@ -902,6 +904,13 @@ export const undoLastHydration = createServerFn({ method: "POST" })
     if (!last) return { ok: true, removed: false };
     const { error } = await admin.from("client_hydration_logs").delete().eq("id", last.id);
     if (error) throw error;
+    const { data: todays } = await admin
+      .from("client_hydration_logs")
+      .select("ml")
+      .eq("client_id", client.id)
+      .eq("log_date", day);
+    const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    await syncHydrationMissionCompletion(admin, client, day, total, client.hydration_goal_ml ?? 2000);
     return { ok: true, removed: true };
   });
 
