@@ -126,6 +126,8 @@ function LoginPage() {
           <div className="mt-6 text-center text-[12px] text-neutral-500">
             Clínica Acas — Sistema ThermoFit
           </div>
+
+          <IOSInstallHint />
         </div>
       </div>
     </div>
