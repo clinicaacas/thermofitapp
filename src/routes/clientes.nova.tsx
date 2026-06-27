@@ -83,6 +83,7 @@ function Page() {
           clinicalNotes: form.clinicalNotes,
           hydrationGoalMl: Number(form.hydrationGoalMl) || 0,
           status: "ativa",
+          ...(callerIsSuperAdmin && tenantId && tenantId !== tenant.id ? { tenantId } : {}),
           consents: {
             terms: form.terms,
             privacy: form.privacy,
