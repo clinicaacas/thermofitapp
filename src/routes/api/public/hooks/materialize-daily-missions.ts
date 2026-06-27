@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 // Não concede Milhas. Não cria conclusões. Apenas INSERT ... ON CONFLICT DO NOTHING.
 //
 // Autenticação obrigatória:
-//  - Cron (pg_cron): envia header `x-cron-secret` igual a process.env.CRON_SECRET.
+//  - Cron (pg_cron): envia header `x-cron-secret` com valor armazenado no Vault.
 //  - Admin manual: envia Bearer do usuário; precisa ser super_admin/dono/admin.
 // Publishable key sozinha NÃO autoriza.
 export const Route = createFileRoute("/api/public/hooks/materialize-daily-missions")({
@@ -14,15 +14,21 @@ export const Route = createFileRoute("/api/public/hooks/materialize-daily-missio
     handlers: {
       POST: async ({ request }) => {
         const url = process.env.SUPABASE_URL!;
-        const cronSecret = process.env.CRON_SECRET;
         const cronHeader = request.headers.get("x-cron-secret");
 
         let authorized = false;
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        if (cronSecret && cronHeader && cronHeader === cronSecret) {
-          authorized = true;
-        } else {
-          const authHeader = request.headers.get("authorization") ?? request.headers.get("Authorization");
+        if (cronHeader) {
+          const { data: secret } = await supabaseAdmin.rpc("read_cron_secret");
+          if (typeof secret === "string" && secret.length > 0 && cronHeader === secret) {
+            authorized = true;
+          }
+        }
+
+        if (!authorized) {
+          const authHeader =
+            request.headers.get("authorization") ?? request.headers.get("Authorization");
           const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
           if (token) {
             const userClient = createClient(url, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -31,7 +37,6 @@ export const Route = createFileRoute("/api/public/hooks/materialize-daily-missio
             });
             const { data: userData } = await userClient.auth.getUser();
             if (userData?.user) {
-              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
               const { data: prof } = await supabaseAdmin
                 .from("profiles")
                 .select("profile,status")
@@ -62,7 +67,6 @@ export const Route = createFileRoute("/api/public/hooks/materialize-daily-missio
           // body opcional
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data, error } = await supabaseAdmin.rpc(
           "materialize_daily_missions_all",
           day ? { _day: day } : ({} as any),
