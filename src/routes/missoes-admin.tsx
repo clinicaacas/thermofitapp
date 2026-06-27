@@ -161,8 +161,9 @@ function Central() {
 
 type CentralRow = {
   refId: string; clientId: string; clientName: string; journeyDay: number | null;
-  week: number | null; typeLabel: string; title: string; status: string;
-  date: string; miles: number; origin: string; updatedAt?: string | null;
+  week: number | null; type: string; typeLabel: string; title: string; status: string;
+  date: string; miles: number; predictedMiles: number; inconsistent: boolean;
+  origin: string; updatedAt?: string | null;
   journeyId?: string | null; totalMiles?: number;
 };
 
