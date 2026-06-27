@@ -45,28 +45,43 @@ function Page() {
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const { data: missionsData } = useQuery({
     queryKey: ["client-missions", clientId],
     queryFn: () => fetchMissions({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const { data: summary } = useQuery({
     queryKey: ["mission-summary", clientId],
     queryFn: () => fetchSummary({ data: { clientId } }),
     enabled: !!clientId,
     staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const { data: hydrationData } = useQuery({
     queryKey: ["client-hydration", clientId],
     queryFn: () => fetchHydration({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const { data: milesData } = useQuery({
     queryKey: ["client-miles", clientId],
     queryFn: () => fetchMiles({ data: { clientId } }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
+
   const missions = missionsData?.missions ?? [];
   // Fonte única de verdade para o contador (igual em Home e Missões).
   const missionsDone = (summary as any)?.completed ?? missions.filter((m: any) => m.completed).length;
