@@ -22,6 +22,7 @@ const PLAN_OPTIONS = [
 
 function Page() {
   const create = useServerFn(createClientRecord);
+  const startJourney = useServerFn(startClientJourney);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
