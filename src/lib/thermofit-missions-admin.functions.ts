@@ -373,9 +373,10 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         type: "hydration_goal", typeLabel: TYPE_LABEL.hydration_goal,
         title: hydrationPatch.title,
         status: hydrationPatch.status,
-        date: agg.date, miles: hydrationPatch.miles, origin: "derived", updatedAt: hydrationPatch.updatedAt, missionId: null,
+        date: agg.date, miles: hydrationPatch.miles, predictedMiles: predictedFor("hydration_goal", 0), inconsistent: hydrationPatch.status === "completed" && hydrationPatch.miles <= 0, origin: "derived", updatedAt: hydrationPatch.updatedAt, missionId: null,
         totalMiles: ledgerByClient.get(agg.client_id) ?? 0,
         details: hydrationPatch.details,
+
       });
     }
 
