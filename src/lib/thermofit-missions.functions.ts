@@ -322,6 +322,7 @@ async function award(
     _idempotency_key: idempotencyKey,
     _reason: reason,
     _metadata: metadata as any,
+    _journey_id: (client as any).active_journey_id ?? null,
   });
   if (error) throw error;
   return { awarded: true, miles, ledger: data };
@@ -994,6 +995,7 @@ export const submitWeeklyPhoto = createServerFn({ method: "POST" })
       client.id, "weekly_photo", `w${week}`, key, "Foto de evolução semanal",
       { storageKey, journeyId, week, photoId: inserted.id },
     );
+    await syncWeeklyPhotoMission(admin, client.id);
     return { ok: true, week, storageKey, photoId: inserted.id, ...res };
   });
 
