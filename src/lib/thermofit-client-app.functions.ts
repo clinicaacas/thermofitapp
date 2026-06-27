@@ -608,6 +608,7 @@ export async function ensureAndSyncWeeklyPhotoMission(
   const title = `Foto de evolução — Semana ${week}`;
   const description = "Registre sua foto desta semana para acompanhar sua evolução.";
   const today = todayISO();
+  const miles = await missionMiles(admin, client.tenant_id, "weekly_photo", 15);
 
   // Idempotente: chave lógica baseada em (client_id, journey_id, mission_type, week_number).
   const { data: existing } = await admin
@@ -627,7 +628,7 @@ export async function ensureAndSyncWeeklyPhotoMission(
         client_id: client.id,
         title,
         description,
-        miles: 0,
+        miles,
         due_date: today,
         active: true,
         mission_type: "weekly_photo",
@@ -654,36 +655,76 @@ export async function ensureAndSyncWeeklyPhotoMission(
   } else {
     await admin
       .from("client_missions")
-      .update({ due_date: today, active: true, title })
+      .update({ due_date: today, active: true, title, miles })
       .eq("id", missionId);
   }
 
   // Conta fotos da cliente nesta semana DESTA jornada (apenas client_upload).
-  const { count: photoCount } = await admin
+  const { data: firstPhoto, error: firstPhotoErr, count: photoCount } = await admin
     .from("client_progress_photos")
-    .select("id", { head: true, count: "exact" })
+    .select("id, taken_at", { count: "exact" })
     .eq("client_id", client.id)
     .eq("journey_id", journeyId)
     .eq("week", week)
-    .eq("source", "client_upload");
+    .eq("source", "client_upload")
+    .order("taken_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (firstPhotoErr) throw firstPhotoErr;
   const { data: completion } = await admin
     .from("client_mission_completions")
-    .select("mission_id")
+    .select("mission_id, miles_awarded")
     .eq("mission_id", missionId)
     .eq("client_id", client.id)
     .maybeSingle();
-  if ((photoCount ?? 0) > 0 && !completion) {
-    await admin
-      .from("client_mission_completions")
-      .upsert(
-        {
+  if ((photoCount ?? 0) > 0 && firstPhoto) {
+    const idempotencyKey = `weekly_photo:${journeyId}:w${week}`;
+    let ledgerRow: any = null;
+    if (miles > 0) {
+      const occurredOn = String(firstPhoto.taken_at ?? today).slice(0, 10);
+      const { data: insertedLedger, error: ledgerErr } = await admin
+        .from("miles_ledger")
+        .insert({
           tenant_id: client.tenant_id,
           client_id: client.id,
-          mission_id: missionId,
-          miles_awarded: 0,
-        },
-        { onConflict: "mission_id,client_id" },
-      );
+          journey_id: journeyId,
+          source_kind: "weekly_photo",
+          source_ref: firstPhoto.id,
+          miles,
+          reason: "Foto de evolução semanal",
+          idempotency_key: idempotencyKey,
+          occurred_on: occurredOn,
+          metadata: { week, photoId: firstPhoto.id, syncedBy: "weekly_photo_sync" },
+        })
+        .select("id, miles, awarded_at, occurred_on")
+        .maybeSingle();
+      if (ledgerErr && ledgerErr.code !== "23505") throw ledgerErr;
+      ledgerRow = insertedLedger;
+      if (!ledgerRow) {
+        const { data: existingLedger, error: existingLedgerErr } = await admin
+          .from("miles_ledger")
+          .select("id, miles, awarded_at, occurred_on")
+          .eq("client_id", client.id)
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+        if (existingLedgerErr) throw existingLedgerErr;
+        ledgerRow = existingLedger;
+      }
+    }
+    await ensureMissionCompletion(
+      admin,
+      {
+        id: missionId,
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+      },
+      Number(ledgerRow?.miles ?? miles ?? 0),
+      "weekly_photo",
+      firstPhoto.id,
+      idempotencyKey,
+      ledgerRow?.awarded_at ?? firstPhoto.taken_at ?? new Date().toISOString(),
+    );
   } else if ((photoCount ?? 0) === 0 && completion) {
     await admin
       .from("client_mission_completions")
