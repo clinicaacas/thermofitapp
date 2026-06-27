@@ -204,62 +204,153 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   const tenant = await ensureAcasTenant(supabaseAdmin);
   await ensureMasterAdmin(supabaseAdmin, tenant.id);
 
-  let team: ReturnType<typeof mapProfile>[] = [];
+  // Ensure master super admin has membership in main tenant (idempotent)
+  await supabaseAdmin
+    .from("profile_tenant_memberships")
+    .upsert(
+      [{
+        profile_id: (await supabaseAdmin.from("profiles").select("id").eq("email", "studioacass@gmail.com").maybeSingle()).data?.id,
+        tenant_id: tenant.id,
+        role: "dono",
+        status: "ativo",
+      }].filter((m) => !!m.profile_id) as any,
+      { onConflict: "profile_id,tenant_id" },
+    );
+
   const authHeader =
     getRequestHeader("authorization") ?? getRequestHeader("Authorization");
   const token = authHeader?.startsWith("Bearer ")
     ? authHeader.replace("Bearer ", "")
     : null;
 
-  // Internal team list is visible to any active tenant member of this clinic.
-  // End-client accounts (no profile row in this tenant) never see it.
+  let callerId: string | null = null;
+  let callerIsSuper = false;
   let callerIsInternalMember = false;
   if (token) {
     const { data } = await supabaseAdmin.auth.getUser(token);
     if (data.user) {
+      callerId = data.user.id;
       const { data: profile } = await supabaseAdmin
         .from("profiles")
         .select("profile,status,tenant_id")
         .eq("id", data.user.id)
         .maybeSingle();
+      callerIsSuper = !!profile && profile.profile === "super_admin" && profile.status === "ativo";
       callerIsInternalMember = Boolean(
-        profile &&
-          profile.status === "ativo" &&
-          profile.tenant_id === tenant.id &&
-          ["super_admin", "dono", "admin", "equipe"].includes(profile.profile),
+        profile && profile.status === "ativo" &&
+        (callerIsSuper || profile.tenant_id === tenant.id),
       );
+      if (!callerIsInternalMember && callerId) {
+        const { data: m } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("id")
+          .eq("profile_id", callerId)
+          .eq("tenant_id", tenant.id)
+          .eq("status", "ativo")
+          .maybeSingle();
+        callerIsInternalMember = !!m;
+      }
     }
   }
 
+  let team: (ReturnType<typeof mapProfile> & { memberships: Array<{ tenantId: string; tenantName: string; role: string; status: string }> })[] = [];
+  let allTenants: Array<{ id: string; clinicName: string; status: string; accountType: string | null }> = [];
+
   if (callerIsInternalMember) {
     try {
-      const { data: profiles, error } = await supabaseAdmin
-        .from("profiles")
-        .select("*")
-        .eq("tenant_id", tenant.id)
-        .in("profile", ["super_admin", "dono", "admin", "equipe"])
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      team = (profiles ?? [])
-        .filter((p: any) => p && p.id)
-        .map((p: any) => {
-          try {
-            return mapProfile(p);
-          } catch (mapErr) {
-            console.error("[getTenantSnapshot] mapProfile failed for row", p?.id, mapErr);
-            return null;
-          }
-        })
-        .filter((p): p is ReturnType<typeof mapProfile> => p !== null);
+      // Team scope: super_admin = all profiles via memberships; others = just members of this tenant
+      let profileIds: string[] = [];
+      if (callerIsSuper) {
+        const { data: allProfiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .in("profile", ["super_admin", "dono", "admin", "equipe"]);
+        profileIds = (allProfiles ?? []).map((p: any) => p.id);
+      } else {
+        const { data: memRows } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("profile_id")
+          .eq("tenant_id", tenant.id);
+        profileIds = (memRows ?? []).map((m: any) => m.profile_id);
+        // Always include direct profiles for legacy tenant_id linkage
+        const { data: legacy } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("tenant_id", tenant.id)
+          .in("profile", ["super_admin", "dono", "admin", "equipe"]);
+        for (const r of legacy ?? []) if (!profileIds.includes((r as any).id)) profileIds.push((r as any).id);
+      }
+
+      if (profileIds.length > 0) {
+        const { data: profiles } = await supabaseAdmin
+          .from("profiles")
+          .select("*")
+          .in("id", profileIds)
+          .order("created_at", { ascending: true });
+        const { data: memberships } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("profile_id,tenant_id,role,status,tenants(clinic_name)")
+          .in("profile_id", profileIds);
+        const memMap = new Map<string, Array<{ tenantId: string; tenantName: string; role: string; status: string }>>();
+        for (const m of memberships ?? []) {
+          const arr = memMap.get((m as any).profile_id) ?? [];
+          arr.push({
+            tenantId: (m as any).tenant_id,
+            tenantName: ((m as any).tenants?.clinic_name as string) ?? "",
+            role: (m as any).role,
+            status: (m as any).status,
+          });
+          memMap.set((m as any).profile_id, arr);
+        }
+        team = (profiles ?? [])
+          .filter((p: any) => p && p.id)
+          .map((p: any) => {
+            try {
+              return { ...mapProfile(p), memberships: memMap.get(p.id) ?? [] };
+            } catch (mapErr) {
+              console.error("[getTenantSnapshot] mapProfile failed for row", p?.id, mapErr);
+              return null;
+            }
+          })
+          .filter((p): p is (ReturnType<typeof mapProfile> & { memberships: any[] }) => p !== null);
+      }
+
+      // Tenants visible to caller
+      if (callerIsSuper) {
+        const { data: t } = await supabaseAdmin
+          .from("tenants")
+          .select("id,clinic_name,status,account_type")
+          .order("clinic_name", { ascending: true });
+        allTenants = (t ?? []).map((r: any) => ({
+          id: r.id, clinicName: r.clinic_name, status: r.status, accountType: r.account_type,
+        }));
+      } else if (callerId) {
+        const { data: t } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("tenants(id,clinic_name,status,account_type)")
+          .eq("profile_id", callerId)
+          .eq("status", "ativo");
+        allTenants = (t ?? [])
+          .map((r: any) => r.tenants)
+          .filter(Boolean)
+          .map((r: any) => ({
+            id: r.id, clinicName: r.clinic_name, status: r.status, accountType: r.account_type,
+          }));
+      }
     } catch (teamErr) {
-      // Não derruba o snapshot inteiro por causa de uma falha parcial na lista
       console.error("[getTenantSnapshot] failed to load team", teamErr);
       team = [];
     }
   }
 
-  return { tenant: { ...mapTenant(tenant), team } };
+  return {
+    tenant: { ...mapTenant(tenant), team },
+    allTenants,
+    callerIsSuperAdmin: callerIsSuper,
+  };
 });
+
+
 
 export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
