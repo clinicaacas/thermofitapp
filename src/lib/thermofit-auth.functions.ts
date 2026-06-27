@@ -533,12 +533,33 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       profile: profileSchema.default("equipe"),
       status: statusSchema.default("ativo"),
       mustChangePassword: z.boolean().default(false),
+      memberships: z.array(membershipInputSchema).optional().default([]),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
-    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
+    const callerIsSuper = await isSuperAdmin(supabaseAdmin, context.userId);
+
+    // Anchor tenant for legacy profiles.tenant_id
+    let anchorTenantId = tenant.id;
+    if (data.memberships.length > 0) {
+      anchorTenantId = data.memberships[0].tenantId;
+    }
+    await assertUserManager(supabaseAdmin, context.userId, anchorTenantId);
+
+    // Guard: only super admin may grant super_admin role
+    if (data.profile === "super_admin" && !callerIsSuper) {
+      throw new Error("Apenas Super Admin pode conceder o papel Super Admin.");
+    }
+
+    // Guard: non-super may only create memberships in tenants they manage
+    if (!callerIsSuper) {
+      for (const m of data.memberships) {
+        await assertUserManager(supabaseAdmin, context.userId, m.tenantId);
+      }
+    }
+
     const password = generateTemporaryPassword();
     let authUser = await findAuthUserByEmail(supabaseAdmin, data.email);
     let existed = Boolean(authUser);
@@ -546,7 +567,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { password, email_confirm: true });
       if (error) {
         console.error("Erro ao criar/atualizar usuário no Auth", error);
-        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+        throw new Error("Não foi possível salvar o usuário.");
       }
     } else {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -557,15 +578,16 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       });
       if (error) {
         console.error("Erro ao criar usuário no Auth", error);
-        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+        throw new Error("Não foi possível salvar o usuário.");
       }
       authUser = created.user;
     }
+
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
       .upsert({
         id: authUser.id,
-        tenant_id: tenant.id,
+        tenant_id: anchorTenantId,
         name: data.name,
         email: data.email.toLowerCase(),
         phone: data.phone,
@@ -577,9 +599,28 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) {
-      console.error("Erro ao criar perfil ou vincular clínica", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      console.error("Erro ao criar perfil", error);
+      throw new Error("Não foi possível salvar o usuário.");
     }
+
+    // Apply memberships (idempotent upsert)
+    const membershipsToWrite = data.memberships.length > 0
+      ? data.memberships
+      : data.profile !== "super_admin"
+        ? [{ tenantId: anchorTenantId, role: (data.profile as "dono" | "admin" | "equipe"), status: "ativo" as const }]
+        : [];
+    for (const m of membershipsToWrite) {
+      await supabaseAdmin
+        .from("profile_tenant_memberships")
+        .upsert({
+          profile_id: profile.id,
+          tenant_id: m.tenantId,
+          role: m.role,
+          status: m.status,
+          created_by: context.userId,
+        }, { onConflict: "profile_id,tenant_id" });
+    }
+
     return { user: mapProfile(profile), temporaryPassword: password, existed };
   });
 
@@ -594,7 +635,7 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
     if (authError) {
       console.error("Erro ao redefinir senha no Auth", authError);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      throw new Error("Não foi possível redefinir a senha.");
     }
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
@@ -602,10 +643,7 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
       .eq("id", data.userId)
       .select("*")
       .single();
-    if (error) {
-      console.error("Erro ao atualizar perfil após redefinir senha", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
-    }
+    if (error) throw new Error("Não foi possível atualizar o perfil.");
     return { user: mapProfile(profile), temporaryPassword: password };
   });
 
@@ -616,24 +654,39 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
     await assertUserManager(supabaseAdmin, context.userId, tenant.id);
+    const callerIsSuper = await isSuperAdmin(supabaseAdmin, context.userId);
+
+    // Guard: only super admin can grant/revoke super_admin role
+    if (data.patch.profile && data.patch.profile === "super_admin" && !callerIsSuper) {
+      throw new Error("Apenas Super Admin pode conceder o papel Super Admin.");
+    }
+    const { data: target } = await supabaseAdmin
+      .from("profiles").select("profile,status").eq("id", data.userId).maybeSingle();
+    if (target?.profile === "super_admin") {
+      if (!callerIsSuper && data.patch.profile && data.patch.profile !== "super_admin") {
+        throw new Error("Apenas Super Admin pode revogar o papel Super Admin.");
+      }
+      // Last super admin guard: block deactivating or downgrading the last active super admin
+      const wouldRemove =
+        (data.patch.profile && data.patch.profile !== "super_admin") ||
+        (data.patch.status && data.patch.status !== "ativo");
+      if (wouldRemove) {
+        const count = await countActiveSuperAdmins(supabaseAdmin);
+        if (count <= 1) throw new Error("Não é possível remover o último Super Admin ativo.");
+      }
+    }
+
     const allowed: Record<string, string> = {
-      name: "name",
-      email: "email",
-      phone: "phone",
-      role: "role",
-      profile: "profile",
-      status: "status",
-      mustChangePassword: "must_change_password",
+      name: "name", email: "email", phone: "phone", role: "role",
+      profile: "profile", status: "status", mustChangePassword: "must_change_password",
     };
     const patch: Record<string, unknown> = {};
     Object.entries(data.patch).forEach(([key, value]) => {
       if (key in allowed) patch[allowed[key]] = value;
     });
-    const { data: profile, error } = await supabaseAdmin.from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
-    if (error) {
-      console.error("Erro ao atualizar perfil", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
-    }
+    const { data: profile, error } = await supabaseAdmin
+      .from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
+    if (error) throw new Error("Não foi possível atualizar o usuário.");
     return { user: mapProfile(profile) };
   });
 
@@ -644,9 +697,70 @@ export const adminRemoveUser = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
     await assertUserManager(supabaseAdmin, context.userId, tenant.id);
-    const { data: profile } = await supabaseAdmin.from("profiles").select("profile").eq("id", data.userId).maybeSingle();
-    if (profile?.profile === "super_admin") throw new Error("A conta Super Admin não pode ser removida.");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("profile,status").eq("id", data.userId).maybeSingle();
+    if (profile?.profile === "super_admin") {
+      const count = await countActiveSuperAdmins(supabaseAdmin);
+      if (count <= 1) throw new Error("Não é possível remover o último Super Admin ativo.");
+    }
     await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
     await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    return { ok: true };
+  });
+
+// ---------- Memberships management ----------
+
+export const adminSetMembership = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    userId: z.string().uuid(),
+    tenantId: z.string().uuid(),
+    role: tenantRoleSchema,
+    status: z.enum(["ativo", "inativo"]).default("ativo"),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertUserManager(supabaseAdmin, context.userId, data.tenantId);
+    const { error } = await supabaseAdmin
+      .from("profile_tenant_memberships")
+      .upsert({
+        profile_id: data.userId,
+        tenant_id: data.tenantId,
+        role: data.role,
+        status: data.status,
+        created_by: context.userId,
+        deactivated_at: data.status === "inativo" ? new Date().toISOString() : null,
+        deactivated_by: data.status === "inativo" ? context.userId : null,
+      }, { onConflict: "profile_id,tenant_id" });
+    if (error) {
+      console.error("Erro ao salvar membership", error);
+      throw new Error("Não foi possível salvar o vínculo.");
+    }
+    return { ok: true };
+  });
+
+export const adminRemoveMembership = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    userId: z.string().uuid(),
+    tenantId: z.string().uuid(),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertUserManager(supabaseAdmin, context.userId, data.tenantId);
+    // Soft-delete: mark inactive so history is preserved
+    const { error } = await supabaseAdmin
+      .from("profile_tenant_memberships")
+      .update({
+        status: "inativo",
+        deactivated_at: new Date().toISOString(),
+        deactivated_by: context.userId,
+      })
+      .eq("profile_id", data.userId)
+      .eq("tenant_id", data.tenantId);
+    if (error) throw new Error("Não foi possível remover o vínculo.");
+    return { ok: true };
+  });
+
     return { ok: true };
   });
