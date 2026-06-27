@@ -52,6 +52,7 @@ function Page() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError(null);
     if (!form.name.trim()) {
       setError("Informe o nome completo da cliente.");
@@ -81,18 +82,12 @@ function Page() {
           },
         },
       });
-      try {
-        await startJourney({
-          data: { clientId: r.client.id, startDate: form.startDate },
-        });
-      } catch (jerr) {
-        console.error("[clientes.nova] startJourney failed", jerr);
-      }
       await qc.invalidateQueries({ queryKey: ["clients"] });
       navigate({ to: "/clientes/$id", params: { id: r.client.id } });
     } catch (err) {
       console.error("[clientes.nova] create failed", err);
-      setError("Não foi possível iniciar o Plano de Voo agora. Tente novamente em instantes ou fale com o suporte.");
+      const msg = err instanceof Error && err.message ? err.message : "Não foi possível iniciar o Plano de Voo agora. Tente novamente em instantes ou fale com o suporte.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
