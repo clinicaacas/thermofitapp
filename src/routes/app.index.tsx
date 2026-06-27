@@ -236,36 +236,9 @@ function Page() {
         </div>
       </section>
 
-      {/* Me conta sua jornada */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
-              ME CONTA SUA JORNADA
-            </p>
-            <p className="mt-0.5 text-sm font-semibold" style={{ color: "#1F2933" }}>
-              Como você está hoje?
-            </p>
-            <Link
-              to="/app/ajuda"
-              search={{ clientId }}
-              className="mt-0.5 inline-flex text-xs font-medium"
-              style={{ color: "#8A6A3D" }}
-            >
-              Registrar agora →
-            </Link>
-          </div>
-          <div
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-            style={{ background: "#F3E8D2" }}
-          >
-            <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </div>
-        </div>
-      </section>
+      {/* Bloco "Me conta sua jornada" removido — duplicava o card de
+          check-in/rotina que vive exclusivamente em Missões. */}
+
 
       {/* Acesso rápido */}
       <p className="mt-3 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
