@@ -5,7 +5,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Pencil, X, Gift, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, X, Gift, Check, Sparkles, Ticket, Camera, Award } from "lucide-react";
 import {
   listRewards,
   saveReward,
@@ -24,11 +24,40 @@ type R = {
   name: string;
   description: string;
   costMiles: number;
+  milestoneMiles: number;
+  rewardType: string;
+  sortOrder: number;
   stock: number;
   status: string;
   imageUrl: string;
 };
-const empty: Omit<R, "id"> = { name: "", description: "", costMiles: 0, stock: 0, status: "ativo", imageUrl: "" };
+const empty: Omit<R, "id"> = {
+  name: "",
+  description: "",
+  costMiles: 0,
+  milestoneMiles: 300,
+  rewardType: "mimo",
+  sortOrder: 0,
+  stock: 0,
+  status: "ativo",
+  imageUrl: "",
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  mimo: "Mimo",
+  sessao: "Sessão / Massagem",
+  voucher: "Voucher",
+  ensaio: "Ensaio fotográfico",
+  outro: "Outro",
+};
+
+const TYPE_ICON: Record<string, typeof Gift> = {
+  mimo: Gift,
+  sessao: Sparkles,
+  voucher: Ticket,
+  ensaio: Camera,
+  outro: Award,
+};
 
 function Page() {
   const qc = useQueryClient();
@@ -46,6 +75,8 @@ function Page() {
   const [form, setForm] = useState<Omit<R, "id">>(empty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [decisionFor, setDecisionFor] = useState<{ id: string; status: "entregue" | "cancelado" } | null>(null);
+  const [justification, setJustification] = useState("");
 
   function openNew() { setEditingId(null); setForm(empty); setError(null); setOpen(true); }
   function openEdit(r: R) { setEditingId(r.id); setForm({ ...r }); setError(null); setOpen(true); }
@@ -69,8 +100,12 @@ function Page() {
     await qc.invalidateQueries({ queryKey: ["rewards"] });
   }
 
-  async function onDecide(id: string, status: "entregue" | "cancelado") {
-    await decide({ data: { id, status, notes: "" } });
+  async function confirmDecision() {
+    if (!decisionFor) return;
+    if (!justification.trim()) return;
+    await decide({ data: { id: decisionFor.id, status: decisionFor.status, notes: "", justification } });
+    setDecisionFor(null);
+    setJustification("");
     await qc.invalidateQueries({ queryKey: ["redemptions"] });
   }
 
@@ -101,28 +136,34 @@ function Page() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {rewards.map((r) => (
-              <div key={r.id} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700">
-                    <Gift className="h-5 w-5" />
+            {rewards.map((r) => {
+              const Icon = TYPE_ICON[r.rewardType] ?? Award;
+              return (
+                <div key={r.id} className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-700">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-foreground">{r.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {TYPE_LABEL[r.rewardType] ?? r.rewardType} • marco {r.milestoneMiles} • estoque {r.stock}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">ordem {r.sortOrder} • {r.status}</div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-foreground">{r.name}</div>
-                    <div className="text-xs text-muted-foreground">{r.costMiles} milhas • estoque: {r.stock}</div>
+                  {r.description && <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button onClick={() => openEdit(r)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
+                      <Pencil className="h-3 w-3" /> Editar
+                    </button>
+                    <button onClick={() => onDelete(r.id)} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
+                      <Trash2 className="h-3 w-3" /> Excluir
+                    </button>
                   </div>
                 </div>
-                {r.description && <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
-                <div className="mt-3 flex justify-end gap-2">
-                  <button onClick={() => openEdit(r)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
-                    <Pencil className="h-3 w-3" /> Editar
-                  </button>
-                  <button onClick={() => onDelete(r.id)} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
-                    <Trash2 className="h-3 w-3" /> Excluir
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -138,14 +179,14 @@ function Page() {
                 <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-foreground">{r.rewardName}</div>
-                    <div className="text-xs text-muted-foreground">{r.clientName} • {r.costMiles} milhas • {r.status}</div>
+                    <div className="text-xs text-muted-foreground">{r.clientName} • {r.status}</div>
                   </div>
                   {(r.status === "pendente" || r.status === "solicitado" || r.status === "aprovado" || r.status === "liberado") && (
                     <div className="flex gap-2">
-                      <button onClick={() => onDecide(r.id, "entregue")} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white">
+                      <button onClick={() => { setDecisionFor({ id: r.id, status: "entregue" }); setJustification(""); }} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white">
                         <Check className="h-3 w-3" /> Entregar
                       </button>
-                      <button onClick={() => onDecide(r.id, "cancelado")} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs">
+                      <button onClick={() => { setDecisionFor({ id: r.id, status: "cancelado" }); setJustification(""); }} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs">
                         <X className="h-3 w-3" /> Cancelar
                       </button>
                     </div>
@@ -164,22 +205,37 @@ function Page() {
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Custo (milhas)">
-                <Input type="number" min={0} value={form.costMiles} onChange={(e) => setForm({ ...form, costMiles: Number(e.target.value) || 0 })} />
+              <Field label="Tipo *">
+                <select required className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.rewardType} onChange={(e) => setForm({ ...form, rewardType: e.target.value })}>
+                  {Object.entries(TYPE_LABEL).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Marco de Milhas *">
+                <Input type="number" required min={0} value={form.milestoneMiles} onChange={(e) => setForm({ ...form, milestoneMiles: Number(e.target.value) || 0 })} />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Ordem de exibição">
+                <Input type="number" min={0} value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) || 0 })} />
               </Field>
               <Field label="Estoque">
                 <Input type="number" min={0} value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) || 0 })} />
               </Field>
+              <Field label="Status">
+                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  <option value="ativo">Ativo</option>
+                  <option value="esgotado">Esgotado</option>
+                  <option value="arquivado">Arquivado</option>
+                </select>
+              </Field>
             </div>
+            <Field label="Ícone / imagem (URL opcional)">
+              <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+            </Field>
             <Field label="Descrição">
               <textarea className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </Field>
-            <Field label="Status">
-              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="ativo">Ativo</option>
-                <option value="esgotado">Esgotado</option>
-                <option value="arquivado">Arquivado</option>
-              </select>
             </Field>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
@@ -189,6 +245,22 @@ function Page() {
               </button>
             </div>
           </form>
+        </Dialog>
+      )}
+
+      {decisionFor && (
+        <Dialog onClose={() => setDecisionFor(null)} title={decisionFor.status === "entregue" ? "Marcar como entregue" : "Cancelar resgate"}>
+          <div className="space-y-3">
+            <Field label="Justificativa *">
+              <textarea required className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm" value={justification} onChange={(e) => setJustification(e.target.value)} />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDecisionFor(null)} className="rounded-md border border-input px-3 py-2 text-sm">Voltar</button>
+              <button onClick={confirmDecision} disabled={!justification.trim()} className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                Confirmar
+              </button>
+            </div>
+          </div>
         </Dialog>
       )}
     </AppShell>

@@ -14,7 +14,7 @@ import {
   updateClient,
 } from "@/lib/thermofit-data.functions";
 import { adminRestartClientJourney } from "@/lib/thermofit-client-app.functions";
-import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, LifeBuoy, Plus, Check, Copy, UserPlus, Lock, Unlock, Target } from "lucide-react";
+import { ArrowLeft, Edit, KeyRound, Camera, Apple, Dumbbell, Mail, MessageCircle, LifeBuoy, Plus, Check, Copy, UserPlus, Lock, Unlock, Target, Trophy } from "lucide-react";
 import { useState } from "react";
 import { AdminClientPhotosPanel } from "@/components/admin-client-photos-panel";
 import { ClientSupportPanel } from "@/components/client-support-panel";
@@ -214,6 +214,8 @@ function Page() {
 
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-7">
           <ActionLink to="/clientes/$id/missoes" params={{ id }} icon={<Target className="h-3.5 w-3.5" />} label="Missões" />
+          <ActionLink to="/clientes/$id/premios" params={{ id }} icon={<Trophy className="h-3.5 w-3.5" />} label="Prêmios" />
+
           <a
             href="#fotos-evolucao"
             className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"

@@ -294,9 +294,14 @@ export const deleteExercise = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 const rewardSchema = z.object({
-  name: z.string().trim().min(1).max(160),
+  name: z.string().trim().min(1, "Nome obrigatório").max(160),
   description: z.string().trim().max(2000).default(""),
   costMiles: z.number().int().min(0).max(1000000).default(0),
+  milestoneMiles: z.number().int().min(0, "Marco de Milhas obrigatório").max(1000000),
+  rewardType: z.enum(["mimo", "sessao", "voucher", "ensaio", "outro"], {
+    errorMap: () => ({ message: "Tipo de prêmio obrigatório" }),
+  }),
+  sortOrder: z.number().int().min(0).max(1000).default(0),
   stock: z.number().int().min(0).max(1000000).default(0),
   status: z.enum(["ativo", "esgotado", "arquivado"]).default("ativo"),
   imageUrl: z.string().trim().max(500).default(""),
@@ -308,6 +313,9 @@ function mapReward(row: any) {
     name: row.name,
     description: row.description ?? "",
     costMiles: row.cost_miles ?? 0,
+    milestoneMiles: row.milestone_miles ?? row.cost_miles ?? 0,
+    rewardType: row.reward_type ?? "outro",
+    sortOrder: row.sort_order ?? 0,
     stock: row.stock ?? 0,
     status: row.status,
     imageUrl: row.image_url ?? "",
@@ -323,7 +331,8 @@ export const listRewards = createServerFn({ method: "GET" })
       .from("rewards")
       .select("*")
       .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+      .order("sort_order", { ascending: true })
+      .order("milestone_miles", { ascending: true });
     if (error) throw error;
     return { rewards: (data ?? []).map(mapReward) };
   });
@@ -340,6 +349,9 @@ export const saveReward = createServerFn({ method: "POST" })
       name: data.patch.name.trim(),
       description: data.patch.description,
       cost_miles: data.patch.costMiles,
+      milestone_miles: data.patch.milestoneMiles,
+      reward_type: data.patch.rewardType,
+      sort_order: data.patch.sortOrder,
       stock: data.patch.stock,
       status: data.patch.status,
       image_url: data.patch.imageUrl,
@@ -456,3 +468,162 @@ export const decideRedemption = createServerFn({ method: "POST" })
     await logAudit(context, tenantId, `redemption.${data.status}`, "redemption", data.id, {});
     return { ok: true };
   });
+
+// ---------------------------------------------------------------------------
+// ADMIN VIEW — Prêmios e Conquistas de uma cliente
+// ---------------------------------------------------------------------------
+
+export const getClientRewardsAdminView = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ clientId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await callerTenant(context);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: client, error: cErr } = await context.supabase
+      .from("clients")
+      .select("id, name, tenant_id, active_journey_id")
+      .eq("id", data.clientId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (cErr) throw cErr;
+    if (!client) throw new Error("Cliente não encontrada.");
+    const journeyId = (client as any).active_journey_id as string | null;
+
+    const [rewardsRes, ledgerRes, redRes, sealsRes, msRes, todayRes, auditRes] = await Promise.all([
+      context.supabase
+        .from("rewards")
+        .select("id, name, milestone_miles, cost_miles, reward_type, sort_order, status")
+        .eq("tenant_id", tenantId)
+        .order("sort_order", { ascending: true })
+        .order("milestone_miles", { ascending: true }),
+      journeyId
+        ? context.supabase
+            .from("miles_ledger")
+            .select("id, miles, source_kind, source_ref, reason, occurred_on, created_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [] as any[] }),
+      journeyId
+        ? context.supabase
+            .from("reward_redemptions")
+            .select("id, reward_id, status, created_at, decided_at, decided_by, justification, notes, rewards(name, milestone_miles, reward_type)")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as any[] }),
+      journeyId
+        ? context.supabase
+            .from("client_seals")
+            .select("seal_code, miles_awarded, awarded_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+        : Promise.resolve({ data: [] as any[] }),
+      journeyId
+        ? context.supabase
+            .from("client_journey_milestones")
+            .select("milestone_code, miles_threshold, reached_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+        : Promise.resolve({ data: [] as any[] }),
+      journeyId
+        ? context.supabase
+            .from("miles_ledger")
+            .select("miles")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+            .eq("occurred_on", today)
+        : Promise.resolve({ data: [] as any[] }),
+      context.supabase
+        .from("miles_audit_log")
+        .select("id, action, justification, payload, created_at, actor_id")
+        .eq("client_id", client.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    // Resolve actor display names for audit + redemption decided_by
+    const actorIds = new Set<string>();
+    for (const r of (redRes.data ?? []) as any[]) if (r.decided_by) actorIds.add(r.decided_by);
+    for (const a of (auditRes.data ?? []) as any[]) if (a.actor_id) actorIds.add(a.actor_id);
+    let actorMap = new Map<string, string>();
+    if (actorIds.size > 0) {
+      const { data: actors } = await context.supabase
+        .from("profiles")
+        .select("id, name")
+        .in("id", Array.from(actorIds));
+      actorMap = new Map((actors ?? []).map((p: any) => [p.id, p.name ?? ""]));
+    }
+
+    const balance = ((ledgerRes.data ?? []) as any[]).reduce((s, r) => s + (r.miles ?? 0), 0);
+    const milesToday = ((todayRes.data ?? []) as any[]).reduce((s, r) => s + (r.miles ?? 0), 0);
+
+    const redByReward = new Map<string, any>();
+    for (const r of (redRes.data ?? []) as any[]) {
+      if (r.status === "cancelado") continue;
+      const prev = redByReward.get(r.reward_id);
+      if (!prev || new Date(r.created_at) > new Date(prev.created_at)) redByReward.set(r.reward_id, r);
+    }
+
+    const rewards = ((rewardsRes.data ?? []) as any[]).map((r) => {
+      const threshold = r.milestone_miles ?? r.cost_miles ?? 0;
+      const red = redByReward.get(r.id);
+      let state: "bloqueado" | "liberado" | "solicitado" | "entregue" = "bloqueado";
+      if (red?.status === "entregue") state = "entregue";
+      else if (red?.status === "solicitado" || red?.status === "pendente" || red?.status === "aprovado") state = "solicitado";
+      else if (balance >= threshold) state = "liberado";
+      return {
+        id: r.id,
+        name: r.name,
+        rewardType: r.reward_type,
+        milestoneMiles: threshold,
+        state,
+        missing: Math.max(threshold - balance, 0),
+        redemption: red
+          ? {
+              id: red.id,
+              status: red.status,
+              createdAt: red.created_at,
+              decidedAt: red.decided_at,
+              decidedBy: red.decided_by ? actorMap.get(red.decided_by) ?? red.decided_by : null,
+              justification: red.justification ?? "",
+              notes: red.notes ?? "",
+            }
+          : null,
+      };
+    });
+
+    return {
+      client: { id: client.id, name: (client as any).name },
+      journeyId,
+      balance,
+      milesToday,
+      rewards,
+      ledger: (ledgerRes.data ?? []) as any[],
+
+      redemptions: ((redRes.data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        rewardId: r.reward_id,
+        rewardName: r.rewards?.name ?? "",
+        status: r.status,
+        createdAt: r.created_at,
+        decidedAt: r.decided_at,
+        decidedBy: r.decided_by ? actorMap.get(r.decided_by) ?? r.decided_by : null,
+        justification: r.justification ?? "",
+        notes: r.notes ?? "",
+      })),
+      seals: (sealsRes.data ?? []) as any[],
+      milestones: (msRes.data ?? []) as any[],
+      audit: ((auditRes.data ?? []) as any[]).map((a) => ({
+        id: a.id,
+        action: a.action,
+        justification: a.justification,
+        payload: a.payload,
+        createdAt: a.created_at,
+        actor: a.actor_id ? actorMap.get(a.actor_id) ?? a.actor_id : null,
+      })),
+    };
+  });
+
