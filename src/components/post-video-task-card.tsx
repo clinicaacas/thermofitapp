@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Check, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { getPostVideoTaskState, submitPostVideoTask } from "@/lib/thermofit-missions.functions";
+import { invalidateClientMissionData } from "@/hooks/use-missions-realtime";
 
 type Props = { clientId: string };
 
@@ -24,9 +25,7 @@ export function PostVideoTaskCard({ clientId }: Props) {
     mutationFn: (response: string) => submitFn({ data: { clientId, response } }),
     onSuccess: () => {
       setText("");
-      qc.invalidateQueries({ queryKey: ["post-video-task-state", clientId] });
-      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      invalidateClientMissionData(qc, clientId);
     },
     onError: (e: any) => setError(e?.message ?? "Falha ao enviar."),
   });

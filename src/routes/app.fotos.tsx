@@ -9,6 +9,7 @@ import {
   deleteClientPhoto,
 } from "@/lib/thermofit-client-app.functions";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
+import { invalidateClientMissionData } from "@/hooks/use-missions-realtime";
 import { Camera, Check, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/app/fotos")({
@@ -33,8 +34,7 @@ function Page() {
 
   // Realtime: invalida fotos e missões sem refresh manual.
   useClientPhotosRealtime(clientId || null, () => {
-    qc.invalidateQueries({ queryKey: ["client-photos", clientId] });
-    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
+    invalidateClientMissionData(qc, clientId);
   });
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -96,7 +96,7 @@ function Page() {
       setErr(null);
       setOkMsg("Foto enviada para sua evolução.");
       if (fileRef.current) fileRef.current.value = "";
-      qc.invalidateQueries({ queryKey: ["client-photos", clientId] });
+      invalidateClientMissionData(qc, clientId);
     },
     onError: (e: any) => {
       setOkMsg(null);
@@ -106,7 +106,7 @@ function Page() {
 
   const deleteMut = useMutation({
     mutationFn: (photoId: string) => deleteFn({ data: { clientId, photoId } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["client-photos", clientId] }),
+    onSuccess: () => invalidateClientMissionData(qc, clientId),
   });
 
   function onPickFile(f: File | null) {

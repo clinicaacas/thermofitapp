@@ -7,6 +7,7 @@ import {
   addHydration,
   undoLastHydration,
 } from "@/lib/thermofit-client-app.functions";
+import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { Droplet, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/agua")({
@@ -22,6 +23,7 @@ function Page() {
   const fetchToday = useServerFn(getHydrationToday);
   const addFn = useServerFn(addHydration);
   const undoFn = useServerFn(undoLastHydration);
+  useMissionsRealtime(clientId || null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["client-hydration", clientId],
@@ -32,16 +34,14 @@ function Page() {
   const addMut = useMutation({
     mutationFn: (ml: number) => addFn({ data: { clientId, ml } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-hydration", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      invalidateClientMissionData(qc, clientId);
     },
   });
 
   const undoMut = useMutation({
     mutationFn: () => undoFn({ data: { clientId } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-hydration", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      invalidateClientMissionData(qc, clientId);
     },
   });
 

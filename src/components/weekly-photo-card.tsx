@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Camera, Check } from "lucide-react";
 import { useRef, useState } from "react";
 import { getWeeklyPhotoState, submitWeeklyPhoto } from "@/lib/thermofit-missions.functions";
+import { invalidateClientMissionData } from "@/hooks/use-missions-realtime";
 
 async function fileToBase64(file: File): Promise<{ b64: string; mime: "image/jpeg" | "image/png" | "image/webp" }> {
   const buf = await file.arrayBuffer();
@@ -39,10 +40,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
     mutationFn: (vars: { contentBase64: string; mimeHint: "image/jpeg" | "image/png" | "image/webp"; note?: string }) =>
       submitFn({ data: { clientId, ...vars } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["weekly-photo-state", clientId] });
-      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
-      qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      invalidateClientMissionData(qc, clientId);
       setNote("");
     },
   });

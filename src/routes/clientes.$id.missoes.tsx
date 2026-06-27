@@ -8,7 +8,7 @@ import {
   createManualMission,
   adjustMilesManual,
 } from "@/lib/thermofit-missions-admin.functions";
-import { ArrowLeft, Plus, Coins } from "lucide-react";
+import { ArrowLeft, Plus, Coins, Droplet, Camera, Video, ClipboardCheck, Dumbbell } from "lucide-react";
 
 export const Route = createFileRoute("/clientes/$id/missoes")({
   head: () => ({ meta: [{ title: "Missões da cliente — ThermoFit" }] }),
@@ -58,6 +58,15 @@ function Page() {
   const rows = data?.rows ?? [];
   const todayRows = rows.filter((r) => r.date === today);
   const byType = (t: string) => rows.filter((r) => r.type === t);
+  const hydrationRows = byType("hydration_goal");
+  const weeklyPhotoRows = byType("weekly_photo");
+  const workoutPhotoRows = byType("workout_photo");
+  const videoRows = byType("video_complete");
+  const routineRows = [
+    ...byType("daily_checkin"),
+    ...byType("daily_meal"),
+    ...byType("daily_workout"),
+  ];
 
   return (
     <AppShell>
@@ -89,15 +98,21 @@ function Page() {
         </Section>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Section title="Vídeos e tarefas pós-vídeo">
-            <RowList rows={[...byType("video_complete"), ...byType("post_video_task")]} loading={isLoading} compact />
-          </Section>
-          <Section title="Rotina diária">
-            <RowList rows={[...byType("daily_checkin"), ...byType("daily_meal"), ...byType("daily_workout"), ...byType("workout_photo"), ...byType("hydration_goal")]} loading={isLoading} compact />
-          </Section>
-          <Section title="Foto de evolução">
-            <RowList rows={byType("weekly_photo")} loading={isLoading} compact />
-          </Section>
+          <DetailSection title="Hidratação" icon={Droplet} loading={isLoading} empty={hydrationRows.length === 0}>
+            {hydrationRows.map((r: any) => <HydrationDetail key={r.refId} row={r} />)}
+          </DetailSection>
+          <DetailSection title="Vídeos" icon={Video} loading={isLoading} empty={videoRows.length === 0}>
+            {videoRows.map((r: any) => <VideoDetail key={r.refId} row={r} />)}
+          </DetailSection>
+          <DetailSection title="Rotina" icon={ClipboardCheck} loading={isLoading} empty={routineRows.length === 0}>
+            <RoutineDetail rows={routineRows} />
+          </DetailSection>
+          <DetailSection title="Foto do treino" icon={Dumbbell} loading={isLoading} empty={workoutPhotoRows.length === 0}>
+            {workoutPhotoRows.map((r: any) => <PhotoDetail key={r.refId} row={r} kind="workout" />)}
+          </DetailSection>
+          <DetailSection title="Foto de evolução" icon={Camera} loading={isLoading} empty={weeklyPhotoRows.length === 0}>
+            {weeklyPhotoRows.map((r: any) => <PhotoDetail key={r.refId} row={r} kind="weekly" />)}
+          </DetailSection>
           <Section title="Missões manuais">
             <RowList rows={byType("manual")} loading={isLoading} compact />
           </Section>
@@ -139,6 +154,124 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="p-2">{children}</div>
     </section>
   );
+}
+
+function DetailSection({ title, icon: Icon, loading, empty, children }: { title: string; icon: any; loading?: boolean; empty?: boolean; children: React.ReactNode }) {
+  return (
+    <section className="rounded-md border border-input bg-card">
+      <h2 className="flex items-center gap-2 border-b border-border px-3 py-2 text-sm font-semibold">
+        <Icon className="h-4 w-4 text-primary" /> {title}
+      </h2>
+      <div className="space-y-2 p-2">
+        {loading ? <p className="p-3 text-xs text-muted-foreground">Carregando…</p> : empty ? <p className="p-3 text-xs text-muted-foreground">Nada por aqui.</p> : children}
+      </div>
+    </section>
+  );
+}
+
+function statusLabel(status: string) {
+  if (status === "completed") return "Concluída";
+  if (status === "late") return "Atrasada";
+  if (status === "blocked") return "Bloqueada";
+  return "Pendente";
+}
+
+function DetailShell({ row, children }: { row: any; children: React.ReactNode }) {
+  return (
+    <article className={`rounded-md border p-2 text-xs ${row.status === "completed" ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-medium text-foreground">{row.title}</div>
+          <div className="text-muted-foreground">{row.date} · Dia {row.journeyDay ?? "—"} · Semana {row.week ?? "—"}</div>
+        </div>
+        <span className={`shrink-0 rounded px-2 py-0.5 ${row.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-yellow-100 text-yellow-800"}`}>{statusLabel(row.status)}</span>
+      </div>
+      <div className="mt-2 grid gap-1 sm:grid-cols-2">{children}</div>
+    </article>
+  );
+}
+
+function SmallInfo({ label, value }: { label: string; value: React.ReactNode }) {
+  return <div><span className="text-muted-foreground">{label}: </span><span className="font-medium text-foreground">{value || "—"}</span></div>;
+}
+
+function HydrationDetail({ row }: { row: any }) {
+  const d = row.details ?? {};
+  return (
+    <DetailShell row={row}>
+      <SmallInfo label="Litros registrados" value={`${((Number(d.totalMl ?? 0)) / 1000).toFixed(1).replace(".", ",")} L`} />
+      <SmallInfo label="Meta" value={`${Number(d.goalMl ?? 2000)} ml`} />
+      <SmallInfo label="Horário de conclusão" value={fmt(d.completedAt)} />
+      <SmallInfo label="Milhas" value={`+${row.miles}`} />
+      <SmallInfo label="Origem no ledger" value={d.ledger?.source_kind ?? "hydration_goal"} />
+      <SmallInfo label="Status" value={statusLabel(row.status)} />
+    </DetailShell>
+  );
+}
+
+function PhotoDetail({ row, kind }: { row: any; kind: "weekly" | "workout" }) {
+  const d = row.details ?? {};
+  return (
+    <DetailShell row={row}>
+      <div className="sm:row-span-4">
+        {d.photoUrl ? <img src={d.photoUrl} alt="Miniatura privada" className="h-24 w-24 rounded-md object-cover" /> : <div className="grid h-24 w-24 place-items-center rounded-md bg-muted text-muted-foreground">Sem foto</div>}
+      </div>
+      {kind === "weekly" ? <SmallInfo label="Semana" value={d.week ?? row.week} /> : <SmallInfo label="Treino informado" value={choiceLabel(d.workoutChoice)} />}
+      <SmallInfo label="Observação" value={d.note ?? "—"} />
+      <SmallInfo label="Data" value={fmt(d.takenAt ?? d.completedAt ?? row.updatedAt)} />
+      <SmallInfo label="Milhas" value={`+${row.miles}`} />
+      <SmallInfo label="Status" value={statusLabel(row.status)} />
+    </DetailShell>
+  );
+}
+
+function VideoDetail({ row }: { row: any }) {
+  const d = row.details ?? {};
+  return (
+    <DetailShell row={row}>
+      <SmallInfo label="Título" value={d.title ?? row.title} />
+      <SmallInfo label="Percentual assistido" value={`${Number(d.progressPercent ?? 0)}%`} />
+      <SmallInfo label="Horário da conclusão" value={fmt(d.completedAt ?? row.updatedAt)} />
+      <SmallInfo label="Milhas" value={`+${row.miles}`} />
+      <SmallInfo label="Status" value={statusLabel(row.status)} />
+    </DetailShell>
+  );
+}
+
+function RoutineDetail({ rows }: { rows: any[] }) {
+  const checkin = rows.find((r) => r.type === "daily_checkin");
+  const meal = rows.find((r) => r.type === "daily_meal");
+  const workout = rows.find((r) => r.type === "daily_workout");
+  const shellRow = rows[0] ?? { title: "Rotina", status: "pending", date: "—" };
+  const miles = rows.reduce((s, r) => s + Number(r.miles ?? 0), 0);
+  const done = rows.length > 0 && rows.every((r) => r.status === "completed");
+  return (
+    <DetailShell row={{ ...shellRow, title: "Rotina diária", status: done ? "completed" : shellRow.status, miles }}>
+      <SmallInfo label="Resposta de check-in" value={checkin?.details?.checkinDone ? "Realizado" : "Pendente"} />
+      <SmallInfo label="Alimentação selecionada" value={choiceLabel(meal?.details?.mealChoice)} />
+      <SmallInfo label="Treino selecionado" value={choiceLabel(workout?.details?.workoutChoice)} />
+      <SmallInfo label="Status" value={done ? "Concluída" : "Pendente"} />
+      <SmallInfo label="Milhas" value={`+${miles}`} />
+      <SmallInfo label="Data" value={shellRow.date} />
+    </DetailShell>
+  );
+}
+
+function choiceLabel(value?: string | null) {
+  const map: Record<string, string> = {
+    otima: "Ótima",
+    ok: "Ok",
+    dificil: "Difícil",
+    musc_cardio: "Musculação + cardio",
+    cardio: "Só cardio",
+    descanso: "Descanso",
+  };
+  return value ? map[value] ?? value : "—";
+}
+
+function fmt(value?: string | null) {
+  if (!value) return "—";
+  try { return new Date(value).toLocaleString("pt-BR"); } catch { return value; }
 }
 
 function RowList({ rows, loading, compact }: { rows: any[]; loading?: boolean; compact?: boolean }) {
