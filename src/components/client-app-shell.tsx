@@ -3,7 +3,8 @@ import { Link, useRouterState, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Home, Video, Droplet, Target, Activity, Bell, Plane } from "lucide-react";
-import { getAppSettingsForClient } from "@/lib/thermofit-client-app.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getAppSettingsForClient, listClientNotifications } from "@/lib/thermofit-client-app.functions";
 
 const nav = [
   { to: "/app", key: "inicio", label: "Início", icon: Home },
