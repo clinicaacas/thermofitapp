@@ -269,6 +269,11 @@ function choiceLabel(value?: string | null) {
   return value ? map[value] ?? value : "—";
 }
 
+function fmt(value?: string | null) {
+  if (!value) return "—";
+  try { return new Date(value).toLocaleString("pt-BR"); } catch { return value; }
+}
+
 function RowList({ rows, loading, compact }: { rows: any[]; loading?: boolean; compact?: boolean }) {
   if (loading) return <p className="p-3 text-xs text-muted-foreground">Carregando…</p>;
   if (rows.length === 0) return <p className="p-3 text-xs text-muted-foreground">Nada por aqui.</p>;
