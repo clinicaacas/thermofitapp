@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClientRecord } from "@/lib/thermofit-data.functions";
+import { startClientJourney } from "@/lib/thermofit-client-app.functions";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/clientes/nova")({
