@@ -793,12 +793,22 @@ function UsersTab() {
                           {PUBLIC_URL_WARNING}
                         </div>
                       ) : (
-                        <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
+                        <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl)}</pre>
                       )}
                     </div>
-                    <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
+                    {created.temporaryPassword && (
+                      <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                        <div className="mb-1 font-semibold">Senha temporária (uso interno)</div>
+                        <div className="font-mono">{created.temporaryPassword}</div>
+                        <div className="mt-1 text-[11px] opacity-80">
+                          Por segurança, a senha não é copiada automaticamente. Entregue ao usuário por canal seguro ou peça que use "Esqueci minha senha".
+                        </div>
+                      </div>
+                    )}
+                    <Button onClick={() => copyAccess(created.user)} className="w-full">
                       <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
                     </Button>
+
                   </div>
                   <DialogFooter>
                     <Button onClick={() => setOpen(false)}>Concluir</Button>
