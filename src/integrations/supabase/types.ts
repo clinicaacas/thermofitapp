@@ -2503,6 +2503,10 @@ export type Database = {
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
+      create_client_with_journey: {
+        Args: { _consents?: Json; _payload: Json; _start_journey?: boolean }
+        Returns: Json
+      }
       ensure_daily_missions: {
         Args: { _client_id: string; _day: string; _journey_id: string }
         Returns: undefined
