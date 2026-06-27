@@ -416,8 +416,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         status: "completed",
         date,
         miles: photoPatch.miles,
+        predictedMiles: predictedFor("weekly_photo", 0),
+        inconsistent: photoPatch.miles <= 0,
         origin: "derived",
         updatedAt: photoPatch.updatedAt,
+
         missionId: null,
         totalMiles: ledgerByClient.get(p.client_id) ?? 0,
         details: photoPatch.details,
