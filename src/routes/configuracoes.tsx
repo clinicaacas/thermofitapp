@@ -908,9 +908,10 @@ function UsersTab() {
                           <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => resetPassword(u)}>
+                          <DropdownMenuItem onClick={() => copyAccess(u)}>
                             <Copy className="h-3 w-3" /> Copiar dados de acesso
                           </DropdownMenuItem>
+
                           <DropdownMenuItem onClick={() => resetPassword(u)}>
                             <KeyRound className="h-3 w-3" /> Redefinir senha
                           </DropdownMenuItem>
