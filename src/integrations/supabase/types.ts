@@ -1699,6 +1699,60 @@ export type Database = {
           },
         ]
       }
+      profile_tenant_memberships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          id: string
+          profile_id: string
+          role: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          id?: string
+          profile_id: string
+          role: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          id?: string
+          profile_id?: string
+          role?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_tenant_memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -2503,6 +2557,7 @@ export type Database = {
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
+      count_active_super_admins: { Args: never; Returns: number }
       create_client_with_journey: {
         Args: { _consents?: Json; _payload: Json; _start_journey?: boolean }
         Returns: Json
@@ -2548,6 +2603,10 @@ export type Database = {
       }
       get_journey_progress: { Args: { _client_id: string }; Returns: Json }
       get_today_mission_summary: { Args: { _client_id: string }; Returns: Json }
+      has_tenant_access: {
+        Args: { _roles?: string[]; _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_profile_manager: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
