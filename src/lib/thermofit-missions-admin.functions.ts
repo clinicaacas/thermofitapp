@@ -111,7 +111,22 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     const from = data.from ?? today;
     const to = data.to ?? today;
 
-    const sb = (context as Ctx).supabase;
+    // Caller já validado como membro do tenant. Usamos o admin client para
+    // leitura agregada, evitando que RLS silenciosamente devolva conjuntos
+    // vazios em joins/aggregations e gere zeros falsos no painel.
+    const sb = await getAdmin();
+
+    // Defaults previstos por tipo de missão (mission_settings)
+    const { data: settings } = await sb
+      .from("mission_settings")
+      .select("mission_kind, default_miles, label")
+      .eq("tenant_id", tenantId);
+    const predictedByKind = new Map<string, number>();
+    for (const s of settings ?? []) {
+      predictedByKind.set(s.mission_kind, Number(s.default_miles ?? 0));
+    }
+    const predictedFor = (kind: string, fallback = 0) =>
+      predictedByKind.get(kind) ?? fallback;
 
     // Clientes do tenant + jornada ativa
     const { data: clientsRaw, error: cErr } = await sb
@@ -159,14 +174,20 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       if (!existing) return false;
       if (patch.status) existing.status = patch.status as MissionRow["status"];
       if (patch.title !== undefined) existing.title = patch.title;
-      if (patch.miles !== undefined) existing.miles = patch.miles;
+      // Nunca sobrescrever milhas já creditadas com 0. Só atualiza quando o
+      // patch traz um valor positivo (ledger encontrado).
+      if (patch.miles !== undefined && patch.miles > 0) existing.miles = patch.miles;
+      if (patch.predictedMiles !== undefined && patch.predictedMiles > 0) existing.predictedMiles = patch.predictedMiles;
       if (patch.updatedAt !== undefined) existing.updatedAt = patch.updatedAt;
       if (patch.origin !== undefined) existing.origin = patch.origin;
       if (patch.details !== undefined) {
         existing.details = { ...(existing.details ?? {}), ...patch.details };
       }
+      // Recalcula inconsistência: concluída sem crédito.
+      existing.inconsistent = existing.status === "completed" && (existing.miles ?? 0) <= 0;
       return true;
     }
+
 
     function jDay(clientId: string, date: string) {
       const j = journeysByClient.get(clientId);
