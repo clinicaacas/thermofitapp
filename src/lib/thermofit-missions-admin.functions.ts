@@ -52,6 +52,8 @@ export type MissionRow = {
   origin: "auto" | "manual" | "derived";
   updatedAt: string | null;
   missionId: string | null; // só quando vem de client_missions
+  totalMiles: number;
+  details: Record<string, unknown> | null;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -70,6 +72,22 @@ function dayDiff(a: string, b: string): number {
   const da = Date.parse(a + "T00:00:00Z");
   const db = Date.parse(b + "T00:00:00Z");
   return Math.floor((da - db) / 86400000);
+}
+
+async function getAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+async function signedClientPhotoUrl(storageKey: string | null | undefined) {
+  if (!storageKey) return null;
+  try {
+    const admin = await getAdmin();
+    const { data } = await admin.storage.from("client-photos").createSignedUrl(storageKey, 3600);
+    return data?.signedUrl ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
@@ -105,10 +123,25 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       journeysByClient.set(c.id, j ? { id: j.id, startedOn: j.started_on } : null);
     }
     const nameById = new Map<string, string>(clients.map((c: any) => [c.id as string, c.name as string]));
+    const hydrationGoalById = new Map<string, number>(
+      clients.map((c: any) => [c.id as string, Number(c.hydration_goal_ml ?? 2000)]),
+    );
     const clientIds = clients.map((c: any) => c.id);
     if (clientIds.length === 0) return { rows: [] as MissionRow[] };
 
     const rows: MissionRow[] = [];
+    const ledgerByClient = new Map<string, number>();
+    const ledgerByKindDay = new Map<string, any>();
+    const ledgerByKindRef = new Map<string, any>();
+    const { data: ledgerRows } = await sb
+      .from("miles_ledger")
+      .select("client_id, journey_id, source_kind, source_ref, miles, occurred_on, created_at, awarded_at, reason, idempotency_key")
+      .in("client_id", clientIds);
+    for (const l of ledgerRows ?? []) {
+      ledgerByClient.set(l.client_id, (ledgerByClient.get(l.client_id) ?? 0) + Number(l.miles ?? 0));
+      if (l.occurred_on) ledgerByKindDay.set(`${l.client_id}:${l.occurred_on}:${l.source_kind}`, l);
+      if (l.source_ref) ledgerByKindRef.set(`${l.client_id}:${l.source_kind}:${l.source_ref}`, l);
+    }
 
     function pushRow(r: MissionRow) {
       if (data.type && r.type !== data.type) return;
@@ -168,6 +201,13 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         origin: m.created_by ? "manual" : "auto",
         updatedAt: comp?.completed_at ?? m.updated_at ?? m.created_at,
         missionId: m.id,
+        totalMiles: ledgerByClient.get(m.client_id) ?? 0,
+        details: {
+          missionId: m.id,
+          linkedVideoId: m.linked_video_id ?? null,
+          taskRef: m.task_ref ?? null,
+          ledger: ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`) ?? null,
+        },
       });
     }
 
@@ -179,6 +219,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       .gte("response_date", from).lte("response_date", to);
     for (const d of dailies ?? []) {
       const jinfo = jDay(d.client_id, d.response_date);
+      const totalMiles = ledgerByClient.get(d.client_id) ?? 0;
       const base = {
         clientId: d.client_id,
         clientName: nameById.get(d.client_id) ?? "—",
@@ -188,28 +229,44 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         date: d.response_date,
         origin: "derived" as const,
         missionId: null,
+        totalMiles,
       };
       // Só agrega se não houver linha equivalente vinda de client_missions
       const has = (kind: string) => rows.some((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === kind);
+      const checkinLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:daily_checkin`);
+      const mealLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:daily_meal`);
+      const workoutLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:daily_workout`);
+      const workoutPhotoLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:workout_photo`);
+      const workoutPhotoUrl = await signedClientPhotoUrl(d.workout_photo_path);
       if (!has("daily_checkin")) pushRow({
         ...base, refId: `dr:${d.client_id}:${d.response_date}:checkin`,
         type: "daily_checkin", typeLabel: TYPE_LABEL.daily_checkin, title: "Check-in diário",
-        status: d.checkin_done ? "completed" : "pending", miles: 0, updatedAt: d.checkin_at ?? d.updated_at,
+        status: d.checkin_done ? "completed" : "pending", miles: Number(checkinLedger?.miles ?? 0), updatedAt: d.checkin_at ?? d.updated_at,
+        details: { checkinDone: !!d.checkin_done, completedAt: d.checkin_at ?? null, ledger: checkinLedger ?? null },
       });
       if (!has("daily_meal")) pushRow({
         ...base, refId: `dr:${d.client_id}:${d.response_date}:meal`,
         type: "daily_meal", typeLabel: TYPE_LABEL.daily_meal, title: "Alimentação do dia",
-        status: d.meal_choice ? "completed" : "pending", miles: 0, updatedAt: d.meal_at ?? d.updated_at,
+        status: d.meal_choice ? "completed" : "pending", miles: Number(mealLedger?.miles ?? 0), updatedAt: d.meal_at ?? d.updated_at,
+        details: { mealChoice: d.meal_choice ?? null, completedAt: d.meal_at ?? null, ledger: mealLedger ?? null },
       });
       if (!has("daily_workout")) pushRow({
         ...base, refId: `dr:${d.client_id}:${d.response_date}:workout`,
         type: "daily_workout", typeLabel: TYPE_LABEL.daily_workout, title: "Treino do dia",
-        status: d.workout_choice ? "completed" : "pending", miles: 0, updatedAt: d.workout_at ?? d.updated_at,
+        status: d.workout_choice ? "completed" : "pending", miles: Number(workoutLedger?.miles ?? 0), updatedAt: d.workout_at ?? d.updated_at,
+        details: { workoutChoice: d.workout_choice ?? null, completedAt: d.workout_at ?? null, ledger: workoutLedger ?? null },
       });
       if (!has("workout_photo")) pushRow({
         ...base, refId: `dr:${d.client_id}:${d.response_date}:wphoto`,
         type: "workout_photo", typeLabel: TYPE_LABEL.workout_photo, title: "Foto do treino",
-        status: d.workout_photo_path ? "completed" : "pending", miles: 0, updatedAt: d.workout_photo_at ?? d.updated_at,
+        status: d.workout_photo_path ? "completed" : "pending", miles: Number(workoutPhotoLedger?.miles ?? 0), updatedAt: d.workout_photo_at ?? d.updated_at,
+        details: {
+          workoutChoice: d.workout_choice ?? null,
+          photoPath: d.workout_photo_path ?? null,
+          photoUrl: workoutPhotoUrl,
+          completedAt: d.workout_photo_at ?? null,
+          ledger: workoutPhotoLedger ?? null,
+        },
       });
     }
 
@@ -230,6 +287,8 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       const has = rows.some((r) => r.clientId === agg.client_id && r.date === agg.date && r.type === "hydration_goal");
       if (has) continue;
       const jinfo = jDay(agg.client_id, agg.date);
+      const hydrationLedger = ledgerByKindDay.get(`${agg.client_id}:${agg.date}:hydration_goal`);
+      const goal = hydrationGoalById.get(agg.client_id) ?? 2000;
       pushRow({
         refId: `hy:${agg.client_id}:${agg.date}`,
         clientId: agg.client_id,
@@ -237,8 +296,79 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         journeyId: jinfo.jid, journeyDay: jinfo.day, week: jinfo.week,
         type: "hydration_goal", typeLabel: TYPE_LABEL.hydration_goal,
         title: `Hidratação (${agg.ml} ml)`,
-        status: agg.ml >= 2000 ? "completed" : "pending",
-        date: agg.date, miles: 0, origin: "derived", updatedAt: null, missionId: null,
+        status: agg.ml >= goal ? "completed" : "pending",
+        date: agg.date, miles: Number(hydrationLedger?.miles ?? 0), origin: "derived", updatedAt: hydrationLedger?.awarded_at ?? hydrationLedger?.created_at ?? null, missionId: null,
+        totalMiles: ledgerByClient.get(agg.client_id) ?? 0,
+        details: { totalMl: agg.ml, goalMl: goal, completedAt: hydrationLedger?.awarded_at ?? hydrationLedger?.created_at ?? null, ledger: hydrationLedger ?? null },
+      });
+    }
+
+    // 4) Fotos de evolução — detalhes e miniaturas privadas para a visão admin.
+    const { data: photos } = await sb
+      .from("client_progress_photos")
+      .select("id, client_id, journey_id, week, storage_key, notes, taken_at, source, updated_at")
+      .in("client_id", clientIds)
+      .gte("taken_at", from).lte("taken_at", `${to}T23:59:59.999Z`);
+    for (const p of photos ?? []) {
+      const date = String(p.taken_at ?? "").slice(0, 10);
+      if (!date) continue;
+      const has = rows.some((r) => r.clientId === p.client_id && r.type === "weekly_photo" && r.date === date);
+      if (has) continue;
+      const jinfo = jDay(p.client_id, date);
+      const ledger = ledgerByKindRef.get(`${p.client_id}:weekly_photo:${p.id}`) ?? ledgerByKindDay.get(`${p.client_id}:${date}:weekly_photo`);
+      const photoUrl = await signedClientPhotoUrl(p.storage_key);
+      pushRow({
+        refId: `ph:${p.id}`,
+        clientId: p.client_id,
+        clientName: nameById.get(p.client_id) ?? "—",
+        journeyId: p.journey_id ?? jinfo.jid,
+        journeyDay: jinfo.day,
+        week: p.week ?? jinfo.week,
+        type: "weekly_photo",
+        typeLabel: TYPE_LABEL.weekly_photo,
+        title: `Foto de evolução — Semana ${p.week ?? jinfo.week ?? "—"}`,
+        status: "completed",
+        date,
+        miles: Number(ledger?.miles ?? 0),
+        origin: "derived",
+        updatedAt: p.updated_at ?? p.taken_at,
+        missionId: null,
+        totalMiles: ledgerByClient.get(p.client_id) ?? 0,
+        details: { photoId: p.id, week: p.week ?? null, note: p.notes ?? null, takenAt: p.taken_at ?? null, source: p.source ?? null, photoUrl, ledger: ledger ?? null },
+      });
+    }
+
+    // 5) Vídeos — título, percentual e horário final quando não houver missão estrutural equivalente no período.
+    const { data: videoProgress } = await sb
+      .from("client_video_progress")
+      .select("client_id, journey_id, video_id, progress_percent, is_completed, completed_at, updated_at, videos(title)")
+      .in("client_id", clientIds)
+      .gte("updated_at", `${from}T00:00:00.000Z`).lte("updated_at", `${to}T23:59:59.999Z`);
+    for (const v of videoProgress ?? []) {
+      const date = String(v.completed_at ?? v.updated_at ?? "").slice(0, 10);
+      if (!date) continue;
+      const has = rows.some((r) => r.clientId === v.client_id && r.type === "video_complete" && (r.details as any)?.linkedVideoId === v.video_id);
+      if (has) continue;
+      const jinfo = jDay(v.client_id, date);
+      const ledger = ledgerByKindRef.get(`${v.client_id}:video_complete:${v.video_id}`) ?? ledgerByKindDay.get(`${v.client_id}:${date}:video_complete`);
+      pushRow({
+        refId: `vp:${v.client_id}:${v.video_id}`,
+        clientId: v.client_id,
+        clientName: nameById.get(v.client_id) ?? "—",
+        journeyId: v.journey_id ?? jinfo.jid,
+        journeyDay: jinfo.day,
+        week: jinfo.week,
+        type: "video_complete",
+        typeLabel: TYPE_LABEL.video_complete,
+        title: (v as any).videos?.title ?? "Vídeo",
+        status: v.is_completed ? "completed" : "pending",
+        date,
+        miles: Number(ledger?.miles ?? 0),
+        origin: "derived",
+        updatedAt: v.completed_at ?? v.updated_at ?? null,
+        missionId: null,
+        totalMiles: ledgerByClient.get(v.client_id) ?? 0,
+        details: { videoId: v.video_id, title: (v as any).videos?.title ?? "Vídeo", progressPercent: Number(v.progress_percent ?? 0), completedAt: v.completed_at ?? null, ledger: ledger ?? null },
       });
     }
 
