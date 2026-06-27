@@ -1229,7 +1229,7 @@ export type Database = {
         Row: {
           access_email: string | null
           access_status: string
-          active_journey_id: string
+          active_journey_id: string | null
           auth_user_id: string | null
           avatar_initial: string
           birth_date: string | null
@@ -1253,7 +1253,7 @@ export type Database = {
         Insert: {
           access_email?: string | null
           access_status?: string
-          active_journey_id?: string
+          active_journey_id?: string | null
           auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
@@ -1277,7 +1277,7 @@ export type Database = {
         Update: {
           access_email?: string | null
           access_status?: string
-          active_journey_id?: string
+          active_journey_id?: string | null
           auth_user_id?: string | null
           avatar_initial?: string
           birth_date?: string | null
@@ -2554,6 +2554,10 @@ export type Database = {
         Returns: boolean
       }
       materialize_daily_missions_all: { Args: { _day?: string }; Returns: Json }
+      start_client_journey: {
+        Args: { _client_id: string; _start_date?: string }
+        Returns: Json
+      }
       tenant_id_for_client_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
