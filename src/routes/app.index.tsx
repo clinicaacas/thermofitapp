@@ -211,28 +211,6 @@ function Page() {
 
 
       {/* Hidratação */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="grid h-9 w-9 place-items-center rounded-xl"
-              style={{ background: "#DCEEFF" }}
-            >
-              <Droplet className="h-4 w-4" style={{ color: "#2F80ED" }} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#2F80ED" }}>
-                HIDRATAÇÃO
-              </p>
-              <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
-                {hydration}ml
-              </p>
-            </div>
-          </div>
-      {/* Hidratação */}
       {(() => {
         const hydrationDone = hydration >= hydrationGoal && hydrationGoal > 0;
         return (
