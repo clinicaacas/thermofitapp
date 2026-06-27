@@ -34,6 +34,8 @@ export function PostVideoTaskCard({ clientId }: Props) {
   const unlocked = !!data?.unlocked;
   const completed = !!data?.completed;
 
+  if (data?.hidden) return null;
+
   return (
     <section
       className="mt-3 rounded-2xl bg-white p-4"

@@ -9,6 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getClientJourneyDay } from "./journey";
 
 // Chaves OFICIAIS de mission_kind — devem casar com public.mission_settings.
 type MissionKind =
@@ -55,7 +56,7 @@ async function loadClient(clientId: string) {
   const admin = await getAdmin();
   const { data, error } = await admin
     .from("clients")
-    .select("id, tenant_id")
+    .select("id, tenant_id, active_journey_id, start_date, hydration_goal_ml")
     .eq("id", clientId)
     .maybeSingle();
   if (error) throw error;
@@ -73,6 +74,200 @@ async function getMilesFor(tenantId: string, kind: MissionKind): Promise<number>
     .maybeSingle();
   if (!data || data.active === false) return 0;
   return Number(data.default_miles ?? 0);
+}
+
+async function ensureMissionCompletion(
+  admin: any,
+  mission: any,
+  miles: number,
+  sourceKind: string,
+  sourceRef: string,
+  idempotencyKey: string,
+  completedAt?: string | null,
+) {
+  if (!mission?.id || !mission?.journey_id) return;
+  const payload: any = {
+    tenant_id: mission.tenant_id,
+    client_id: mission.client_id,
+    mission_id: mission.id,
+    journey_id: mission.journey_id,
+    miles_awarded: miles,
+    source_kind: sourceKind,
+    source_ref: sourceRef,
+    idempotency_key: idempotencyKey,
+  };
+  if (completedAt) payload.completed_at = completedAt;
+  const { error } = await admin
+    .from("client_mission_completions")
+    .upsert(payload, { onConflict: "mission_id,client_id" });
+  if (error) throw error;
+}
+
+async function syncHydrationCompletion(admin: any, client: any, day: string) {
+  const journeyId = client.active_journey_id as string | null;
+  if (!journeyId) return null;
+  const goal = Number(client.hydration_goal_ml ?? 2000);
+  const { data: logs, error: logErr } = await admin
+    .from("client_hydration_logs")
+    .select("ml")
+    .eq("client_id", client.id)
+    .eq("log_date", day);
+  if (logErr) throw logErr;
+  const total = (logs ?? []).reduce((s: number, r: any) => s + Number(r.ml ?? 0), 0);
+  if (total < goal) return null;
+
+  await admin.rpc("ensure_daily_missions", {
+    _client_id: client.id,
+    _journey_id: journeyId,
+    _day: day,
+  });
+
+  const miles = await getMilesFor(client.tenant_id, "hydration_goal");
+  let ledger: any = null;
+  if (miles > 0) {
+    const { data: awardData, error: awardErr } = await admin.rpc("award_miles", {
+      _client_id: client.id,
+      _source_kind: "hydration_goal",
+      _source_ref: day,
+      _miles: miles,
+      _idempotency_key: `hydration_goal:${day}`,
+      _reason: "Meta de hidratação atingida",
+      _metadata: { total, goal, syncedBy: "summary_sync" } as any,
+      _journey_id: journeyId,
+    });
+    if (awardErr) throw awardErr;
+    ledger = awardData;
+  } else {
+    ledger = { miles: 0, awarded_at: new Date().toISOString() };
+  }
+
+  const { data: mission, error: mErr } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "hydration_goal")
+    .eq("due_date", day)
+    .maybeSingle();
+  if (mErr) throw mErr;
+  if (mission) {
+    await ensureMissionCompletion(
+      admin,
+      mission,
+      Number(ledger?.miles ?? miles ?? 0),
+      "hydration_goal",
+      day,
+      `hydration_goal:${day}`,
+      ledger?.awarded_at ?? new Date().toISOString(),
+    );
+  }
+  return { ledger, total, goal };
+}
+
+async function syncWeeklyPhotoMission(admin: any, clientId: string) {
+  const { client, journeyId, week } = await resolveJourneyWeek(clientId);
+  const day = todayKey();
+  const miles = await getMilesFor(client.tenant_id, "weekly_photo");
+  const title = `Foto de evolução — Semana ${week}`;
+
+  let mission: any = null;
+  const { data: existing, error: exErr } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "weekly_photo")
+    .eq("week_number", week)
+    .maybeSingle();
+  if (exErr) throw exErr;
+  if (existing) {
+    const { data: updated, error: upErr } = await admin
+      .from("client_missions")
+      .update({ title, miles, due_date: day, active: true })
+      .eq("id", existing.id)
+      .select("id, tenant_id, client_id, journey_id")
+      .single();
+    if (upErr) throw upErr;
+    mission = updated;
+  } else {
+    const { data: created, error: insErr } = await admin
+      .from("client_missions")
+      .insert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+        title,
+        description: "Registre sua foto desta semana para acompanhar sua evolução.",
+        miles,
+        due_date: day,
+        active: true,
+        mission_type: "weekly_photo",
+        week_number: week,
+      })
+      .select("id, tenant_id, client_id, journey_id")
+      .single();
+    if (insErr) throw insErr;
+    mission = created;
+  }
+
+  const { data: firstPhoto, error: photoErr } = await admin
+    .from("client_progress_photos")
+    .select("id, taken_at, storage_key, notes")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("week", week)
+    .eq("source", "client_upload")
+    .order("taken_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (photoErr) throw photoErr;
+  if (!firstPhoto) return { week, completed: false, missionId: mission?.id ?? null, firstPhoto: null, ledger: null };
+
+  const idempotencyKey = `weekly_photo:${journeyId}:w${week}`;
+  let ledger: any = null;
+  if (miles > 0) {
+    const occurredOn = String(firstPhoto.taken_at ?? day).slice(0, 10);
+    const { data: inserted, error: ledgerErr } = await admin
+      .from("miles_ledger")
+      .insert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+        source_kind: "weekly_photo",
+        source_ref: firstPhoto.id,
+        miles,
+        reason: "Foto de evolução semanal",
+        idempotency_key: idempotencyKey,
+        occurred_on: occurredOn,
+        metadata: { week, photoId: firstPhoto.id, syncedBy: "weekly_photo_sync" },
+      })
+      .select("id, miles, awarded_at, occurred_on")
+      .maybeSingle();
+    if (ledgerErr && ledgerErr.code !== "23505") throw ledgerErr;
+    ledger = inserted;
+    if (!ledger) {
+      const { data: existingLedger, error: existingLedgerErr } = await admin
+        .from("miles_ledger")
+        .select("id, miles, awarded_at, occurred_on")
+        .eq("client_id", client.id)
+        .eq("idempotency_key", idempotencyKey)
+        .maybeSingle();
+      if (existingLedgerErr) throw existingLedgerErr;
+      ledger = existingLedger;
+    }
+  } else {
+    ledger = { miles: 0, awarded_at: firstPhoto.taken_at ?? new Date().toISOString() };
+  }
+  await ensureMissionCompletion(
+    admin,
+    mission,
+    Number(ledger?.miles ?? miles ?? 0),
+    "weekly_photo",
+    firstPhoto.id,
+    idempotencyKey,
+    ledger?.awarded_at ?? firstPhoto.taken_at ?? new Date().toISOString(),
+  );
+  return { week, completed: true, missionId: mission?.id ?? null, firstPhoto, ledger };
 }
 
 function todayKey(): string {
@@ -127,6 +322,7 @@ async function award(
     _idempotency_key: idempotencyKey,
     _reason: reason,
     _metadata: metadata as any,
+    _journey_id: (client as any).active_journey_id ?? null,
   });
   if (error) throw error;
   return { awarded: true, miles, ledger: data };
@@ -139,17 +335,114 @@ export const getTodayMissionSummary = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data: summary, error } = await admin.rpc("get_today_mission_summary", {
-      _client_id: data.clientId,
+    const day = todayKey();
+    const client = await loadClient(data.clientId);
+    const journeyId = (client as any).active_journey_id as string | null;
+    if (!journeyId) {
+      return { date: day, journeyId: null, total: 0, completed: 0, pending: 0, blocked: 0, milesToday: 0, milesTotal: 0 };
+    }
+
+    await admin.rpc("ensure_daily_missions", {
+      _client_id: client.id,
+      _journey_id: journeyId,
+      _day: day,
     });
-    if (error) throw error;
-    return (summary as any) ?? {
-      date: todayKey(),
-      total: 0,
-      completed: 0,
-      pending: 0,
-      milesToday: 0,
-      milesTotal: 0,
+    const journeyDay = getClientJourneyDay((client as any).start_date);
+    const { data: todaysVideos, error: videosErr } = await admin
+      .from("videos")
+      .select("id")
+      .eq("tenant_id", client.tenant_id)
+      .eq("status", "ativo")
+      .eq("release_day", journeyDay);
+    if (videosErr) throw videosErr;
+    for (const v of todaysVideos ?? []) {
+      const { error: ensureVideoErr } = await admin.rpc("ensure_video_mission", {
+        _client_id: client.id,
+        _journey_id: journeyId,
+        _day: day,
+        _video_id: v.id,
+      });
+      if (ensureVideoErr) throw ensureVideoErr;
+    }
+    await syncHydrationCompletion(admin, client, day);
+    await syncWeeklyPhotoMission(admin, client.id);
+
+    const [{ data: missions, error: mErr }, { data: completions, error: cErr }, { data: dayMiles }, { data: allMiles }, { data: videoDone }, { data: routine }] = await Promise.all([
+      admin
+        .from("client_missions")
+        .select("id, mission_type, linked_video_id, task_ref, due_date, active")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("due_date", day)
+        .eq("active", true),
+      admin
+        .from("client_mission_completions")
+        .select("mission_id")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId),
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id).eq("journey_id", journeyId).eq("occurred_on", day),
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id).eq("journey_id", journeyId),
+      admin
+        .from("client_video_progress")
+        .select("video_id")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("is_completed", true),
+      admin
+        .from("client_daily_responses")
+        .select("workout_choice")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("response_date", day)
+        .maybeSingle(),
+    ]);
+    if (mErr) throw mErr;
+    if (cErr) throw cErr;
+
+    const completedSet = new Set((completions ?? []).map((c: any) => c.mission_id));
+    const completedVideos = new Set((videoDone ?? []).map((v: any) => v.video_id));
+    const workoutChoice = (routine as any)?.workout_choice ?? null;
+    let total = 0;
+    let completed = 0;
+    let blocked = 0;
+    for (const m of missions ?? []) {
+      const genericPostVideoTask =
+        m.mission_type === "post_video_task" &&
+        !m.linked_video_id &&
+        (!m.task_ref || m.task_ref === "daily") &&
+        !completedSet.has(m.id);
+      if (genericPostVideoTask) {
+        blocked += 1;
+        continue;
+      }
+      const videoTaskBlocked =
+        m.mission_type === "post_video_task" &&
+        m.linked_video_id &&
+        !completedVideos.has(m.linked_video_id) &&
+        !completedSet.has(m.id);
+      const workoutPhotoBlocked =
+        m.mission_type === "workout_photo" &&
+        workoutChoice !== "musc_cardio" &&
+        workoutChoice !== "cardio" &&
+        !completedSet.has(m.id);
+      if (videoTaskBlocked || workoutPhotoBlocked) {
+        blocked += 1;
+        continue;
+      }
+      total += 1;
+      if (completedSet.has(m.id)) completed += 1;
+    }
+    const milesToday = (dayMiles ?? []).reduce((s: number, r: any) => s + Number(r.miles ?? 0), 0);
+    const milesTotal = (allMiles ?? []).reduce((s: number, r: any) => s + Number(r.miles ?? 0), 0);
+    return {
+      date: day,
+      journeyId,
+      total,
+      completed,
+      pending: Math.max(total - completed, 0),
+      blocked,
+      milesToday,
+      milesTotal,
     };
   });
 
@@ -505,6 +798,9 @@ export const getPostVideoTaskState = createServerFn({ method: "GET" })
     }
     const videoId = data.videoId ?? null;
     const taskRef = data.taskRef ?? (videoId ? "default" : "daily");
+    if (!videoId && !data.taskRef) {
+      return { day, hidden: true, unlocked: false, completed: false, response: null, missionId: null, videoId: null };
+    }
     const missionId = await resolvePostVideoTaskMission(
       data.clientId, journeyId, day, videoId, taskRef,
     );
@@ -702,6 +998,7 @@ export const submitWeeklyPhoto = createServerFn({ method: "POST" })
       client.id, "weekly_photo", `w${week}`, key, "Foto de evolução semanal",
       { storageKey, journeyId, week, photoId: inserted.id },
     );
+    await syncWeeklyPhotoMission(admin, client.id);
     return { ok: true, week, storageKey, photoId: inserted.id, ...res };
   });
 

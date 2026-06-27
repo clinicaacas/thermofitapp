@@ -170,7 +170,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const admin = await getAdmin();
     const { data: video, error: vErr } = await admin
       .from("videos")
-      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds")
+      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
       .eq("id", data.videoId)
       .eq("tenant_id", client.tenant_id)
       .maybeSingle();
@@ -193,12 +193,15 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const shouldComplete = !alreadyCompleted && pct >= minPct;
     const watched = Math.max(existing?.watched_seconds ?? 0, position);
     const progressPercent = Math.max(existing?.progress_percent ?? 0, pct);
+    const journeyId = (client as any).active_journey_id as string | null;
+    if (!journeyId) throw new Error("Jornada ativa não definida para salvar o vídeo.");
 
     // 1) Persiste progresso SEM marcar conclusão/miles_awarded.
     // miles_awarded só pode ser definido após confirmação do ledger.
     const basePayload: any = {
       tenant_id: video.tenant_id,
       client_id: client.id,
+      journey_id: journeyId,
       video_id: video.id,
       progress_percent: progressPercent,
       watched_seconds: watched,
@@ -213,28 +216,57 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     // Sem try/catch silencioso: falha de ledger propaga e impede marcar como concluído.
     let ledgerConfirmed = false;
     if (shouldComplete) {
-      const { data: ms } = await admin
-        .from("mission_settings")
-        .select("default_miles, active")
-        .eq("tenant_id", video.tenant_id)
-        .eq("mission_kind", "video_complete")
-        .maybeSingle();
-      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      const miles = await missionMiles(
+        admin,
+        video.tenant_id,
+        "video_complete",
+        Number(video.miles_on_complete ?? 5),
+      );
+      const idempotencyKey = `video_complete:${video.id}`;
+      let ledgerRow: any = null;
       if (miles > 0) {
-        const { error: awardErr } = await admin.rpc("award_miles", {
+        const { data: awardData, error: awardErr } = await admin.rpc("award_miles", {
           _client_id: client.id,
           _source_kind: "video_complete",
           _source_ref: video.id,
           _miles: miles,
-          _idempotency_key: `video_complete:${video.id}`,
+          _idempotency_key: idempotencyKey,
           _reason: "Vídeo concluído",
-          _metadata: { progressPercent } as any,
+          _metadata: { progressPercent, positionSeconds: position, durationSeconds: duration } as any,
+          _journey_id: journeyId,
         });
         if (awardErr) throw awardErr;
+        ledgerRow = awardData;
         ledgerConfirmed = true;
       } else {
         // Miles desativadas → ainda assim marca como concluído, sem crédito.
         ledgerConfirmed = true;
+      }
+
+      const dueDate = addDaysISO(client.start_date, Number(video.release_day ?? 0));
+      const { data: missionId, error: ensureErr } = await admin.rpc("ensure_video_mission", {
+        _client_id: client.id,
+        _journey_id: journeyId,
+        _day: dueDate,
+        _video_id: video.id,
+      });
+      if (ensureErr) throw ensureErr;
+      if (missionId) {
+        const { data: mission, error: missionErr } = await admin
+          .from("client_missions")
+          .select("id, tenant_id, client_id, journey_id")
+          .eq("id", missionId)
+          .maybeSingle();
+        if (missionErr) throw missionErr;
+        await ensureMissionCompletion(
+          admin,
+          mission,
+          Number(ledgerRow?.miles ?? miles ?? 0),
+          "video_complete",
+          video.id,
+          idempotencyKey,
+          ledgerRow?.awarded_at ?? new Date().toISOString(),
+        );
       }
 
       // 3) Só agora marca is_completed + miles_awarded, após ledger confirmar.
@@ -243,7 +275,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
         .update({
           is_completed: true,
           completed_at: new Date().toISOString(),
-          miles_awarded: video.miles_on_complete ?? 0,
+          miles_awarded: Number(ledgerRow?.miles ?? miles ?? 0),
         })
         .eq("client_id", client.id)
         .eq("video_id", video.id);
@@ -472,6 +504,92 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+function addDaysISO(date: string | null | undefined, days: number): string {
+  if (!date) return todayISO();
+  const d = new Date(`${String(date).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return todayISO();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function missionMiles(admin: any, tenantId: string, kind: string, fallback = 0): Promise<number> {
+  const { data } = await admin
+    .from("mission_settings")
+    .select("default_miles, active")
+    .eq("tenant_id", tenantId)
+    .eq("mission_kind", kind)
+    .maybeSingle();
+  if (data?.active === false) return 0;
+  return Number(data?.default_miles ?? fallback);
+}
+
+async function ensureMissionCompletion(
+  admin: any,
+  mission: any,
+  miles: number,
+  sourceKind: string,
+  sourceRef: string,
+  idempotencyKey: string,
+  completedAt?: string | null,
+) {
+  if (!mission?.id || !mission?.journey_id) return;
+  const payload: any = {
+    tenant_id: mission.tenant_id,
+    client_id: mission.client_id,
+    mission_id: mission.id,
+    journey_id: mission.journey_id,
+    miles_awarded: miles,
+    source_kind: sourceKind,
+    source_ref: sourceRef,
+    idempotency_key: idempotencyKey,
+  };
+  if (completedAt) payload.completed_at = completedAt;
+  const { error } = await admin
+    .from("client_mission_completions")
+    .upsert(payload, { onConflict: "mission_id,client_id" });
+  if (error) throw error;
+}
+
+async function syncHydrationMissionCompletion(admin: any, client: any, day: string, total: number, goal: number) {
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) return null;
+  const { data: ledger } = await admin
+    .from("miles_ledger")
+    .select("id, miles, awarded_at, idempotency_key")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("source_kind", "hydration_goal")
+    .eq("idempotency_key", `hydration_goal:${day}`)
+    .maybeSingle();
+  if (!ledger) return null;
+  await admin.rpc("ensure_daily_missions", {
+    _client_id: client.id,
+    _journey_id: journeyId,
+    _day: day,
+  });
+  const { data: mission, error: mErr } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "hydration_goal")
+    .eq("due_date", day)
+    .maybeSingle();
+  if (mErr) throw mErr;
+  if (mission) {
+    await ensureMissionCompletion(
+      admin,
+      mission,
+      Number(ledger.miles ?? 0),
+      "hydration_goal",
+      day,
+      `hydration_goal:${day}`,
+      ledger.awarded_at,
+    );
+  }
+  return ledger;
+}
+
 // Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
 // conclusão a partir das fotos com source='client_upload' na semana atual da
 // jornada ATIVA. Identidade lógica:
@@ -490,6 +608,7 @@ export async function ensureAndSyncWeeklyPhotoMission(
   const title = `Foto de evolução — Semana ${week}`;
   const description = "Registre sua foto desta semana para acompanhar sua evolução.";
   const today = todayISO();
+  const miles = await missionMiles(admin, client.tenant_id, "weekly_photo", 15);
 
   // Idempotente: chave lógica baseada em (client_id, journey_id, mission_type, week_number).
   const { data: existing } = await admin
@@ -509,7 +628,7 @@ export async function ensureAndSyncWeeklyPhotoMission(
         client_id: client.id,
         title,
         description,
-        miles: 0,
+        miles,
         due_date: today,
         active: true,
         mission_type: "weekly_photo",
@@ -536,36 +655,76 @@ export async function ensureAndSyncWeeklyPhotoMission(
   } else {
     await admin
       .from("client_missions")
-      .update({ due_date: today, active: true, title })
+      .update({ due_date: today, active: true, title, miles })
       .eq("id", missionId);
   }
 
   // Conta fotos da cliente nesta semana DESTA jornada (apenas client_upload).
-  const { count: photoCount } = await admin
+  const { data: firstPhoto, error: firstPhotoErr, count: photoCount } = await admin
     .from("client_progress_photos")
-    .select("id", { head: true, count: "exact" })
+    .select("id, taken_at", { count: "exact" })
     .eq("client_id", client.id)
     .eq("journey_id", journeyId)
     .eq("week", week)
-    .eq("source", "client_upload");
+    .eq("source", "client_upload")
+    .order("taken_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (firstPhotoErr) throw firstPhotoErr;
   const { data: completion } = await admin
     .from("client_mission_completions")
-    .select("mission_id")
+    .select("mission_id, miles_awarded")
     .eq("mission_id", missionId)
     .eq("client_id", client.id)
     .maybeSingle();
-  if ((photoCount ?? 0) > 0 && !completion) {
-    await admin
-      .from("client_mission_completions")
-      .upsert(
-        {
+  if ((photoCount ?? 0) > 0 && firstPhoto) {
+    const idempotencyKey = `weekly_photo:${journeyId}:w${week}`;
+    let ledgerRow: any = null;
+    if (miles > 0) {
+      const occurredOn = String(firstPhoto.taken_at ?? today).slice(0, 10);
+      const { data: insertedLedger, error: ledgerErr } = await admin
+        .from("miles_ledger")
+        .insert({
           tenant_id: client.tenant_id,
           client_id: client.id,
-          mission_id: missionId,
-          miles_awarded: 0,
-        },
-        { onConflict: "mission_id,client_id" },
-      );
+          journey_id: journeyId,
+          source_kind: "weekly_photo",
+          source_ref: firstPhoto.id,
+          miles,
+          reason: "Foto de evolução semanal",
+          idempotency_key: idempotencyKey,
+          occurred_on: occurredOn,
+          metadata: { week, photoId: firstPhoto.id, syncedBy: "weekly_photo_sync" },
+        })
+        .select("id, miles, awarded_at, occurred_on")
+        .maybeSingle();
+      if (ledgerErr && ledgerErr.code !== "23505") throw ledgerErr;
+      ledgerRow = insertedLedger;
+      if (!ledgerRow) {
+        const { data: existingLedger, error: existingLedgerErr } = await admin
+          .from("miles_ledger")
+          .select("id, miles, awarded_at, occurred_on")
+          .eq("client_id", client.id)
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+        if (existingLedgerErr) throw existingLedgerErr;
+        ledgerRow = existingLedger;
+      }
+    }
+    await ensureMissionCompletion(
+      admin,
+      {
+        id: missionId,
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+      },
+      Number(ledgerRow?.miles ?? miles ?? 0),
+      "weekly_photo",
+      firstPhoto.id,
+      idempotencyKey,
+      ledgerRow?.awarded_at ?? firstPhoto.taken_at ?? new Date().toISOString(),
+    );
   } else if ((photoCount ?? 0) === 0 && completion) {
     await admin
       .from("client_mission_completions")
@@ -666,10 +825,15 @@ export const getHydrationToday = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw error;
     const total = (rows ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    const goal = client.hydration_goal_ml ?? 2000;
+    const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
     return {
       day,
       total,
-      goal: client.hydration_goal_ml ?? 2000,
+      goal,
+      creditedToday: !!ledger,
+      creditedMiles: Number((ledger as any)?.miles ?? 0),
+      creditedAt: (ledger as any)?.awarded_at ?? null,
       logs: rows ?? [],
     };
   });
@@ -701,13 +865,7 @@ export const addHydration = createServerFn({ method: "POST" })
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     const goal = client.hydration_goal_ml ?? 2000;
     if (total >= goal) {
-      const { data: ms } = await admin
-        .from("mission_settings")
-        .select("default_miles, active")
-        .eq("tenant_id", client.tenant_id)
-        .eq("mission_kind", "hydration_goal")
-        .maybeSingle();
-      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      const miles = await missionMiles(admin, client.tenant_id, "hydration_goal", 10);
       if (miles > 0) {
         const { error: awardErr } = await admin.rpc("award_miles", {
           _client_id: client.id,
@@ -717,12 +875,15 @@ export const addHydration = createServerFn({ method: "POST" })
           _idempotency_key: `hydration_goal:${day}`,
           _reason: "Meta de hidratação atingida",
           _metadata: { total, goal } as any,
+          _journey_id: (client as any).active_journey_id,
         });
         if (awardErr) throw awardErr;
       }
+      await syncHydrationMissionCompletion(admin, client, day, total, goal);
     }
 
-    return { ok: true };
+    const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
+    return { ok: true, total, goal, creditedToday: !!ledger, creditedMiles: Number((ledger as any)?.miles ?? 0) };
   });
 
 export const undoLastHydration = createServerFn({ method: "POST" })
@@ -743,6 +904,13 @@ export const undoLastHydration = createServerFn({ method: "POST" })
     if (!last) return { ok: true, removed: false };
     const { error } = await admin.from("client_hydration_logs").delete().eq("id", last.id);
     if (error) throw error;
+    const { data: todays } = await admin
+      .from("client_hydration_logs")
+      .select("ml")
+      .eq("client_id", client.id)
+      .eq("log_date", day);
+    const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    await syncHydrationMissionCompletion(admin, client, day, total, client.hydration_goal_ml ?? 2000);
     return { ok: true, removed: true };
   });
 

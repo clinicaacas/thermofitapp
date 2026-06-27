@@ -321,8 +321,13 @@ function MissionVideoPlayer({
   const runPostCompletionRefresh = useCallback(() => {
     window.setTimeout(() => {
       qc.invalidateQueries({ queryKey: ["client-video-missions", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-videos", clientId] });
       qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
       qc.invalidateQueries({ queryKey: ["client-home", clientId] });
+      qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
+      qc.invalidateQueries({ queryKey: ["journey-progress", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-miles", clientId] });
+      qc.invalidateQueries({ queryKey: ["client-rewards", clientId] });
     }, 350);
   }, [clientId, qc]);
 
@@ -333,9 +338,11 @@ function MissionVideoPlayer({
       if (res?.completed && !completedOnceRef.current) {
         completedOnceRef.current = true;
         setCompletedInSession(true);
-        if (endedRef.current) runPostCompletionRefresh();
-        else pendingCompletionRefreshRef.current = true;
+        runPostCompletionRefresh();
       }
+    },
+    onError: (e: any) => {
+      setFriendlyError(e?.message ?? "Não foi possível confirmar a conclusão deste vídeo. Tente novamente.");
     },
   });
 
@@ -488,7 +495,12 @@ function MissionVideoPlayer({
   const expectedDuration = data?.durationSeconds ?? 0;
   const showDurationMismatch =
     expectedDuration > 0 && detectedDuration != null && Math.abs(expectedDuration - detectedDuration) > 2;
-  const sourceType = data?.kind === "file" ? "video/mp4" : undefined;
+  const sourceType =
+    data?.kind === "file" && /\.mp4(\?|$)/i.test(data.playUrl ?? "")
+      ? "video/mp4"
+      : data?.kind === "file" && /\.webm(\?|$)/i.test(data.playUrl ?? "")
+        ? "video/webm"
+        : undefined;
 
   return (
     <div
