@@ -48,13 +48,16 @@ export type MissionRow = {
   title: string;
   status: "completed" | "pending" | "blocked" | "late";
   date: string;           // YYYY-MM-DD
-  miles: number;
+  miles: number;          // milhas efetivamente creditadas (miles_ledger)
+  predictedMiles: number; // milhas previstas (mission_settings)
+  inconsistent: boolean;  // concluída sem crédito correspondente no ledger
   origin: "auto" | "manual" | "derived";
   updatedAt: string | null;
-  missionId: string | null; // só quando vem de client_missions
+  missionId: string | null;
   totalMiles: number;
   details: any | null;
 };
+
 
 const TYPE_LABEL: Record<string, string> = {
   daily_checkin: "Check-in",
