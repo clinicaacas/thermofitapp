@@ -194,7 +194,9 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
     const watched = Math.max(existing?.watched_seconds ?? 0, position);
     const progressPercent = Math.max(existing?.progress_percent ?? 0, pct);
 
-    const payload: any = {
+    // 1) Persiste progresso SEM marcar conclusão/miles_awarded.
+    // miles_awarded só pode ser definido após confirmação do ledger.
+    const basePayload: any = {
       tenant_id: video.tenant_id,
       client_id: client.id,
       video_id: video.id,
@@ -202,48 +204,58 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
       watched_seconds: watched,
       last_position_seconds: position,
     };
-    if (shouldComplete) {
-      payload.is_completed = true;
-      payload.completed_at = new Date().toISOString();
-      payload.miles_awarded = video.miles_on_complete ?? 0;
-    }
-
     const { error: upErr } = await admin
       .from("client_video_progress")
-      .upsert(payload, { onConflict: "client_id,video_id" });
+      .upsert(basePayload, { onConflict: "client_id,video_id" });
     if (upErr) throw upErr;
 
-    // Concessão oficial de milhas via miles_ledger (server-side, idempotente).
-    // Roda apenas na transição para concluído. award_miles tem ON CONFLICT
-    // (client_id, idempotency_key) DO NOTHING — reassistir / abrir 2 abas /
-    // F5 não duplica.
+    // 2) Cruzou 90% pela primeira vez → tenta creditar +5 (idempotente).
+    // Sem try/catch silencioso: falha de ledger propaga e impede marcar como concluído.
+    let ledgerConfirmed = false;
     if (shouldComplete) {
-      try {
-        const { data: ms } = await admin
-          .from("mission_settings")
-          .select("default_miles, active")
-          .eq("tenant_id", video.tenant_id)
-          .eq("mission_kind", "video_complete")
-          .maybeSingle();
-        const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
-        if (miles > 0) {
-          await admin.rpc("award_miles", {
-            _client_id: client.id,
-            _source_kind: "video_complete",
-            _source_ref: video.id,
-            _miles: miles,
-            _idempotency_key: `video_complete:${video.id}`,
-            _reason: "Vídeo concluído",
-            _metadata: { progressPercent } as any,
-          });
-        }
-      } catch (e) {
-        // Não bloqueia a marcação de concluído se a concessão falhar.
-        console.error("award_miles(video_complete) falhou", e);
+      const { data: ms } = await admin
+        .from("mission_settings")
+        .select("default_miles, active")
+        .eq("tenant_id", video.tenant_id)
+        .eq("mission_kind", "video_complete")
+        .maybeSingle();
+      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      if (miles > 0) {
+        const { error: awardErr } = await admin.rpc("award_miles", {
+          _client_id: client.id,
+          _source_kind: "video_complete",
+          _source_ref: video.id,
+          _miles: miles,
+          _idempotency_key: `video_complete:${video.id}`,
+          _reason: "Vídeo concluído",
+          _metadata: { progressPercent } as any,
+        });
+        if (awardErr) throw awardErr;
+        ledgerConfirmed = true;
+      } else {
+        // Miles desativadas → ainda assim marca como concluído, sem crédito.
+        ledgerConfirmed = true;
       }
+
+      // 3) Só agora marca is_completed + miles_awarded, após ledger confirmar.
+      const { error: finErr } = await admin
+        .from("client_video_progress")
+        .update({
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          miles_awarded: video.miles_on_complete ?? 0,
+        })
+        .eq("client_id", client.id)
+        .eq("video_id", video.id);
+      if (finErr) throw finErr;
     }
 
-    return { ok: true, completed: shouldComplete || alreadyCompleted, progressPercent };
+    return {
+      ok: true,
+      completed: shouldComplete || alreadyCompleted,
+      awardedNow: shouldComplete && ledgerConfirmed,
+      progressPercent,
+    };
   });
 
 
