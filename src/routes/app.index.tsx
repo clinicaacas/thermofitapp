@@ -2,7 +2,7 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell, useEnabledModules } from "@/components/client-app-shell";
-import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
+import { getClientHome, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
 import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { Plane, Droplet, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
@@ -37,21 +37,12 @@ function Page() {
   const { isEnabled, getLabel } = useEnabledModules(clientId);
   const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey)).map((m) => ({ ...m, label: getLabel(m.moduleKey, m.label) }));
   const fetchHome = useServerFn(getClientHome);
-  const fetchMissions = useServerFn(listClientMissions);
   const fetchHydration = useServerFn(getHydrationToday);
   const fetchMiles = useServerFn(getClientMiles);
   const fetchSummary = useServerFn(getTodayMissionSummary);
   const { data } = useQuery({
     queryKey: ["client-home", clientId],
     queryFn: () => fetchHome({ data: { clientId } }),
-    enabled: !!clientId,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-  });
-  const { data: missionsData } = useQuery({
-    queryKey: ["client-missions", clientId],
-    queryFn: () => fetchMissions({ data: { clientId } }),
     enabled: !!clientId,
     staleTime: 0,
     refetchOnMount: "always",
@@ -82,10 +73,9 @@ function Page() {
     refetchOnWindowFocus: true,
   });
 
-  const missions = missionsData?.missions ?? [];
   // Fonte única de verdade para o contador (igual em Home e Missões).
-  const missionsDone = (summary as any)?.completed ?? missions.filter((m: any) => m.completed).length;
-  const missionsTotal = (summary as any)?.total ?? missions.length;
+  const missionsDone = (summary as any)?.completed ?? 0;
+  const missionsTotal = (summary as any)?.total ?? 0;
   const client = data?.client;
   const firstName = (client?.name ?? "").split(" ")[0] || "Cliente";
   const week = weekFrom(client?.startDate);
@@ -259,11 +249,17 @@ function Page() {
                 Registrar <ChevronRight className="h-3 w-3" />
               </Link>
             </div>
-            <p className="mt-1.5 text-[11px]" style={{ color: hydrationDone ? "#3F7A3A" : "#6B7280" }}>
-              {hydrationDone
-                ? "Meta concluída · +10 Milhas"
-                : `meta ${(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L`}
-            </p>
+            <div className="mt-1.5">
+              {hydrationDone ? (
+                <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
+                  Meta concluída · +10 Milhas
+                </span>
+              ) : (
+                <p className="text-[11px]" style={{ color: "#6B7280" }}>
+                  meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
+                </p>
+              )}
+            </div>
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}>
               <div
                 className="h-full rounded-full"

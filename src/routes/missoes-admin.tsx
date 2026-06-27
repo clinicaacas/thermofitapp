@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import {
   listMissionsCentral,
@@ -206,6 +206,9 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
   const total = group.rows.length;
   const pct = total > 0 ? Math.round((group.completed / total) * 100) : 0;
   const hasPending = group.pending > 0;
+  useEffect(() => {
+    if (group.pending > 0) setOpen(true);
+  }, [group.pending]);
   return (
     <div className={`overflow-hidden rounded-lg border bg-card shadow-sm ${hasPending ? "border-amber-300" : "border-input"}`}>
       <div className={`px-4 py-3 ${hasPending ? "bg-amber-50/60" : "bg-muted/20"}`}>

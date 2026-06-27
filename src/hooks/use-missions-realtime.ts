@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 // Filtro por client_id é aplicado em cada subscrição para reduzir tráfego.
 const TABLES = [
   "miles_ledger",
+  "client_missions",
   "client_video_progress",
   "client_mission_completions",
   "client_hydration_logs",
@@ -18,6 +19,7 @@ const TABLES = [
   "client_daily_responses",
   "client_seals",
   "client_journey_milestones",
+  "reward_redemptions",
 ] as const;
 
 // Query keys que precisam ser invalidadas em qualquer evento.
@@ -45,9 +47,9 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["client-stats", clientId],
     ["admin-client-photos", clientId],
   ];
-  for (const k of keys) qc.invalidateQueries({ queryKey: k });
-  qc.invalidateQueries({ queryKey: ["missions-central"] });
-  qc.invalidateQueries({ queryKey: ["missions-overview"] });
+  for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["missions-central"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "all" });
 }
 
 export function useMissionsRealtime(clientId: string | null | undefined) {

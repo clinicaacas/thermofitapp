@@ -53,8 +53,7 @@ function Page() {
   });
 
   useClientPhotosRealtime(clientId || null, () => {
-    qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
-    qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
+    invalidateClientMissionData(qc, clientId);
   });
   useMissionsRealtime(clientId || null);
 
