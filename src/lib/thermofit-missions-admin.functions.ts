@@ -488,7 +488,9 @@ export const getMissionsOverview = createServerFn({ method: "GET" })
     const { tenantId, role } = await callerTenant(context as Ctx);
     if (!isManager(role) && role !== "equipe") throw new Error("Sem permissão.");
     const today = todayISO();
-    const sb = (context as Ctx).supabase;
+    // Mesma fonte da Central: admin client garante leitura coerente com
+    // os blocos por cliente (RLS pode mascarar agregações via user client).
+    const sb = await getAdmin();
 
     const { data: clientsRaw } = await sb
       .from("clients")
@@ -499,18 +501,24 @@ export const getMissionsOverview = createServerFn({ method: "GET" })
 
     let missionsToday = 0, completedToday = 0, milesToday = 0, lowAdherence = 0;
     if (ids.length > 0) {
-      const { count: tot } = await sb
+      // Missões de hoje — exclui post_video_task órfãs (sem vídeo e sem task_ref válido)
+      const { data: todayMissions } = await sb
         .from("client_missions")
-        .select("id", { count: "exact", head: true })
+        .select("id, mission_type, linked_video_id, task_ref")
         .in("client_id", ids).eq("due_date", today).eq("active", true);
-      missionsToday = tot ?? 0;
+      const validToday = (todayMissions ?? []).filter((m: any) => {
+        if (m.mission_type !== "post_video_task") return true;
+        return !!m.linked_video_id || (m.task_ref && m.task_ref !== "daily");
+      });
+      const validIds = new Set(validToday.map((m: any) => m.id));
+      missionsToday = validToday.length;
 
       const { data: comps } = await sb
         .from("client_mission_completions")
-        .select("mission_id, miles_awarded, client_missions!inner(due_date, client_id)")
+        .select("mission_id, client_missions!inner(due_date, client_id)")
         .in("client_id", ids)
         .eq("client_missions.due_date", today);
-      completedToday = (comps ?? []).length;
+      completedToday = (comps ?? []).filter((c: any) => validIds.has(c.mission_id)).length;
 
       const { data: ml } = await sb
         .from("miles_ledger")
@@ -518,13 +526,16 @@ export const getMissionsOverview = createServerFn({ method: "GET" })
         .in("client_id", ids).eq("occurred_on", today);
       milesToday = (ml ?? []).reduce((s: number, r: any) => s + (r.miles || 0), 0);
 
-      // baixa adesão: <50% últimos 7 dias
       const sevenAgo = new Date(Date.parse(today + "T00:00:00Z") - 6 * 86400000)
         .toISOString().slice(0, 10);
       const { data: weekM } = await sb
         .from("client_missions")
-        .select("client_id, id")
+        .select("client_id, id, mission_type, linked_video_id, task_ref")
         .in("client_id", ids).gte("due_date", sevenAgo).lte("due_date", today).eq("active", true);
+      const weekValid = (weekM ?? []).filter((m: any) => {
+        if (m.mission_type !== "post_video_task") return true;
+        return !!m.linked_video_id || (m.task_ref && m.task_ref !== "daily");
+      });
       const { data: weekC } = await sb
         .from("client_mission_completions")
         .select("mission_id, client_id")
@@ -532,7 +543,7 @@ export const getMissionsOverview = createServerFn({ method: "GET" })
       const totByClient = new Map<string, number>();
       const cmpIds = new Set((weekC ?? []).map((c: any) => c.mission_id));
       const doneByClient = new Map<string, number>();
-      for (const m of weekM ?? []) {
+      for (const m of weekValid) {
         totByClient.set(m.client_id, (totByClient.get(m.client_id) ?? 0) + 1);
         if (cmpIds.has(m.id)) doneByClient.set(m.client_id, (doneByClient.get(m.client_id) ?? 0) + 1);
       }

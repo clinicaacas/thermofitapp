@@ -161,8 +161,9 @@ function Central() {
 
 type CentralRow = {
   refId: string; clientId: string; clientName: string; journeyDay: number | null;
-  week: number | null; typeLabel: string; title: string; status: string;
-  date: string; miles: number; origin: string; updatedAt?: string | null;
+  week: number | null; type: string; typeLabel: string; title: string; status: string;
+  date: string; miles: number; predictedMiles: number; inconsistent: boolean;
+  origin: string; updatedAt?: string | null;
   journeyId?: string | null; totalMiles?: number;
 };
 
@@ -266,7 +267,7 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
                   <Td className="max-w-[280px] truncate">{r.title}</Td>
                   <Td><StatusBadge status={r.status} /></Td>
                   <Td>{r.date}</Td>
-                  <Td>{r.miles}</Td>
+                  <Td><MilesCell row={r} /></Td>
                   <Td><span className="text-xs text-muted-foreground">{r.origin}</span></Td>
                   <Td><span className="text-xs text-muted-foreground">{fmtDateTime(r.updatedAt)}</span></Td>
                   <Td>
@@ -369,6 +370,17 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-3 py-2 align-middle ${className}`}>{children}</td>;
+}
+function MilesCell({ row }: { row: CentralRow }) {
+  if (row.status === "completed") {
+    if (row.inconsistent) {
+      return <span className="text-xs text-amber-700">Inconsistência de crédito</span>;
+    }
+    return <span className="font-medium">+{row.miles}</span>;
+  }
+  const p = row.predictedMiles ?? 0;
+  if (p > 0) return <span className="text-xs text-muted-foreground">+{p} previstas</span>;
+  return <span className="text-xs text-muted-foreground">0 Milhas</span>;
 }
 function StatusBadge({ status }: { status: string }) {
   const m: Record<string, string> = {
