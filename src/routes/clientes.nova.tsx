@@ -81,17 +81,18 @@ function Page() {
           },
         },
       });
+      try {
+        await startJourney({
+          data: { clientId: r.client.id, startDate: form.startDate },
+        });
+      } catch (jerr) {
+        console.error("[clientes.nova] startJourney failed", jerr);
+      }
       await qc.invalidateQueries({ queryKey: ["clients"] });
       navigate({ to: "/clientes/$id", params: { id: r.client.id } });
     } catch (err) {
       console.error("[clientes.nova] create failed", err);
-      const msg =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : "Erro ao salvar. Verifique os dados e tente novamente.";
-      setError(msg);
+      setError("Não foi possível iniciar o Plano de Voo agora. Tente novamente em instantes ou fale com o suporte.");
     } finally {
       setSaving(false);
     }
