@@ -191,51 +191,60 @@ export const createClientRecord = createServerFn({ method: "POST" })
   .inputValidator((input) => clientPayloadSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerTenant(context);
-    const initial = (data.name.trim()[0] ?? "?").toUpperCase();
     const startDate = data.startDate || new Date().toISOString().slice(0, 10);
-    const insertPayload: Record<string, unknown> = {
-      tenant_id: tenantId,
-      name: data.name.trim(),
-      email: data.email,
-      phone: data.phone,
-      start_date: startDate,
-      plan: data.plan,
-      goal: data.goal,
-      complaint: data.complaint,
-      clinical_notes: data.clinicalNotes,
-      hydration_goal_ml: data.hydrationGoalMl,
-      status: data.status,
-      avatar_initial: initial,
-      created_by: context.userId,
-    };
-    if (data.birthDate) insertPayload.birth_date = data.birthDate;
-    const { data: row, error } = await context.supabase
+
+    const { data: rpcResult, error: rpcError } = await context.supabase.rpc(
+      "create_client_with_journey" as any,
+      {
+        _payload: {
+          name: data.name.trim(),
+          email: data.email ?? "",
+          phone: data.phone ?? "",
+          birthDate: data.birthDate ?? "",
+          startDate,
+          plan: data.plan ?? "",
+          goal: data.goal ?? "",
+          complaint: data.complaint ?? "",
+          clinicalNotes: data.clinicalNotes ?? "",
+          hydrationGoalMl: data.hydrationGoalMl ?? 2000,
+          status: data.status ?? "ativa",
+        },
+        _consents: {
+          terms: !!data.consents.terms,
+          privacy: !!data.consents.privacy,
+          dataProcessing: !!data.consents.dataProcessing,
+          photosInternal: !!data.consents.photosInternal,
+          photosMarketing: !!data.consents.photosMarketing,
+        },
+        _start_journey: true,
+      } as any,
+    );
+    if (rpcError) {
+      console.error("[createClient] create_client_with_journey error", rpcError);
+      throw new Error("Não foi possível iniciar o Plano de Voo agora. Tente novamente em instantes ou fale com o suporte.");
+    }
+    const clientId = (rpcResult as any)?.clientId as string | undefined;
+    const journeyId = (rpcResult as any)?.journeyId as string | undefined;
+    if (!clientId) {
+      throw new Error("Não foi possível criar a cliente. Tente novamente em instantes.");
+    }
+
+    const { data: row, error: fetchErr } = await context.supabase
       .from("clients")
-      .insert(insertPayload as any)
       .select("*")
+      .eq("id", clientId)
+      .eq("tenant_id", tenantId)
       .single();
-    if (error) {
-      console.error("[createClient] insert error", error);
-      throw new Error(error.message || "Falha ao criar cliente.");
+    if (fetchErr || !row) {
+      console.error("[createClient] post-fetch error", fetchErr);
+      throw new Error("Cliente criada, mas não foi possível carregar agora. Atualize a lista.");
     }
 
-    try {
-      const { error: cErr } = await context.supabase.from("consents").insert({
-        tenant_id: tenantId,
-        client_id: row.id,
-        terms: !!data.consents.terms,
-        privacy: !!data.consents.privacy,
-        data_processing: !!data.consents.dataProcessing,
-        photos_internal: !!data.consents.photosInternal,
-        photos_marketing: !!data.consents.photosMarketing,
-      });
-      if (cErr) console.error("[createClient] consents insert error", cErr);
-    } catch (err) {
-      console.error("[createClient] consents insert threw (non-fatal)", err);
-    }
-
-    await logAudit(context, tenantId, "client.create", "client", row.id, { name: row.name });
-    return { client: mapClient(row) };
+    await logAudit(context, tenantId, "client.create", "client", row.id, {
+      name: row.name,
+      journeyId: journeyId ?? null,
+    });
+    return { client: mapClient(row), journeyId: journeyId ?? null };
   });
 
 export const updateClient = createServerFn({ method: "POST" })
