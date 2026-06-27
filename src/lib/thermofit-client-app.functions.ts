@@ -740,8 +740,8 @@ export const listClientMissions = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    // Garante e sincroniza a missão semanal de foto antes de listar.
-    await ensureAndSyncWeeklyPhotoMission(admin, client);
+    // Read-only: a sincronização da missão semanal de foto ocorre no upload da foto,
+    // não ao abrir a lista. Evita conceder Milhas por simples leitura.
     const day = todayISO();
     const [{ data: missions, error: mErr }, { data: completions, error: cErr }] = await Promise.all([
       admin
