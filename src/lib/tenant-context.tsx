@@ -155,15 +155,19 @@ type Ctx = {
   tenant: Tenant;
   tenantLoading: boolean;
   tenantError: string | null;
+  allTenants: ManagedTenant[];
+  callerIsSuperAdmin: boolean;
   plans: Plan[];
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
   refreshTenant: () => Promise<void>;
-  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
+  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">, memberships?: { tenantId: string; role: TenantRole; status?: "ativo" | "inativo" }[]) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
   updateUser: (id: string, patch: Partial<TeamUser>) => Promise<void>;
   resetUserPassword: (id: string) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
   removeUser: (id: string) => Promise<void>;
+  setMembership: (userId: string, tenantId: string, role: TenantRole, status?: "ativo" | "inativo") => Promise<{ ok: boolean; reason?: string }>;
+  removeMembership: (userId: string, tenantId: string) => Promise<{ ok: boolean; reason?: string }>;
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
