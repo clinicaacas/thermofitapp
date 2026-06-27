@@ -186,7 +186,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     setTenantError(null);
     try {
       const r = await getSnapshot();
-      setTenant(normalizeTenant(r.tenant));
+      setTenant(normalizeTenant(r.tenant as Partial<Tenant>));
+      setAllTenants(((r as any).allTenants ?? []) as ManagedTenant[]);
+      setCallerIsSuperAdmin(!!(r as any).callerIsSuperAdmin);
     } catch (err) {
       console.error("Erro ao buscar lista de usuários", err);
       setTenantError("Não foi possível carregar os usuários salvos no banco.");
