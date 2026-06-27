@@ -177,6 +177,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<Tenant>(DEFAULT_TENANT);
   const [tenantLoading, setTenantLoading] = useState(true);
   const [tenantError, setTenantError] = useState<string | null>(null);
+  const [allTenants, setAllTenants] = useState<ManagedTenant[]>([]);
+  const [callerIsSuperAdmin, setCallerIsSuperAdmin] = useState(false);
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const getSnapshot = useServerFn(getTenantSnapshot);
   const saveTenant = useServerFn(updateTenantSettings);
@@ -184,6 +186,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const saveUser = useServerFn(adminUpdateUser);
   const resetPassword = useServerFn(adminResetUserPassword);
   const deleteUser = useServerFn(adminRemoveUser);
+  const setMembershipFn = useServerFn(adminSetMembership);
+  const removeMembershipFn = useServerFn(adminRemoveMembership);
 
   const refreshTenant = useCallback(async () => {
     setTenantLoading(true);
