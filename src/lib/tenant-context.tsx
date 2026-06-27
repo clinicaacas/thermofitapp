@@ -226,6 +226,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tenant,
     tenantLoading,
     tenantError,
+    allTenants,
+    callerIsSuperAdmin,
     plans,
     currentPlan,
     refreshTenant,
