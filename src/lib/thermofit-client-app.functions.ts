@@ -690,37 +690,36 @@ export const addHydration = createServerFn({ method: "POST" })
     if (error) throw error;
 
     // Se a meta diária foi batida agora, conceder milhas (idempotente por dia).
-    try {
-      const day = todayISO();
-      const { data: todays } = await admin
-        .from("client_hydration_logs")
-        .select("ml")
-        .eq("client_id", client.id)
-        .eq("log_date", day);
-      const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
-      const goal = client.hydration_goal_ml ?? 2000;
-      if (total >= goal) {
-        const { data: ms } = await admin
-          .from("mission_settings")
-          .select("default_miles, active")
-          .eq("tenant_id", client.tenant_id)
-          .eq("mission_kind", "hydration_goal")
-          .maybeSingle();
-        const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
-        if (miles > 0) {
-          await admin.rpc("award_miles", {
-            _client_id: client.id,
-            _source_kind: "hydration_goal",
-            _source_ref: day,
-            _miles: miles,
-            _idempotency_key: `hydration_goal:${day}`,
-            _reason: "Meta de hidratação atingida",
-            _metadata: { total, goal } as any,
-          });
-        }
+    // Sem try/catch silencioso: falha de ledger propaga ao chamador.
+    const day = todayISO();
+    const { data: todays, error: todaysErr } = await admin
+      .from("client_hydration_logs")
+      .select("ml")
+      .eq("client_id", client.id)
+      .eq("log_date", day);
+    if (todaysErr) throw todaysErr;
+    const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
+    const goal = client.hydration_goal_ml ?? 2000;
+    if (total >= goal) {
+      const { data: ms } = await admin
+        .from("mission_settings")
+        .select("default_miles, active")
+        .eq("tenant_id", client.tenant_id)
+        .eq("mission_kind", "hydration_goal")
+        .maybeSingle();
+      const miles = ms?.active === false ? 0 : Number(ms?.default_miles ?? 0);
+      if (miles > 0) {
+        const { error: awardErr } = await admin.rpc("award_miles", {
+          _client_id: client.id,
+          _source_kind: "hydration_goal",
+          _source_ref: day,
+          _miles: miles,
+          _idempotency_key: `hydration_goal:${day}`,
+          _reason: "Meta de hidratação atingida",
+          _metadata: { total, goal } as any,
+        });
+        if (awardErr) throw awardErr;
       }
-    } catch (e) {
-      console.error("award_miles(hydration_goal) falhou", e);
     }
 
     return { ok: true };
