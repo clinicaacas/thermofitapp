@@ -26,14 +26,26 @@ function generateTemporaryPassword(len = 12) {
 
 async function findAuthUserByEmail(admin: SupabaseAdmin, email: string) {
   const target = email.trim().toLowerCase();
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) throw error;
-    const found = data.users.find((u) => u.email?.toLowerCase() === target);
-    if (found) return found;
-    if (data.users.length < 1000) return null;
+  // Prefer profile lookup — GoTrue's listUsers can throw "Database error finding users"
+  // when any row in auth.users is inconsistent. We mirror emails in public.profiles.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", target)
+    .maybeSingle();
+  if (profile?.id) {
+    const { data, error } = await admin.auth.admin.getUserById(profile.id);
+    if (!error && data?.user) return data.user;
   }
-  return null;
+  // Best-effort fallback: a single small page. Swallow errors so the snapshot
+  // never blanks when listUsers is unhealthy.
+  try {
+    const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    if (error) return null;
+    return data.users.find((u) => u.email?.toLowerCase() === target) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function ensureAcasTenant(admin: SupabaseAdmin) {
@@ -71,9 +83,11 @@ async function ensureMasterAdmin(admin: SupabaseAdmin, tenantId: string) {
       email_confirm: true,
       user_metadata: { name: "Dra. Cynara Acas" },
     });
-    if (error) throw error;
+    if (error || !data?.user) return null;
     authUser = data.user;
   }
+  if (!authUser) return null;
+
 
   const { data, error } = await admin
     .from("profiles")
@@ -368,7 +382,7 @@ export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler
   return {
     hasActiveSuperAdmin: Boolean(count && count > 0),
     hasMainTenant: Boolean(tenant?.id),
-    masterAdminId: master.id,
+    masterAdminId: master?.id ?? null,
   };
 });
 
