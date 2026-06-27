@@ -53,7 +53,7 @@ export type MissionRow = {
   updatedAt: string | null;
   missionId: string | null; // só quando vem de client_missions
   totalMiles: number;
-  details: Record<string, unknown> | null;
+  details: any | null;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -113,7 +113,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     // Clientes do tenant + jornada ativa
     const { data: clientsRaw, error: cErr } = await sb
       .from("clients")
-      .select("id, name, tenant_id, active_journey_id, client_journeys!clients_active_journey_id_fkey(id, started_on, status)")
+      .select("id, name, tenant_id, active_journey_id, hydration_goal_ml, client_journeys!clients_active_journey_id_fkey(id, started_on, status)")
       .eq("tenant_id", tenantId);
     if (cErr) throw cErr;
     const clients = (clientsRaw ?? []).filter((c: any) => (data.clientId ? c.id === data.clientId : true));
