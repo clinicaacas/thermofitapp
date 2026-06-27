@@ -579,6 +579,48 @@ async function upsertDaily(
   return { client, day };
 }
 
+// Marca a missão estrutural diária como concluída em client_mission_completions,
+// usando a mesma idempotency_key do ledger para manter a auditoria casada.
+async function completeDailyStructuralMission(
+  clientId: string,
+  missionType: "daily_checkin" | "daily_meal" | "daily_workout" | "workout_photo",
+  sourceKind: string,
+  sourceRef: string,
+  idempotencyKey: string,
+  milesAwarded: number,
+  completedAt?: string,
+) {
+  const client = await loadClient(clientId);
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) return;
+  const admin = await getAdmin();
+  const day = todayKey();
+  await admin.rpc("ensure_daily_missions", {
+    _client_id: clientId,
+    _journey_id: journeyId,
+    _day: day,
+  });
+  const { data: mission, error } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", clientId)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", missionType)
+    .eq("due_date", day)
+    .maybeSingle();
+  if (error) throw error;
+  if (!mission) return;
+  await ensureMissionCompletion(
+    admin,
+    mission,
+    milesAwarded,
+    sourceKind,
+    sourceRef,
+    idempotencyKey,
+    completedAt ?? new Date().toISOString(),
+  );
+}
+
 export const submitCheckin = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
