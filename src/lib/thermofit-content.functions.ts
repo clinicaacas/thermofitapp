@@ -294,9 +294,14 @@ export const deleteExercise = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 const rewardSchema = z.object({
-  name: z.string().trim().min(1).max(160),
+  name: z.string().trim().min(1, "Nome obrigatório").max(160),
   description: z.string().trim().max(2000).default(""),
   costMiles: z.number().int().min(0).max(1000000).default(0),
+  milestoneMiles: z.number().int().min(0, "Marco de Milhas obrigatório").max(1000000),
+  rewardType: z.enum(["mimo", "sessao", "voucher", "ensaio", "outro"], {
+    errorMap: () => ({ message: "Tipo de prêmio obrigatório" }),
+  }),
+  sortOrder: z.number().int().min(0).max(1000).default(0),
   stock: z.number().int().min(0).max(1000000).default(0),
   status: z.enum(["ativo", "esgotado", "arquivado"]).default("ativo"),
   imageUrl: z.string().trim().max(500).default(""),
@@ -308,6 +313,9 @@ function mapReward(row: any) {
     name: row.name,
     description: row.description ?? "",
     costMiles: row.cost_miles ?? 0,
+    milestoneMiles: row.milestone_miles ?? row.cost_miles ?? 0,
+    rewardType: row.reward_type ?? "outro",
+    sortOrder: row.sort_order ?? 0,
     stock: row.stock ?? 0,
     status: row.status,
     imageUrl: row.image_url ?? "",
@@ -323,7 +331,8 @@ export const listRewards = createServerFn({ method: "GET" })
       .from("rewards")
       .select("*")
       .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+      .order("sort_order", { ascending: true })
+      .order("milestone_miles", { ascending: true });
     if (error) throw error;
     return { rewards: (data ?? []).map(mapReward) };
   });
