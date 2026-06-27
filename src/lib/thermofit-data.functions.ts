@@ -191,7 +191,7 @@ export const createClientRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => clientPayloadSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { tenantId } = await callerTenant(context);
+    const { tenantId: callerTenantId } = await callerTenant(context);
     const startDate = data.startDate || new Date().toISOString().slice(0, 10);
 
     const { data: rpcResult, error: rpcError } = await context.supabase.rpc(
@@ -209,6 +209,8 @@ export const createClientRecord = createServerFn({ method: "POST" })
           clinicalNotes: data.clinicalNotes ?? "",
           hydrationGoalMl: data.hydrationGoalMl ?? 2000,
           status: data.status ?? "ativa",
+          // RPC accepts tenantId only for super admin; non-super calls are rejected server-side.
+          ...(data.tenantId ? { tenantId: data.tenantId } : {}),
         },
         _consents: {
           terms: !!data.consents.terms,
@@ -226,6 +228,7 @@ export const createClientRecord = createServerFn({ method: "POST" })
     }
     const clientId = (rpcResult as any)?.clientId as string | undefined;
     const journeyId = (rpcResult as any)?.journeyId as string | undefined;
+    const resolvedTenantId = ((rpcResult as any)?.tenantId as string | undefined) ?? callerTenantId;
     if (!clientId) {
       throw new Error("Não foi possível criar a cliente. Tente novamente em instantes.");
     }
@@ -234,19 +237,20 @@ export const createClientRecord = createServerFn({ method: "POST" })
       .from("clients")
       .select("*")
       .eq("id", clientId)
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .single();
     if (fetchErr || !row) {
       console.error("[createClient] post-fetch error", fetchErr);
       throw new Error("Cliente criada, mas não foi possível carregar agora. Atualize a lista.");
     }
 
-    await logAudit(context, tenantId, "client.create", "client", row.id, {
+    await logAudit(context, resolvedTenantId, "client.create", "client", row.id, {
       name: row.name,
       journeyId: journeyId ?? null,
     });
     return { client: mapClient(row), journeyId: journeyId ?? null };
   });
+
 
 export const updateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
