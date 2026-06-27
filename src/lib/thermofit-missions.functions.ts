@@ -579,6 +579,48 @@ async function upsertDaily(
   return { client, day };
 }
 
+// Marca a missão estrutural diária como concluída em client_mission_completions,
+// usando a mesma idempotency_key do ledger para manter a auditoria casada.
+async function completeDailyStructuralMission(
+  clientId: string,
+  missionType: "daily_checkin" | "daily_meal" | "daily_workout" | "workout_photo",
+  sourceKind: string,
+  sourceRef: string,
+  idempotencyKey: string,
+  milesAwarded: number,
+  completedAt?: string,
+) {
+  const client = await loadClient(clientId);
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) return;
+  const admin = await getAdmin();
+  const day = todayKey();
+  await admin.rpc("ensure_daily_missions", {
+    _client_id: clientId,
+    _journey_id: journeyId,
+    _day: day,
+  });
+  const { data: mission, error } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", clientId)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", missionType)
+    .eq("due_date", day)
+    .maybeSingle();
+  if (error) throw error;
+  if (!mission) return;
+  await ensureMissionCompletion(
+    admin,
+    mission,
+    milesAwarded,
+    sourceKind,
+    sourceRef,
+    idempotencyKey,
+    completedAt ?? new Date().toISOString(),
+  );
+}
+
 export const submitCheckin = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
@@ -588,6 +630,14 @@ export const submitCheckin = createServerFn({ method: "POST" })
     });
     const key = `checkin:${todayKey()}`;
     const res = await award(data.clientId, "checkin", todayKey(), key, "Check-in diário");
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_checkin",
+      "daily_checkin",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
@@ -609,6 +659,14 @@ export const submitMeal = createServerFn({ method: "POST" })
     const res = await award(data.clientId, "meal", todayKey(), key, "Alimentação registrada", {
       choice: data.choice,
     });
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_meal",
+      "daily_meal",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
@@ -634,6 +692,14 @@ export const submitWorkout = createServerFn({ method: "POST" })
     const res = await award(data.clientId, "workout", todayKey(), key, "Treino realizado", {
       choice: data.choice,
     });
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_workout",
+      "daily_workout",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
@@ -687,6 +753,14 @@ export const submitWorkoutPhoto = createServerFn({ method: "POST" })
       key,
       "Foto do treino (bônus)",
       { path },
+    );
+    await completeDailyStructuralMission(
+      client.id,
+      "workout_photo",
+      "workout_photo",
+      day,
+      key,
+      Number((res as any)?.miles ?? 0),
     );
     return { ok: true, path, ...res };
   });

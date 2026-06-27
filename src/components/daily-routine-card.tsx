@@ -150,7 +150,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
-            <Check className="h-3 w-3" /> Concluído
+            <Check className="h-3 w-3" /> Check-in concluído · +5 milhas
           </span>
         ) : (
           <button
@@ -169,12 +169,24 @@ export function DailyRoutineCard({ clientId }: Props) {
 
       {/* Alimentação */}
       <div className="py-2">
-        <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-          Como foi sua alimentação hoje?
-        </p>
-        <p className="text-[11px]" style={{ color: "#6B7280" }}>
-          +5 milhas · pode editar no mesmo dia
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+              Como foi sua alimentação hoje?
+            </p>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
+              +5 milhas · pode editar no mesmo dia
+            </p>
+          </div>
+          {mealChoice && (
+            <span
+              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={{ background: "#E8F2E5", color: "#3F7A3A" }}
+            >
+              <Check className="h-3 w-3" /> +5 milhas
+            </span>
+          )}
+        </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {MEALS.map((m) => (
             <Pill
@@ -193,12 +205,25 @@ export function DailyRoutineCard({ clientId }: Props) {
 
       {/* Treino */}
       <div className="py-2">
-        <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-          Como foi seu treino hoje?
-        </p>
-        <p className="text-[11px]" style={{ color: "#6B7280" }}>
-          Realizado +10 · descanso sem pontuação
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+              Como foi seu treino hoje?
+            </p>
+            <p className="text-[11px]" style={{ color: "#6B7280" }}>
+              Realizado +10 · descanso sem pontuação
+            </p>
+          </div>
+          {workoutChoice && (
+            <span
+              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={{ background: "#E8F2E5", color: "#3F7A3A" }}
+            >
+              <Check className="h-3 w-3" />
+              {workoutDone ? "+10 milhas" : "Registrado"}
+            </span>
+          )}
+        </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {WORKOUTS.map((w) => (
             <Pill
