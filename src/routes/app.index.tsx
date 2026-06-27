@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell, useEnabledModules } from "@/components/client-app-shell";
 import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
-import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
+import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { Plane, Droplet, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -32,6 +33,7 @@ function weekFrom(startDate?: string | null): number {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/" });
+  useMissionsRealtime(clientId || null);
   const { isEnabled, getLabel } = useEnabledModules(clientId);
   const quickItems = QUICK.filter((m) => isEnabled(m.moduleKey)).map((m) => ({ ...m, label: getLabel(m.moduleKey, m.label) }));
   const fetchHome = useServerFn(getClientHome);
@@ -234,36 +236,9 @@ function Page() {
         </div>
       </section>
 
-      {/* Me conta sua jornada */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
-              ME CONTA SUA JORNADA
-            </p>
-            <p className="mt-0.5 text-sm font-semibold" style={{ color: "#1F2933" }}>
-              Como você está hoje?
-            </p>
-            <Link
-              to="/app/ajuda"
-              search={{ clientId }}
-              className="mt-0.5 inline-flex text-xs font-medium"
-              style={{ color: "#8A6A3D" }}
-            >
-              Registrar agora →
-            </Link>
-          </div>
-          <div
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-            style={{ background: "#F3E8D2" }}
-          >
-            <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </div>
-        </div>
-      </section>
+      {/* Bloco "Me conta sua jornada" removido — duplicava o card de
+          check-in/rotina que vive exclusivamente em Missões. */}
+
 
       {/* Acesso rápido */}
       <p className="mt-3 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>

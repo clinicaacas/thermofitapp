@@ -16,6 +16,7 @@ import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
 import { PostVideoTaskCard } from "@/components/post-video-task-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
+import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
 
 export const Route = createFileRoute("/app/missoes")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -53,6 +54,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["client-missions", clientId] });
     qc.invalidateQueries({ queryKey: ["mission-summary", clientId] });
   });
+  useMissionsRealtime(clientId || null);
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
     queryKey: ["client-video-missions", clientId],

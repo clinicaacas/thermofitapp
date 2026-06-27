@@ -10,6 +10,7 @@ import {
 } from "@/lib/thermofit-client-app.functions";
 import { X, Clock, CheckCircle2 } from "lucide-react";
 import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
+import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
 
 export const Route = createFileRoute("/app/videos")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -50,6 +51,7 @@ function fmtDuration(sec: number): string {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/videos" });
+  useMissionsRealtime(clientId || null);
   const fetchVideos = useServerFn(listClientVideos);
   const fetchPlayback = useServerFn(getClientVideoPlayback);
   const { data, isLoading } = useQuery({
