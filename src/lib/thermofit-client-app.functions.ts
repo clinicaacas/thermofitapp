@@ -1299,7 +1299,7 @@ export const startClientJourney = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: out, error } = await context.supabase.rpc("start_client_journey", {
       _client_id: data.clientId,
-      _start_date: data.startDate ?? null,
+      ...(data.startDate ? { _start_date: data.startDate } : {}),
     });
     if (error) throw error;
     await emitClientPhotoEvent(await getAdmin(), data.clientId, "updated", null);
