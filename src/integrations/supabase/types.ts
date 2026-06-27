@@ -2553,6 +2553,7 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      materialize_daily_missions_all: { Args: { _day?: string }; Returns: Json }
       tenant_id_for_client_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
