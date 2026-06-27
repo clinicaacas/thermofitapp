@@ -289,14 +289,57 @@ export const listClientRewards = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    const { data: rows, error } = await admin
-      .from("rewards")
-      .select("*")
-      .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
-      .order("cost_miles", { ascending: true });
+    const journeyId = (client as any).active_journey_id as string | null;
+
+    const [{ data: rows, error }, { data: ledgerRows }, { data: redRows }] = await Promise.all([
+      admin
+        .from("rewards")
+        .select("id, name, description, cost_miles, milestone_miles, reward_type, sort_order, image_url, status")
+        .eq("tenant_id", client.tenant_id)
+        .eq("status", "ativo")
+        .order("milestone_miles", { ascending: true })
+        .order("cost_miles", { ascending: true }),
+      admin.from("miles_ledger").select("miles").eq("client_id", client.id).eq("journey_id", journeyId ?? ""),
+      journeyId
+        ? admin
+            .from("reward_redemptions")
+            .select("reward_id, status, created_at, decided_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
     if (error) throw error;
-    return { rewards: rows ?? [] };
+    const balance = (ledgerRows ?? []).reduce((s: number, r: any) => s + (r.miles ?? 0), 0);
+    const byReward = new Map<string, any>();
+    for (const r of (redRows ?? []) as any[]) {
+      // Mantém o registro ativo mais recente (ignora cancelados)
+      if (r.status === "cancelado") continue;
+      const prev = byReward.get(r.reward_id);
+      if (!prev || new Date(r.created_at) > new Date(prev.created_at)) byReward.set(r.reward_id, r);
+    }
+    const rewards = (rows ?? []).map((r: any) => {
+      const threshold = r.milestone_miles ?? r.cost_miles ?? 0;
+      const red = byReward.get(r.id);
+      let state: "bloqueado" | "liberado" | "solicitado" | "entregue" = "bloqueado";
+      if (red?.status === "entregue") state = "entregue";
+      else if (red?.status === "solicitado" || red?.status === "pendente" || red?.status === "aprovado") state = "solicitado";
+      else if (balance >= threshold) state = "liberado";
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description ?? "",
+        milestoneMiles: threshold,
+        rewardType: r.reward_type ?? null,
+        sortOrder: r.sort_order ?? 0,
+        imageUrl: r.image_url ?? "",
+        state,
+        missing: Math.max(threshold - balance, 0),
+        redemption: red
+          ? { status: red.status, createdAt: red.created_at, decidedAt: red.decided_at }
+          : null,
+      };
+    });
+    return { rewards, balance, journeyId };
   });
 
 const helpSchema = z.object({
