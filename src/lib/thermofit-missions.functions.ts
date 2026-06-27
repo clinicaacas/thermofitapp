@@ -9,6 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getClientJourneyDay } from "./journey";
 
 // Chaves OFICIAIS de mission_kind — devem casar com public.mission_settings.
 type MissionKind =
@@ -345,6 +346,23 @@ export const getTodayMissionSummary = createServerFn({ method: "GET" })
       _journey_id: journeyId,
       _day: day,
     });
+    const journeyDay = getClientJourneyDay((client as any).start_date);
+    const { data: todaysVideos, error: videosErr } = await admin
+      .from("videos")
+      .select("id")
+      .eq("tenant_id", client.tenant_id)
+      .eq("status", "ativo")
+      .eq("release_day", journeyDay);
+    if (videosErr) throw videosErr;
+    for (const v of todaysVideos ?? []) {
+      const { error: ensureVideoErr } = await admin.rpc("ensure_video_mission", {
+        _client_id: client.id,
+        _journey_id: journeyId,
+        _day: day,
+        _video_id: v.id,
+      });
+      if (ensureVideoErr) throw ensureVideoErr;
+    }
     await syncHydrationCompletion(admin, client, day);
     await syncWeeklyPhotoMission(admin, client.id);
 
