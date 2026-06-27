@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { ClientAppShell, useEnabledModules } from "@/components/client-app-shell";
 import { getClientHome, listClientMissions, getHydrationToday, getClientMiles } from "@/lib/thermofit-client-app.functions";
 import { getTodayMissionSummary } from "@/lib/thermofit-missions.functions";
-import { Plane, Droplet, Target, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
+import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { Plane, Droplet, Gift, Camera, HelpCircle, Shield, ChevronRight, Apple, Dumbbell, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
