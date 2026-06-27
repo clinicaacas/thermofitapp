@@ -9,6 +9,12 @@ const PUBLIC_APP_URL = "https://thermofitapp.lovable.app";
 
 const profileSchema = z.enum(["super_admin", "dono", "admin", "equipe"]);
 const statusSchema = z.enum(["ativo", "inativo", "bloqueado", "convite_pendente"]);
+const tenantRoleSchema = z.enum(["dono", "admin", "equipe"]);
+const membershipInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  role: tenantRoleSchema,
+  status: z.enum(["ativo", "inativo"]).default("ativo"),
+});
 
 type SupabaseAdmin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
@@ -114,11 +120,36 @@ async function assertUserManager(admin: SupabaseAdmin, userId: string, tenantId:
     console.error("Erro ao validar permissões do administrador", error);
     throw error;
   }
-  const canManage =
-    data?.status === "ativo" &&
-    data.tenant_id === tenantId &&
-    ["super_admin", "dono", "admin"].includes(data.profile);
+  if (!data || data.status !== "ativo") throw new Error("Forbidden");
+  if (data.profile === "super_admin") return;
+  // Non super-admin must have an active membership with managing role in this tenant
+  const { data: m } = await admin
+    .from("profile_tenant_memberships")
+    .select("role,status")
+    .eq("profile_id", userId)
+    .eq("tenant_id", tenantId)
+    .eq("status", "ativo")
+    .maybeSingle();
+  const canManage = m && ["dono", "admin"].includes(m.role as string);
   if (!canManage) throw new Error("Forbidden");
+}
+
+async function isSuperAdmin(admin: SupabaseAdmin, userId: string): Promise<boolean> {
+  const { data } = await admin
+    .from("profiles")
+    .select("profile,status")
+    .eq("id", userId)
+    .maybeSingle();
+  return !!data && data.profile === "super_admin" && data.status === "ativo";
+}
+
+async function countActiveSuperAdmins(admin: SupabaseAdmin): Promise<number> {
+  const { count } = await admin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("profile", "super_admin")
+    .eq("status", "ativo");
+  return count ?? 0;
 }
 
 function mapTenant(row: any) {
@@ -173,62 +204,153 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   const tenant = await ensureAcasTenant(supabaseAdmin);
   await ensureMasterAdmin(supabaseAdmin, tenant.id);
 
-  let team: ReturnType<typeof mapProfile>[] = [];
+  // Ensure master super admin has membership in main tenant (idempotent)
+  await supabaseAdmin
+    .from("profile_tenant_memberships")
+    .upsert(
+      [{
+        profile_id: (await supabaseAdmin.from("profiles").select("id").eq("email", "studioacass@gmail.com").maybeSingle()).data?.id,
+        tenant_id: tenant.id,
+        role: "dono",
+        status: "ativo",
+      }].filter((m) => !!m.profile_id) as any,
+      { onConflict: "profile_id,tenant_id" },
+    );
+
   const authHeader =
     getRequestHeader("authorization") ?? getRequestHeader("Authorization");
   const token = authHeader?.startsWith("Bearer ")
     ? authHeader.replace("Bearer ", "")
     : null;
 
-  // Internal team list is visible to any active tenant member of this clinic.
-  // End-client accounts (no profile row in this tenant) never see it.
+  let callerId: string | null = null;
+  let callerIsSuper = false;
   let callerIsInternalMember = false;
   if (token) {
     const { data } = await supabaseAdmin.auth.getUser(token);
     if (data.user) {
+      callerId = data.user.id;
       const { data: profile } = await supabaseAdmin
         .from("profiles")
         .select("profile,status,tenant_id")
         .eq("id", data.user.id)
         .maybeSingle();
+      callerIsSuper = !!profile && profile.profile === "super_admin" && profile.status === "ativo";
       callerIsInternalMember = Boolean(
-        profile &&
-          profile.status === "ativo" &&
-          profile.tenant_id === tenant.id &&
-          ["super_admin", "dono", "admin", "equipe"].includes(profile.profile),
+        profile && profile.status === "ativo" &&
+        (callerIsSuper || profile.tenant_id === tenant.id),
       );
+      if (!callerIsInternalMember && callerId) {
+        const { data: m } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("id")
+          .eq("profile_id", callerId)
+          .eq("tenant_id", tenant.id)
+          .eq("status", "ativo")
+          .maybeSingle();
+        callerIsInternalMember = !!m;
+      }
     }
   }
 
+  let team: (ReturnType<typeof mapProfile> & { memberships: Array<{ tenantId: string; tenantName: string; role: string; status: string }> })[] = [];
+  let allTenants: Array<{ id: string; clinicName: string; status: string; accountType: string | null }> = [];
+
   if (callerIsInternalMember) {
     try {
-      const { data: profiles, error } = await supabaseAdmin
-        .from("profiles")
-        .select("*")
-        .eq("tenant_id", tenant.id)
-        .in("profile", ["super_admin", "dono", "admin", "equipe"])
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      team = (profiles ?? [])
-        .filter((p: any) => p && p.id)
-        .map((p: any) => {
-          try {
-            return mapProfile(p);
-          } catch (mapErr) {
-            console.error("[getTenantSnapshot] mapProfile failed for row", p?.id, mapErr);
-            return null;
-          }
-        })
-        .filter((p): p is ReturnType<typeof mapProfile> => p !== null);
+      // Team scope: super_admin = all profiles via memberships; others = just members of this tenant
+      let profileIds: string[] = [];
+      if (callerIsSuper) {
+        const { data: allProfiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .in("profile", ["super_admin", "dono", "admin", "equipe"]);
+        profileIds = (allProfiles ?? []).map((p: any) => p.id);
+      } else {
+        const { data: memRows } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("profile_id")
+          .eq("tenant_id", tenant.id);
+        profileIds = (memRows ?? []).map((m: any) => m.profile_id);
+        // Always include direct profiles for legacy tenant_id linkage
+        const { data: legacy } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("tenant_id", tenant.id)
+          .in("profile", ["super_admin", "dono", "admin", "equipe"]);
+        for (const r of legacy ?? []) if (!profileIds.includes((r as any).id)) profileIds.push((r as any).id);
+      }
+
+      if (profileIds.length > 0) {
+        const { data: profiles } = await supabaseAdmin
+          .from("profiles")
+          .select("*")
+          .in("id", profileIds)
+          .order("created_at", { ascending: true });
+        const { data: memberships } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("profile_id,tenant_id,role,status,tenants(clinic_name)")
+          .in("profile_id", profileIds);
+        const memMap = new Map<string, Array<{ tenantId: string; tenantName: string; role: string; status: string }>>();
+        for (const m of memberships ?? []) {
+          const arr = memMap.get((m as any).profile_id) ?? [];
+          arr.push({
+            tenantId: (m as any).tenant_id,
+            tenantName: ((m as any).tenants?.clinic_name as string) ?? "",
+            role: (m as any).role,
+            status: (m as any).status,
+          });
+          memMap.set((m as any).profile_id, arr);
+        }
+        team = (profiles ?? [])
+          .filter((p: any) => p && p.id)
+          .map((p: any) => {
+            try {
+              return { ...mapProfile(p), memberships: memMap.get(p.id) ?? [] };
+            } catch (mapErr) {
+              console.error("[getTenantSnapshot] mapProfile failed for row", p?.id, mapErr);
+              return null;
+            }
+          })
+          .filter((p): p is (ReturnType<typeof mapProfile> & { memberships: any[] }) => p !== null);
+      }
+
+      // Tenants visible to caller
+      if (callerIsSuper) {
+        const { data: t } = await supabaseAdmin
+          .from("tenants")
+          .select("id,clinic_name,status,account_type")
+          .order("clinic_name", { ascending: true });
+        allTenants = (t ?? []).map((r: any) => ({
+          id: r.id, clinicName: r.clinic_name, status: r.status, accountType: r.account_type,
+        }));
+      } else if (callerId) {
+        const { data: t } = await supabaseAdmin
+          .from("profile_tenant_memberships")
+          .select("tenants(id,clinic_name,status,account_type)")
+          .eq("profile_id", callerId)
+          .eq("status", "ativo");
+        allTenants = (t ?? [])
+          .map((r: any) => r.tenants)
+          .filter(Boolean)
+          .map((r: any) => ({
+            id: r.id, clinicName: r.clinic_name, status: r.status, accountType: r.account_type,
+          }));
+      }
     } catch (teamErr) {
-      // Não derruba o snapshot inteiro por causa de uma falha parcial na lista
       console.error("[getTenantSnapshot] failed to load team", teamErr);
       team = [];
     }
   }
 
-  return { tenant: { ...mapTenant(tenant), team } };
+  return {
+    tenant: { ...mapTenant(tenant), team },
+    allTenants,
+    callerIsSuperAdmin: callerIsSuper,
+  };
 });
+
+
 
 export const checkInitialSetupStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -411,12 +533,33 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       profile: profileSchema.default("equipe"),
       status: statusSchema.default("ativo"),
       mustChangePassword: z.boolean().default(false),
+      memberships: z.array(membershipInputSchema).optional().default([]),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
-    await assertUserManager(supabaseAdmin, context.userId, tenant.id);
+    const callerIsSuper = await isSuperAdmin(supabaseAdmin, context.userId);
+
+    // Anchor tenant for legacy profiles.tenant_id
+    let anchorTenantId = tenant.id;
+    if (data.memberships.length > 0) {
+      anchorTenantId = data.memberships[0].tenantId;
+    }
+    await assertUserManager(supabaseAdmin, context.userId, anchorTenantId);
+
+    // Guard: only super admin may grant super_admin role
+    if (data.profile === "super_admin" && !callerIsSuper) {
+      throw new Error("Apenas Super Admin pode conceder o papel Super Admin.");
+    }
+
+    // Guard: non-super may only create memberships in tenants they manage
+    if (!callerIsSuper) {
+      for (const m of data.memberships) {
+        await assertUserManager(supabaseAdmin, context.userId, m.tenantId);
+      }
+    }
+
     const password = generateTemporaryPassword();
     let authUser = await findAuthUserByEmail(supabaseAdmin, data.email);
     let existed = Boolean(authUser);
@@ -424,7 +567,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { password, email_confirm: true });
       if (error) {
         console.error("Erro ao criar/atualizar usuário no Auth", error);
-        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+        throw new Error("Não foi possível salvar o usuário.");
       }
     } else {
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
@@ -435,15 +578,16 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       });
       if (error) {
         console.error("Erro ao criar usuário no Auth", error);
-        throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+        throw new Error("Não foi possível salvar o usuário.");
       }
       authUser = created.user;
     }
+
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
       .upsert({
         id: authUser.id,
-        tenant_id: tenant.id,
+        tenant_id: anchorTenantId,
         name: data.name,
         email: data.email.toLowerCase(),
         phone: data.phone,
@@ -455,9 +599,28 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) {
-      console.error("Erro ao criar perfil ou vincular clínica", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      console.error("Erro ao criar perfil", error);
+      throw new Error("Não foi possível salvar o usuário.");
     }
+
+    // Apply memberships (idempotent upsert)
+    const membershipsToWrite = data.memberships.length > 0
+      ? data.memberships
+      : data.profile !== "super_admin"
+        ? [{ tenantId: anchorTenantId, role: (data.profile as "dono" | "admin" | "equipe"), status: "ativo" as const }]
+        : [];
+    for (const m of membershipsToWrite) {
+      await supabaseAdmin
+        .from("profile_tenant_memberships")
+        .upsert({
+          profile_id: profile.id,
+          tenant_id: m.tenantId,
+          role: m.role,
+          status: m.status,
+          created_by: context.userId,
+        }, { onConflict: "profile_id,tenant_id" });
+    }
+
     return { user: mapProfile(profile), temporaryPassword: password, existed };
   });
 
@@ -472,7 +635,7 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
     if (authError) {
       console.error("Erro ao redefinir senha no Auth", authError);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
+      throw new Error("Não foi possível redefinir a senha.");
     }
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
@@ -480,10 +643,7 @@ export const adminResetUserPassword = createServerFn({ method: "POST" })
       .eq("id", data.userId)
       .select("*")
       .single();
-    if (error) {
-      console.error("Erro ao atualizar perfil após redefinir senha", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
-    }
+    if (error) throw new Error("Não foi possível atualizar o perfil.");
     return { user: mapProfile(profile), temporaryPassword: password };
   });
 
@@ -494,24 +654,39 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
     await assertUserManager(supabaseAdmin, context.userId, tenant.id);
+    const callerIsSuper = await isSuperAdmin(supabaseAdmin, context.userId);
+
+    // Guard: only super admin can grant/revoke super_admin role
+    if (data.patch.profile && data.patch.profile === "super_admin" && !callerIsSuper) {
+      throw new Error("Apenas Super Admin pode conceder o papel Super Admin.");
+    }
+    const { data: target } = await supabaseAdmin
+      .from("profiles").select("profile,status").eq("id", data.userId).maybeSingle();
+    if (target?.profile === "super_admin") {
+      if (!callerIsSuper && data.patch.profile && data.patch.profile !== "super_admin") {
+        throw new Error("Apenas Super Admin pode revogar o papel Super Admin.");
+      }
+      // Last super admin guard: block deactivating or downgrading the last active super admin
+      const wouldRemove =
+        (data.patch.profile && data.patch.profile !== "super_admin") ||
+        (data.patch.status && data.patch.status !== "ativo");
+      if (wouldRemove) {
+        const count = await countActiveSuperAdmins(supabaseAdmin);
+        if (count <= 1) throw new Error("Não é possível remover o último Super Admin ativo.");
+      }
+    }
+
     const allowed: Record<string, string> = {
-      name: "name",
-      email: "email",
-      phone: "phone",
-      role: "role",
-      profile: "profile",
-      status: "status",
-      mustChangePassword: "must_change_password",
+      name: "name", email: "email", phone: "phone", role: "role",
+      profile: "profile", status: "status", mustChangePassword: "must_change_password",
     };
     const patch: Record<string, unknown> = {};
     Object.entries(data.patch).forEach(([key, value]) => {
       if (key in allowed) patch[allowed[key]] = value;
     });
-    const { data: profile, error } = await supabaseAdmin.from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
-    if (error) {
-      console.error("Erro ao atualizar perfil", error);
-      throw new Error("Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação.");
-    }
+    const { data: profile, error } = await supabaseAdmin
+      .from("profiles").update(patch as any).eq("id", data.userId).select("*").single();
+    if (error) throw new Error("Não foi possível atualizar o usuário.");
     return { user: mapProfile(profile) };
   });
 
@@ -522,9 +697,67 @@ export const adminRemoveUser = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenant = await ensureAcasTenant(supabaseAdmin);
     await assertUserManager(supabaseAdmin, context.userId, tenant.id);
-    const { data: profile } = await supabaseAdmin.from("profiles").select("profile").eq("id", data.userId).maybeSingle();
-    if (profile?.profile === "super_admin") throw new Error("A conta Super Admin não pode ser removida.");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("profile,status").eq("id", data.userId).maybeSingle();
+    if (profile?.profile === "super_admin") {
+      const count = await countActiveSuperAdmins(supabaseAdmin);
+      if (count <= 1) throw new Error("Não é possível remover o último Super Admin ativo.");
+    }
     await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
     await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    return { ok: true };
+  });
+
+// ---------- Memberships management ----------
+
+export const adminSetMembership = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    userId: z.string().uuid(),
+    tenantId: z.string().uuid(),
+    role: tenantRoleSchema,
+    status: z.enum(["ativo", "inativo"]).default("ativo"),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertUserManager(supabaseAdmin, context.userId, data.tenantId);
+    const { error } = await supabaseAdmin
+      .from("profile_tenant_memberships")
+      .upsert({
+        profile_id: data.userId,
+        tenant_id: data.tenantId,
+        role: data.role,
+        status: data.status,
+        created_by: context.userId,
+        deactivated_at: data.status === "inativo" ? new Date().toISOString() : null,
+        deactivated_by: data.status === "inativo" ? context.userId : null,
+      }, { onConflict: "profile_id,tenant_id" });
+    if (error) {
+      console.error("Erro ao salvar membership", error);
+      throw new Error("Não foi possível salvar o vínculo.");
+    }
+    return { ok: true };
+  });
+
+export const adminRemoveMembership = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    userId: z.string().uuid(),
+    tenantId: z.string().uuid(),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertUserManager(supabaseAdmin, context.userId, data.tenantId);
+    // Soft-delete: mark inactive so history is preserved
+    const { error } = await supabaseAdmin
+      .from("profile_tenant_memberships")
+      .update({
+        status: "inativo",
+        deactivated_at: new Date().toISOString(),
+        deactivated_by: context.userId,
+      })
+      .eq("profile_id", data.userId)
+      .eq("tenant_id", data.tenantId);
+    if (error) throw new Error("Não foi possível remover o vínculo.");
     return { ok: true };
   });

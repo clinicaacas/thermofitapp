@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminCreateUser,
+  adminRemoveMembership,
   adminRemoveUser,
   adminResetUserPassword,
+  adminSetMembership,
   adminUpdateUser,
   getTenantSnapshot,
   updateTenantSettings,
@@ -24,6 +26,22 @@ export type Plan = {
   active: boolean;
 };
 
+export type TenantRole = "dono" | "admin" | "equipe";
+
+export type Membership = {
+  tenantId: string;
+  tenantName: string;
+  role: TenantRole;
+  status: "ativo" | "inativo";
+};
+
+export type ManagedTenant = {
+  id: string;
+  clinicName: string;
+  status: string;
+  accountType: string | null;
+};
+
 export type TeamUser = {
   id: string;
   name: string;
@@ -37,6 +55,7 @@ export type TeamUser = {
   lastAccess?: string;
   kind?: "team" | "client";
   clientId?: string;
+  memberships?: Membership[];
 };
 
 export type Tenant = {
@@ -136,15 +155,19 @@ type Ctx = {
   tenant: Tenant;
   tenantLoading: boolean;
   tenantError: string | null;
+  allTenants: ManagedTenant[];
+  callerIsSuperAdmin: boolean;
   plans: Plan[];
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
   updatePlan: (id: PlanId, patch: Partial<Plan>) => void;
   refreshTenant: () => Promise<void>;
-  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
+  addUser: (u: Omit<TeamUser, "id" | "tenantId" | "lastAccess">, memberships?: { tenantId: string; role: TenantRole; status?: "ativo" | "inativo" }[]) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string; existed?: boolean }>;
   updateUser: (id: string, patch: Partial<TeamUser>) => Promise<void>;
   resetUserPassword: (id: string) => Promise<{ ok: boolean; reason?: string; user?: TeamUser; temporaryPassword?: string }>;
   removeUser: (id: string) => Promise<void>;
+  setMembership: (userId: string, tenantId: string, role: TenantRole, status?: "ativo" | "inativo") => Promise<{ ok: boolean; reason?: string }>;
+  removeMembership: (userId: string, tenantId: string) => Promise<{ ok: boolean; reason?: string }>;
 };
 
 const TenantCtx = createContext<Ctx | null>(null);
@@ -154,6 +177,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<Tenant>(DEFAULT_TENANT);
   const [tenantLoading, setTenantLoading] = useState(true);
   const [tenantError, setTenantError] = useState<string | null>(null);
+  const [allTenants, setAllTenants] = useState<ManagedTenant[]>([]);
+  const [callerIsSuperAdmin, setCallerIsSuperAdmin] = useState(false);
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const getSnapshot = useServerFn(getTenantSnapshot);
   const saveTenant = useServerFn(updateTenantSettings);
@@ -161,13 +186,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const saveUser = useServerFn(adminUpdateUser);
   const resetPassword = useServerFn(adminResetUserPassword);
   const deleteUser = useServerFn(adminRemoveUser);
+  const setMembershipFn = useServerFn(adminSetMembership);
+  const removeMembershipFn = useServerFn(adminRemoveMembership);
 
   const refreshTenant = useCallback(async () => {
     setTenantLoading(true);
     setTenantError(null);
     try {
       const r = await getSnapshot();
-      setTenant(normalizeTenant(r.tenant));
+      setTenant(normalizeTenant(r.tenant as Partial<Tenant>));
+      setAllTenants(((r as any).allTenants ?? []) as ManagedTenant[]);
+      setCallerIsSuperAdmin(!!(r as any).callerIsSuperAdmin);
     } catch (err) {
       console.error("Erro ao buscar lista de usuários", err);
       setTenantError("Não foi possível carregar os usuários salvos no banco.");
@@ -197,6 +226,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tenant,
     tenantLoading,
     tenantError,
+    allTenants,
+    callerIsSuperAdmin,
     plans,
     currentPlan,
     refreshTenant,
@@ -206,19 +237,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     },
     updatePlan: (id, patch) =>
       setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))),
-    addUser: async (u) => {
+    addUser: async (u, memberships) => {
       const limit = currentPlan?.userLimit ?? 0;
       const unlimited = u.profile === "super_admin" || tenant.planId === "interno" || limit === -1;
       if (!unlimited && tenant.team.length >= limit) {
         return { ok: false, reason: `Seu plano atual permite até ${limit} usuários. Para adicionar mais pessoas, atualize seu plano.` };
       }
       try {
-        const result = await createUser({ data: u });
+        const result = await createUser({ data: { ...u, memberships: memberships ?? [] } as any });
         await refreshTenant();
         return { ok: true, user: result.user, temporaryPassword: result.temporaryPassword, existed: result.existed };
       } catch (err) {
         console.error("Erro ao criar usuário", err);
-        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível salvar o usuário. Verifique as permissões do banco ou autenticação." };
+        return { ok: false, reason: err instanceof Error ? err.message : "Não foi possível salvar o usuário." };
       }
     },
     updateUser: async (id, patch) => {
@@ -238,6 +269,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     removeUser: async (id) => {
       await deleteUser({ data: { userId: id } });
       await refreshTenant();
+    },
+    setMembership: async (userId, tenantId, role, status = "ativo") => {
+      try {
+        await setMembershipFn({ data: { userId, tenantId, role, status } });
+        await refreshTenant();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Falha ao salvar vínculo." };
+      }
+    },
+    removeMembership: async (userId, tenantId) => {
+      try {
+        await removeMembershipFn({ data: { userId, tenantId } });
+        await refreshTenant();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "Falha ao remover vínculo." };
+      }
     },
   };
 
