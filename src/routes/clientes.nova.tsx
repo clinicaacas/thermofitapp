@@ -118,7 +118,27 @@ function Page() {
         </header>
 
         <form onSubmit={onSubmit} className="space-y-6">
+          {callerIsSuperAdmin && (
+            <Section title="Clínica responsável">
+              <Field label="Clínica onde a cliente será cadastrada *">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={tenantId}
+                  onChange={(e) => setTenantId(e.target.value)}
+                  required
+                >
+                  {tenantOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.clinicName}</option>
+                  ))}
+                </select>
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                Como Super Admin você pode criar clientes em qualquer clínica. A jornada e o Plano de Voo serão criados nesta clínica.
+              </p>
+            </Section>
+          )}
           <Section title="Dados pessoais">
+
             <Field label="Nome completo *">
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
             </Field>
