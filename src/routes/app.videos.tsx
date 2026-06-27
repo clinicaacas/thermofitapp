@@ -51,6 +51,7 @@ function fmtDuration(sec: number): string {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/videos" });
+  useMissionsRealtime(clientId || null);
   const fetchVideos = useServerFn(listClientVideos);
   const fetchPlayback = useServerFn(getClientVideoPlayback);
   const { data, isLoading } = useQuery({
