@@ -798,6 +798,9 @@ export const getPostVideoTaskState = createServerFn({ method: "GET" })
     }
     const videoId = data.videoId ?? null;
     const taskRef = data.taskRef ?? (videoId ? "default" : "daily");
+    if (!videoId && !data.taskRef) {
+      return { day, hidden: true, unlocked: false, completed: false, response: null, missionId: null, videoId: null };
+    }
     const missionId = await resolvePostVideoTaskMission(
       data.clientId, journeyId, day, videoId, taskRef,
     );
