@@ -2552,6 +2552,10 @@ export type Database = {
         Args: { p_change: string; p_client_id: string; p_photo_id: string }
         Returns: undefined
       }
+      can_access_client_photo: {
+        Args: { _name: string; _user: string }
+        Returns: boolean
+      }
       can_access_client_photos_topic: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
