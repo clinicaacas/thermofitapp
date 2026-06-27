@@ -463,8 +463,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         status: videoPatch.status,
         date,
         miles: videoPatch.miles,
+        predictedMiles: predictedFor("video_complete", 0),
+        inconsistent: videoPatch.status === "completed" && videoPatch.miles <= 0,
         origin: "derived",
         updatedAt: videoPatch.updatedAt,
+
         missionId: null,
         totalMiles: ledgerByClient.get(v.client_id) ?? 0,
         details: videoPatch.details,
