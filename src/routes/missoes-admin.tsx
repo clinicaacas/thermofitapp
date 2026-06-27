@@ -10,7 +10,7 @@ import {
   updateMissionSetting,
 } from "@/lib/thermofit-missions-admin.functions";
 import { listClients } from "@/lib/thermofit-data.functions";
-import { Loader2, Filter, Settings as SettingsIcon, BarChart3 } from "lucide-react";
+import { Loader2, Filter, Settings as SettingsIcon, BarChart3, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 
 export const Route = createFileRoute("/missoes-admin")({
   head: () => ({ meta: [{ title: "Missões — ThermoFit" }] }),
@@ -162,24 +162,27 @@ function Central() {
 type CentralRow = {
   refId: string; clientId: string; clientName: string; journeyDay: number | null;
   week: number | null; typeLabel: string; title: string; status: string;
-  date: string; miles: number; origin: string;
+  date: string; miles: number; origin: string; updatedAt?: string | null;
+  journeyId?: string | null; totalMiles?: number;
 };
 
 function ClientGroups({ rows, loading }: { rows: CentralRow[]; loading: boolean }) {
   const groups = useMemo(() => {
-    const map = new Map<string, { clientId: string; clientName: string; rows: CentralRow[] }>();
+    const map = new Map<string, { key: string; clientId: string; clientName: string; journeyId: string | null; rows: CentralRow[] }>();
     for (const r of rows) {
-      const g = map.get(r.clientId) ?? { clientId: r.clientId, clientName: r.clientName, rows: [] };
+      const key = `${r.clientId}:${r.journeyId ?? "sem-jornada"}`;
+      const g = map.get(key) ?? { key, clientId: r.clientId, clientName: r.clientName, journeyId: r.journeyId ?? null, rows: [] };
       g.rows.push(r);
-      map.set(r.clientId, g);
+      map.set(key, g);
     }
     const list = Array.from(map.values()).map((g) => {
       const pending = g.rows.filter((r) => r.status !== "completed").length;
       const completed = g.rows.length - pending;
-      const miles = g.rows.reduce((acc, r) => acc + (r.status === "completed" ? r.miles : 0), 0);
+      const dayMiles = g.rows.reduce((acc, r) => acc + (r.status === "completed" ? r.miles : 0), 0);
+      const totalMiles = Math.max(...g.rows.map((r) => Number(r.totalMiles ?? 0)), 0);
       const lastDay = g.rows.reduce((acc, r) => Math.max(acc, r.journeyDay ?? 0), 0);
       const lastWeek = g.rows.reduce((acc, r) => Math.max(acc, r.week ?? 0), 0);
-      return { ...g, pending, completed, miles, lastDay, lastWeek };
+      return { ...g, pending, completed, dayMiles, totalMiles, lastDay, lastWeek };
     });
     list.sort((a, b) => (b.pending - a.pending) || a.clientName.localeCompare(b.clientName));
     return list;
@@ -193,51 +196,62 @@ function ClientGroups({ rows, loading }: { rows: CentralRow[]; loading: boolean 
   }
   return (
     <div className="space-y-3">
-      {groups.map((g) => <ClientGroup key={g.clientId} group={g} />)}
+      {groups.map((g) => <ClientGroup key={g.key} group={g} />)}
     </div>
   );
 }
 
-function ClientGroup({ group }: { group: { clientId: string; clientName: string; rows: CentralRow[]; pending: number; completed: number; miles: number; lastDay: number; lastWeek: number } }) {
+function ClientGroup({ group }: { group: { clientId: string; clientName: string; journeyId: string | null; rows: CentralRow[]; pending: number; completed: number; dayMiles: number; totalMiles: number; lastDay: number; lastWeek: number } }) {
   const [open, setOpen] = useState(group.pending > 0);
   const total = group.rows.length;
   const pct = total > 0 ? Math.round((group.completed / total) * 100) : 0;
+  const hasPending = group.pending > 0;
   return (
-    <div className="rounded-md border border-input bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-accent/40"
-      >
-        <div className="min-w-0">
+    <div className={`overflow-hidden rounded-lg border bg-card shadow-sm ${hasPending ? "border-amber-300" : "border-input"}`}>
+      <div className={`px-4 py-3 ${hasPending ? "bg-amber-50/60" : "bg-muted/20"}`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <button type="button" onClick={() => setOpen((v) => !v)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+            <span className="mt-0.5 text-muted-foreground">{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-base font-semibold">{group.clientName}</span>
+                <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                  Jornada {group.journeyId ? group.journeyId.slice(0, 8) : "—"}
+                </span>
+                <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                  Dia {group.lastDay || "—"} · Semana {group.lastWeek || "—"}
+                </span>
+              </div>
+              <div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-5">
+                <span><b className="text-foreground">{group.completed}/{total}</b> concluídas ({pct}%)</span>
+                <span><b className="text-foreground">{group.dayMiles}</b> Milhas do dia</span>
+                <span><b className="text-foreground">{group.totalMiles}</b> Milhas totais</span>
+                <span><b className={hasPending ? "text-amber-700" : "text-emerald-700"}>{group.pending}</b> pendências</span>
+                <span>{hasPending ? "Revisar cliente" : "Sem pendências"}</span>
+              </div>
+            </div>
+          </button>
           <div className="flex items-center gap-2">
-            <span className="font-semibold">{group.clientName}</span>
-            <span className="text-xs text-muted-foreground">Dia {group.lastDay || "—"} · Semana {group.lastWeek || "—"}</span>
-          </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            {group.completed} de {total} concluídas ({pct}%) · {group.miles} milhas
-            {group.pending > 0 ? ` · ${group.pending} pendente${group.pending > 1 ? "s" : ""}` : " · sem pendências"}
+            <Link
+              to="/clientes/$id/missoes"
+              params={{ id: group.clientId }}
+              className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
+            >
+              Abrir perfil <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/clientes/$id/missoes"
-            params={{ id: group.clientId }}
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-md border border-input px-2.5 py-1 text-xs hover:bg-accent"
-          >
-            Abrir perfil
-          </Link>
-          <span className="text-xs text-muted-foreground">{open ? "▾" : "▸"}</span>
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className={`h-full ${pct === 100 ? "bg-emerald-600" : "bg-amber-500"}`} style={{ width: `${pct}%` }} />
         </div>
-      </button>
+      </div>
       {open && (
         <div className="overflow-x-auto border-t border-border">
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
               <tr>
-                <Th>Dia</Th><Th>Sem.</Th><Th>Tipo</Th><Th>Missão</Th>
-                <Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th>{" "}</Th>
+                <Th>Dia</Th><Th>Semana</Th><Th>Tipo</Th><Th>Missão</Th>
+                <Th>Status</Th><Th>Data</Th><Th>Milhas</Th><Th>Origem</Th><Th>Última atualização</Th><Th>Abrir</Th>
               </tr>
             </thead>
             <tbody>
@@ -251,6 +265,7 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
                   <Td>{r.date}</Td>
                   <Td>{r.miles}</Td>
                   <Td><span className="text-xs text-muted-foreground">{r.origin}</span></Td>
+                  <Td><span className="text-xs text-muted-foreground">{fmtDateTime(r.updatedAt)}</span></Td>
                   <Td>
                     <Link to="/clientes/$id/missoes" params={{ id: group.clientId }} className="text-xs text-primary hover:underline">
                       Abrir
@@ -264,6 +279,11 @@ function ClientGroup({ group }: { group: { clientId: string; clientName: string;
       )}
     </div>
   );
+}
+
+function fmtDateTime(value?: string | null) {
+  if (!value) return "—";
+  try { return new Date(value).toLocaleString("pt-BR"); } catch { return value; }
 }
 
 function Configuracoes() {
