@@ -150,44 +150,60 @@ function Page() {
       </section>
 
       {/* Missões de hoje */}
-      <section
-        className="mt-2 rounded-2xl bg-white p-3"
-        style={{ border: "1px solid #E5E0D8" }}
-      >
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-            Missões de hoje
-          </p>
-          <Link
-            to="/app/missoes"
-            search={{ clientId }}
-            className="inline-flex items-center gap-0.5 text-xs font-medium"
-            style={{ color: "#8A6A3D" }}
+      {(() => {
+        const allDone = missionsTotal > 0 && missionsDone >= missionsTotal;
+        const pct = missionsTotal > 0 ? Math.min(100, (missionsDone / missionsTotal) * 100) : 0;
+        const bg = allDone ? "#E8F2E5" : "#FFFFFF";
+        const border = allDone ? "1px solid #BFD8B7" : "1px solid #E5E0D8";
+        const iconBg = allDone ? "#BFD8B7" : "#F3E8D2";
+        const iconColor = allDone ? "#3F7A3A" : "#8A6A3D";
+        return (
+          <section
+            className="mt-2 rounded-2xl p-3"
+            style={{ background: bg, border }}
           >
-            Ver todas <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <div className="mt-2 flex items-center gap-3">
-          <div
-            className="grid h-9 w-9 place-items-center rounded-xl"
-            style={{ background: "#F3E8D2" }}
-          >
-            <Plane className="h-4 w-4" style={{ color: "#8A6A3D" }} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              {missionsDone} de {missionsTotal} missões
-            </p>
-            <p className="text-[11px]" style={{ color: "#6B7280" }}>
-              {missionsTotal === 0
-                ? "Nenhuma missão programada para hoje."
-                : missionsDone === missionsTotal
-                  ? "Tudo concluído!"
-                  : "Toque em Ver todas para concluir."}
-            </p>
-          </div>
-        </div>
-      </section>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                Missões de hoje
+              </p>
+              <Link
+                to="/app/missoes"
+                search={{ clientId }}
+                className="inline-flex items-center gap-0.5 text-xs font-medium"
+                style={{ color: allDone ? "#3F7A3A" : "#8A6A3D" }}
+              >
+                Ver todas <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <div
+                className="grid h-9 w-9 place-items-center rounded-xl"
+                style={{ background: iconBg }}
+              >
+                <Plane className="h-4 w-4" style={{ color: iconColor }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                  {missionsDone} de {missionsTotal} concluídas
+                </p>
+                <p className="text-[11px]" style={{ color: allDone ? "#3F7A3A" : "#6B7280" }}>
+                  {missionsTotal === 0
+                    ? "Nenhuma missão programada para hoje."
+                    : allDone
+                      ? "Todas as missões de hoje foram concluídas"
+                      : "Toque em Ver todas para concluir."}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#D6A93F" }}
+              />
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Cards interativos de missão vivem apenas na aba Missões. */}
 
