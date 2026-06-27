@@ -761,6 +761,3 @@ export const adminRemoveMembership = createServerFn({ method: "POST" })
     if (error) throw new Error("Não foi possível remover o vínculo.");
     return { ok: true };
   });
-
-    return { ok: true };
-  });
