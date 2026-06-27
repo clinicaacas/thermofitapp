@@ -234,6 +234,14 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       }
       const jinfo = jDay(m.client_id, m.due_date);
       const isPast = m.due_date < today;
+      // Prioriza o crédito real no ledger para a missão; cai para completion;
+      // por último, 0. Nunca usa m.miles (default) como crédito real.
+      const ledgerForMission =
+        (m.linked_video_id ? ledgerByKindRef.get(`${m.client_id}:${kind}:${m.linked_video_id}`) : null) ||
+        ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`);
+      const actualMiles = Number(ledgerForMission?.miles ?? comp?.miles_awarded ?? 0);
+      const predicted = Number(m.miles ?? predictedFor(kind, 0));
+      const status: MissionRow["status"] = comp ? "completed" : isPast ? "late" : "pending";
       pushRow({
         refId: `cm:${m.id}`,
         clientId: m.client_id,
@@ -244,9 +252,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         type: kind,
         typeLabel: TYPE_LABEL[kind] ?? kind,
         title: m.title,
-        status: comp ? "completed" : isPast ? "late" : "pending",
+        status,
         date: m.due_date,
-        miles: comp?.miles_awarded ?? m.miles ?? 0,
+        miles: actualMiles,
+        predictedMiles: predicted,
+        inconsistent: status === "completed" && actualMiles <= 0,
         origin: m.created_by ? "manual" : "auto",
         updatedAt: comp?.completed_at ?? m.updated_at ?? m.created_at,
         missionId: m.id,
@@ -257,11 +267,12 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
           taskRef: m.task_ref ?? null,
           response: taskResponse?.response ?? null,
           taskCompletedAt: taskResponse?.completed_at ?? null,
-          ledger: ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`) ?? null,
+          ledger: ledgerForMission ?? null,
           completion: comp ?? null,
         },
       });
     }
+
 
     // 2) client_daily_responses → derived rows (check-in, alimentação, treino, foto treino)
     const { data: dailies } = await sb
