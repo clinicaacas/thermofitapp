@@ -232,25 +232,54 @@ function Page() {
               </p>
             </div>
           </div>
-          <Link
-            to="/app/agua"
-            search={{ clientId }}
-            className="inline-flex items-center gap-0.5 text-xs font-medium"
-            style={{ color: "#2F80ED" }}
+      {/* Hidratação */}
+      {(() => {
+        const hydrationDone = hydration >= hydrationGoal && hydrationGoal > 0;
+        return (
+          <section
+            className="mt-2 rounded-2xl p-3"
+            style={{ background: hydrationDone ? "#E8F2E5" : "#FFFFFF", border: hydrationDone ? "1px solid #BFD8B7" : "1px solid #E5E0D8" }}
           >
-            Registrar <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <p className="mt-1.5 text-[11px]" style={{ color: "#6B7280" }}>
-          meta {(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L
-        </p>
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#DCEEFF" }}>
-          <div
-            className="h-full rounded-full"
-            style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: "#2F80ED" }}
-          />
-        </div>
-      </section>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="grid h-9 w-9 place-items-center rounded-xl"
+                  style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}
+                >
+                  <Droplet className="h-4 w-4" style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold tracking-wider" style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }}>
+                    HIDRATAÇÃO
+                  </p>
+                  <p className="text-lg font-bold leading-tight" style={{ color: "#1F2933" }}>
+                    {hydration}ml
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/app/agua"
+                search={{ clientId }}
+                className="inline-flex items-center gap-0.5 text-xs font-medium"
+                style={{ color: hydrationDone ? "#3F7A3A" : "#2F80ED" }}
+              >
+                Registrar <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <p className="mt-1.5 text-[11px]" style={{ color: hydrationDone ? "#3F7A3A" : "#6B7280" }}>
+              {hydrationDone
+                ? "Meta concluída · +10 Milhas"
+                : `meta ${(hydrationGoal / 1000).toFixed(1).replace(".", ",")}L`}
+            </p>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: hydrationDone ? "#BFD8B7" : "#DCEEFF" }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.min(100, (hydration / hydrationGoal) * 100)}%`, background: hydrationDone ? "#3F7A3A" : "#2F80ED" }}
+              />
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Bloco "Me conta sua jornada" removido — duplicava o card de
           check-in/rotina que vive exclusivamente em Missões. */}
