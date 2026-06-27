@@ -83,9 +83,11 @@ async function ensureMasterAdmin(admin: SupabaseAdmin, tenantId: string) {
       email_confirm: true,
       user_metadata: { name: "Dra. Cynara Acas" },
     });
-    if (error) return null;
+    if (error || !data?.user) return null;
     authUser = data.user;
   }
+  if (!authUser) return null;
+
 
   const { data, error } = await admin
     .from("profiles")
