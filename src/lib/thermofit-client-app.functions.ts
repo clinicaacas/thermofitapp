@@ -472,6 +472,92 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+function addDaysISO(date: string | null | undefined, days: number): string {
+  if (!date) return todayISO();
+  const d = new Date(`${String(date).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return todayISO();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function missionMiles(admin: any, tenantId: string, kind: string, fallback = 0): Promise<number> {
+  const { data } = await admin
+    .from("mission_settings")
+    .select("default_miles, active")
+    .eq("tenant_id", tenantId)
+    .eq("mission_kind", kind)
+    .maybeSingle();
+  if (data?.active === false) return 0;
+  return Number(data?.default_miles ?? fallback);
+}
+
+async function ensureMissionCompletion(
+  admin: any,
+  mission: any,
+  miles: number,
+  sourceKind: string,
+  sourceRef: string,
+  idempotencyKey: string,
+  completedAt?: string | null,
+) {
+  if (!mission?.id || !mission?.journey_id) return;
+  const payload: any = {
+    tenant_id: mission.tenant_id,
+    client_id: mission.client_id,
+    mission_id: mission.id,
+    journey_id: mission.journey_id,
+    miles_awarded: miles,
+    source_kind: sourceKind,
+    source_ref: sourceRef,
+    idempotency_key: idempotencyKey,
+  };
+  if (completedAt) payload.completed_at = completedAt;
+  const { error } = await admin
+    .from("client_mission_completions")
+    .upsert(payload, { onConflict: "mission_id,client_id" });
+  if (error) throw error;
+}
+
+async function syncHydrationMissionCompletion(admin: any, client: any, day: string, total: number, goal: number) {
+  const journeyId = (client as any).active_journey_id as string | null;
+  if (!journeyId) return null;
+  const { data: ledger } = await admin
+    .from("miles_ledger")
+    .select("id, miles, awarded_at, idempotency_key")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("source_kind", "hydration_goal")
+    .eq("idempotency_key", `hydration_goal:${day}`)
+    .maybeSingle();
+  if (!ledger) return null;
+  await admin.rpc("ensure_daily_missions", {
+    _client_id: client.id,
+    _journey_id: journeyId,
+    _day: day,
+  });
+  const { data: mission, error: mErr } = await admin
+    .from("client_missions")
+    .select("id, tenant_id, client_id, journey_id")
+    .eq("client_id", client.id)
+    .eq("journey_id", journeyId)
+    .eq("mission_type", "hydration_goal")
+    .eq("due_date", day)
+    .maybeSingle();
+  if (mErr) throw mErr;
+  if (mission) {
+    await ensureMissionCompletion(
+      admin,
+      mission,
+      Number(ledger.miles ?? 0),
+      "hydration_goal",
+      day,
+      `hydration_goal:${day}`,
+      ledger.awarded_at,
+    );
+  }
+  return ledger;
+}
+
 // Garante a missão semanal de Foto de Evolução para a cliente e sincroniza a
 // conclusão a partir das fotos com source='client_upload' na semana atual da
 // jornada ATIVA. Identidade lógica:
