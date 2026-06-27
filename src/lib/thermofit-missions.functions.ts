@@ -630,6 +630,14 @@ export const submitCheckin = createServerFn({ method: "POST" })
     });
     const key = `checkin:${todayKey()}`;
     const res = await award(data.clientId, "checkin", todayKey(), key, "Check-in diário");
+    await completeDailyStructuralMission(
+      data.clientId,
+      "daily_checkin",
+      "daily_checkin",
+      todayKey(),
+      key,
+      Number((res as any)?.miles ?? 0),
+    );
     return { ok: true, ...res };
   });
 
