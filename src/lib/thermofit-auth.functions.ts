@@ -201,14 +201,30 @@ export const getTenantSnapshot = createServerFn({ method: "GET" }).handler(async
   }
 
   if (callerIsInternalMember) {
-    const { data: profiles, error } = await supabaseAdmin
-      .from("profiles")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .in("profile", ["super_admin", "dono", "admin", "equipe"])
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    team = profiles.map(mapProfile);
+    try {
+      const { data: profiles, error } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("tenant_id", tenant.id)
+        .in("profile", ["super_admin", "dono", "admin", "equipe"])
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      team = (profiles ?? [])
+        .filter((p: any) => p && p.id)
+        .map((p: any) => {
+          try {
+            return mapProfile(p);
+          } catch (mapErr) {
+            console.error("[getTenantSnapshot] mapProfile failed for row", p?.id, mapErr);
+            return null;
+          }
+        })
+        .filter((p): p is ReturnType<typeof mapProfile> => p !== null);
+    } catch (teamErr) {
+      // Não derruba o snapshot inteiro por causa de uma falha parcial na lista
+      console.error("[getTenantSnapshot] failed to load team", teamErr);
+      team = [];
+    }
   }
 
   return { tenant: { ...mapTenant(tenant), team } };
