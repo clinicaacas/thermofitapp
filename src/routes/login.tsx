@@ -82,7 +82,6 @@ function LoginPage() {
                 className="h-11 rounded-md border-neutral-200 bg-white"
               />
             </div>
-            </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
