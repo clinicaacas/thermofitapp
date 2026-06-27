@@ -199,7 +199,7 @@ function Page() {
 
       {clientId && <PostVideoTaskCard clientId={clientId} />}
       {clientId && <DailyRoutineCard clientId={clientId} />}
-      <HydrationMissionCard data={hydrationData} />
+      {clientId && <HydrationMissionCard data={hydrationData} />}
       {clientId && <WeeklyPhotoCard clientId={clientId} />}
 
       {progress && (progress as any).journeyId && (
