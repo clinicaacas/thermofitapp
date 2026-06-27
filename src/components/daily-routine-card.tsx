@@ -150,7 +150,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
-            <Check className="h-3 w-3" /> Concluído
+            <Check className="h-3 w-3" /> Check-in concluído · +5 milhas
           </span>
         ) : (
           <button
