@@ -153,7 +153,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     const ledgerByKindRef = new Map<string, any>();
     const { data: ledgerRows } = await sb
       .from("miles_ledger")
-      .select("client_id, journey_id, source_kind, source_ref, miles, occurred_on, created_at, awarded_at, reason, idempotency_key")
+      .select("client_id, journey_id, source_kind, source_ref, miles, occurred_on, awarded_at, reason, idempotency_key")
       .in("client_id", clientIds);
     for (const l of ledgerRows ?? []) {
       ledgerByClient.set(l.client_id, (ledgerByClient.get(l.client_id) ?? 0) + Number(l.miles ?? 0));
