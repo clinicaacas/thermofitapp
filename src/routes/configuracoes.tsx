@@ -544,37 +544,84 @@ function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
   return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha: ${temporaryPassword}\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
 }
 
+const TENANT_ROLE_LABEL: Record<TenantRole, string> = {
+  dono: "Dono",
+  admin: "Admin",
+  equipe: "Equipe",
+};
+
+type NewUserDraft = {
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  profile: ProfileRole;
+  status: UserStatus;
+  mustChangePassword: boolean;
+  memberships: { tenantId: string; role: TenantRole }[];
+};
+
 function UsersTab() {
-  const { tenant, tenantLoading, tenantError, currentPlan, refreshTenant, addUser, updateUser, resetUserPassword, removeUser } = useTenant();
+  const {
+    tenant, tenantLoading, tenantError, allTenants, callerIsSuperAdmin,
+    currentPlan, refreshTenant,
+    addUser, updateUser, resetUserPassword, removeUser,
+    setMembership, removeMembership,
+  } = useTenant();
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string; existed?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
-  const emptyForm = {
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
+  const [membershipsFor, setMembershipsFor] = useState<TeamUser | null>(null);
+
+  // Tenants visible to caller (super = all; otherwise only tenants where they have membership)
+  const visibleTenants = useMemo<{ id: string; clinicName: string }[]>(() => {
+    if (callerIsSuperAdmin) {
+      const list = allTenants.length > 0 ? allTenants : [{ id: tenant.id, clinicName: tenant.clinicName, status: "ativa", accountType: null }];
+      return list.map((t) => ({ id: t.id, clinicName: t.clinicName }));
+    }
+    // Derive from current tenant only; non-super memberships are constrained server-side.
+    return [{ id: tenant.id, clinicName: tenant.clinicName }];
+  }, [allTenants, callerIsSuperAdmin, tenant.id, tenant.clinicName]);
+
+  const emptyForm: NewUserDraft = {
     name: "", email: "", phone: "", role: "",
-    profile: "equipe" as ProfileRole,
-    status: "ativo" as UserStatus,
+    profile: "equipe",
+    status: "ativo",
     mustChangePassword: false,
+    memberships: [{ tenantId: tenant.id, role: "equipe" }],
   };
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<NewUserDraft>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
   const unlimited = isInternal || limit === -1;
-  const atLimit = !unlimited && tenant.team.length >= limit;
+  const teamCount = tenant.team.length;
+  const atLimit = !unlimited && teamCount >= limit;
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
 
+  useEffect(() => { void refreshTenant(); }, [refreshTenant]);
+
+  // Reset form defaults when tenant changes
   useEffect(() => {
-    void refreshTenant();
-  }, [refreshTenant]);
+    setForm((f) => ({ ...f, memberships: f.memberships.length ? f.memberships : [{ tenantId: tenant.id, role: "equipe" }] }));
+  }, [tenant.id]);
+
+  // Filter rows
+  const visibleUsers = useMemo(() => {
+    if (tenantFilter === "all") return tenant.team;
+    return tenant.team.filter((u) => {
+      const m = u.memberships ?? [];
+      if (m.length === 0) return u.tenantId === tenantFilter;
+      return m.some((x) => x.tenantId === tenantFilter && x.status === "ativo");
+    });
+  }, [tenant.team, tenantFilter]);
 
   function copyAccess(u: TeamUser, temporaryPassword: string) {
     const invalid = publicUrlError(accessBaseUrl);
-    if (invalid) {
-      setLinkError(invalid);
-      return;
-    }
+    if (invalid) { setLinkError(invalid); return; }
     navigator.clipboard.writeText(accessText(u, accessBaseUrl, temporaryPassword));
     setLinkError(null);
     setCopied(true);
@@ -583,10 +630,7 @@ function UsersTab() {
 
   async function resetPassword(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
-    if (invalid) {
-      setLinkError(invalid);
-      return;
-    }
+    if (invalid) { setLinkError(invalid); return; }
     const result = await resetUserPassword(u.id);
     if (!result.ok || !result.user || !result.temporaryPassword) {
       setLinkError(result.reason ?? "Não foi possível redefinir a senha.");
@@ -598,106 +642,167 @@ function UsersTab() {
     setTimeout(() => setCopied(false), 1800);
   }
 
+  function toggleMembership(tenantId: string, checked: boolean) {
+    setForm((f) => {
+      if (checked) {
+        if (f.memberships.some((m) => m.tenantId === tenantId)) return f;
+        return { ...f, memberships: [...f.memberships, { tenantId, role: "equipe" }] };
+      }
+      return { ...f, memberships: f.memberships.filter((m) => m.tenantId !== tenantId) };
+    });
+  }
+
+  function setMembershipRole(tenantId: string, role: TenantRole) {
+    setForm((f) => ({ ...f, memberships: f.memberships.map((m) => m.tenantId === tenantId ? { ...m, role } : m) }));
+  }
+
+  function tenantNameOf(id: string): string {
+    if (id === tenant.id) return tenant.clinicName;
+    return allTenants.find((t) => t.id === id)?.clinicName ?? "Clínica";
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <div>
+        <div className="space-y-1">
           <CardTitle className="text-base">Usuários e Equipe</CardTitle>
           <CardDescription>
             {isInternal
               ? "Usuários ilimitados no plano Interno / Master."
               : limit === -1
                 ? "Plano com usuários ilimitados."
-                : `${tenant.team.length} de ${limit} usuários no plano.`}
+                : `${teamCount} de ${limit} usuários no plano.`}
+            {callerIsSuperAdmin && allTenants.length > 1 && (
+              <span className="ml-2 text-xs text-primary">Visão Super Admin — {allTenants.length} clínicas</span>
+            )}
           </CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setError(null); setCreated(null); setForm(emptyForm); } }}>
-          <Button size="sm" onClick={() => setOpen(true)} disabled={atLimit}>Adicionar usuário</Button>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{created ? "Dados de acesso" : "Adicionar usuário"}</DialogTitle>
-            </DialogHeader>
+        <div className="flex items-center gap-2">
+          {(callerIsSuperAdmin || visibleTenants.length > 1) && (
+            <Select value={tenantFilter} onValueChange={setTenantFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar clínica" /></SelectTrigger>
+              <SelectContent>
+                {callerIsSuperAdmin && <SelectItem value="all">Todas as clínicas</SelectItem>}
+                {visibleTenants.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.clinicName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setError(null); setCreated(null); setForm(emptyForm); } }}>
+            <Button size="sm" onClick={() => setOpen(true)} disabled={atLimit}>Adicionar usuário</Button>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{created ? "Dados de acesso" : "Adicionar usuário"}</DialogTitle>
+              </DialogHeader>
 
-            {!created ? (
-              <>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <Field label="Nome"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-                  <Field label="E-mail"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-                  <Field label="Telefone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-                  <Field label="Cargo"><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
-                  <Field label="Perfil de acesso">
-                    <Select value={form.profile} onValueChange={(v) => setForm({ ...form, profile: v as ProfileRole })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="super_admin">Super Admin SaaS</SelectItem>
-                        <SelectItem value="dono">Dono da Clínica</SelectItem>
-                        <SelectItem value="admin">Admin da Clínica</SelectItem>
-                        <SelectItem value="equipe">Equipe</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Clínica vinculada">
-                    <Input value={tenant.clinicName} readOnly />
-                  </Field>
-                  <Field label="Status do usuário">
-                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as UserStatus })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ativo">Ativo</SelectItem>
-                        <SelectItem value="inativo">Inativo</SelectItem>
-                        <SelectItem value="bloqueado">Bloqueado</SelectItem>
-                        <SelectItem value="convite_pendente">Convite pendente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-                {error && (
-                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
-                )}
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-                  <Button
-                    disabled={!form.name || !form.email}
-                    onClick={async () => {
-                      setError(null);
-                      const r = await addUser(form);
-                      if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
-                      setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "", existed: r.existed });
-                    }}
-                  >
-                    Criar usuário
-                  </Button>
-                </DialogFooter>
-              </>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {created.existed && (
-                    <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
-                      Usuário já existe. Dados atualizados.
-                    </div>
-                  )}
-                  <div className="rounded-md border bg-muted/40 p-3 text-xs">
-                    <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
-                    {accessUrlError ? (
-                      <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
-                        {PUBLIC_URL_WARNING}
-                      </div>
-                    ) : (
-                      <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
-                    )}
+              {!created ? (
+                <>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <Field label="Nome"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+                    <Field label="E-mail"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+                    <Field label="Telefone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+                    <Field label="Cargo"><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
+                    <Field label="Perfil global">
+                      <Select value={form.profile} onValueChange={(v) => setForm({ ...form, profile: v as ProfileRole })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {callerIsSuperAdmin && <SelectItem value="super_admin">Super Admin SaaS</SelectItem>}
+                          <SelectItem value="dono">Dono da Clínica</SelectItem>
+                          <SelectItem value="admin">Admin da Clínica</SelectItem>
+                          <SelectItem value="equipe">Equipe</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Status do usuário">
+                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as UserStatus })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ativo">Ativo</SelectItem>
+                          <SelectItem value="inativo">Inativo</SelectItem>
+                          <SelectItem value="bloqueado">Bloqueado</SelectItem>
+                          <SelectItem value="convite_pendente">Convite pendente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
                   </div>
-                  <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
-                    <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
-                  </Button>
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => setOpen(false)}>Concluir</Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+
+                  <div className="space-y-2 rounded-md border p-3">
+                    <div className="text-sm font-medium">Clínicas vinculadas</div>
+                    <div className="text-xs text-muted-foreground">Selecione uma ou mais clínicas e o papel em cada uma.</div>
+                    <div className="space-y-2">
+                      {visibleTenants.map((t) => {
+                        const m = form.memberships.find((x) => x.tenantId === t.id);
+                        const checked = !!m;
+                        return (
+                          <div key={t.id} className="flex items-center gap-3 rounded-md border p-2">
+                            <Checkbox checked={checked} onCheckedChange={(v) => toggleMembership(t.id, !!v)} />
+                            <div className="flex-1 text-sm">{t.clinicName}</div>
+                            {checked && (
+                              <Select value={m!.role} onValueChange={(v) => setMembershipRole(t.id, v as TenantRole)}>
+                                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="dono">Dono</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="equipe">Equipe</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                    <Button
+                      disabled={!form.name || !form.email || form.memberships.length === 0}
+                      onClick={async () => {
+                        setError(null);
+                        const { memberships, ...rest } = form;
+                        const r = await addUser(rest, memberships);
+                        if (!r.ok || !r.user) { setError(r.reason ?? "Não foi possível adicionar."); return; }
+                        setCreated({ user: r.user, temporaryPassword: r.temporaryPassword ?? "", existed: r.existed });
+                      }}
+                    >
+                      Criar usuário
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {created.existed && (
+                      <div className="rounded-md border border-primary/40 bg-primary/10 p-2 text-xs text-primary">
+                        Usuário já existe. Dados atualizados.
+                      </div>
+                    )}
+                    <div className="rounded-md border bg-muted/40 p-3 text-xs">
+                      <div className="mb-2 text-muted-foreground">Compartilhe estes dados com o usuário:</div>
+                      {accessUrlError ? (
+                        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
+                          {PUBLIC_URL_WARNING}
+                        </div>
+                      ) : (
+                        <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
+                      )}
+                    </div>
+                    <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
+                      <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
+                    </Button>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={() => setOpen(false)}>Concluir</Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {atLimit && (
@@ -715,19 +820,14 @@ function UsersTab() {
             {linkError || accessUrlError}
           </div>
         )}
-        {tenantError && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-            {tenantError}
-          </div>
-        )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>Perfil</TableHead>
-                <TableHead>Clínica</TableHead>
+                <TableHead>Perfil global</TableHead>
+                <TableHead>Clínicas vinculadas</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Último acesso</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -737,69 +837,175 @@ function UsersTab() {
               {tenantLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    Carregando usuários salvos no banco...
+                    Carregando usuários...
                   </TableCell>
                 </TableRow>
-              ) : tenant.team.length === 0 ? (
+              ) : visibleUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    Nenhum usuário encontrado no banco para esta clínica.
+                    {tenantError
+                      ? "Não foi possível carregar a lista completa. Tente novamente."
+                      : "Nenhum usuário encontrado para o filtro selecionado."}
                   </TableCell>
                 </TableRow>
-              ) : tenant.team.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{profileLabel(u.profile)}</TableCell>
-                  <TableCell className="text-muted-foreground">{tenant.clinicName}</TableCell>
-                  <TableCell>
-                    <span className={"inline-flex rounded-full px-2 py-0.5 text-xs " + statusClass(u.status)}>
-                      {statusLabel(u.status)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{u.lastAccess || "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => resetPassword(u)}>
-                          <Copy className="h-3 w-3" /> Copiar dados de acesso
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => resetPassword(u)}>
-                          <KeyRound className="h-3 w-3" /> Redefinir senha
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => resetPassword(u)}>
-                          <Pencil className="h-3 w-3" /> Gerar novo acesso
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "inativo" ? "ativo" : "inativo" })}>
-                          <UserX className="h-3 w-3" /> {u.status === "inativo" ? "Ativar" : "Inativar"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "bloqueado" ? "ativo" : "bloqueado" })}>
-                          <Ban className="h-3 w-3" /> {u.status === "bloqueado" ? "Desbloquear" : "Bloquear"}
-                        </DropdownMenuItem>
-                        {u.profile !== "super_admin" && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => removeUser(u.id)} className="text-destructive">
-                              <Trash2 className="h-3 w-3" /> Remover
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : visibleUsers.map((u) => {
+                const memberships: Membership[] = u.memberships ?? [];
+                const incomplete = !u.email || !u.name;
+                return (
+                  <TableRow key={u.id} className={incomplete ? "bg-amber-50/30" : undefined}>
+                    <TableCell className="font-medium">
+                      {u.name || "—"}
+                      {incomplete && <div className="text-[10px] text-amber-700">Registro incompleto</div>}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{profileLabel(u.profile)}</TableCell>
+                    <TableCell>
+                      {memberships.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">{u.profile === "super_admin" ? "Acesso global" : "Sem vínculos"}</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {memberships.map((m) => (
+                            <span
+                              key={`${u.id}-${m.tenantId}`}
+                              className={
+                                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] " +
+                                (m.status === "ativo"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground line-through")
+                              }
+                              title={m.status === "ativo" ? "Vínculo ativo" : "Vínculo inativo"}
+                            >
+                              {m.tenantName} — {TENANT_ROLE_LABEL[m.role]}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={"inline-flex rounded-full px-2 py-0.5 text-xs " + statusClass(u.status)}>
+                        {statusLabel(u.status)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{u.lastAccess || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => resetPassword(u)}>
+                            <Copy className="h-3 w-3" /> Copiar dados de acesso
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => resetPassword(u)}>
+                            <KeyRound className="h-3 w-3" /> Redefinir senha
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setMembershipsFor(u)}>
+                            <Pencil className="h-3 w-3" /> Gerenciar vínculos
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "inativo" ? "ativo" : "inativo" })}>
+                            <UserX className="h-3 w-3" /> {u.status === "inativo" ? "Ativar" : "Inativar"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateUser(u.id, { status: u.status === "bloqueado" ? "ativo" : "bloqueado" })}>
+                            <Ban className="h-3 w-3" /> {u.status === "bloqueado" ? "Desbloquear" : "Bloquear"}
+                          </DropdownMenuItem>
+                          {u.profile !== "super_admin" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => removeUser(u.id)} className="text-destructive">
+                                <Trash2 className="h-3 w-3" /> Remover
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       </CardContent>
+
+      {/* Manage memberships modal */}
+      <Dialog open={!!membershipsFor} onOpenChange={(v) => !v && setMembershipsFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vínculos de {membershipsFor?.name}</DialogTitle>
+          </DialogHeader>
+          {membershipsFor && (
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+                Adicione, ative, desative ou remova vínculos. Remover um vínculo não exclui o usuário.
+              </div>
+              <div className="space-y-2">
+                {visibleTenants.map((t) => {
+                  const m = (membershipsFor.memberships ?? []).find((x) => x.tenantId === t.id);
+                  return (
+                    <div key={t.id} className="flex items-center gap-2 rounded-md border p-2">
+                      <div className="flex-1 text-sm">
+                        {t.clinicName}
+                        {m && (
+                          <span className={"ml-2 text-[11px] " + (m.status === "ativo" ? "text-primary" : "text-muted-foreground")}>
+                            {m.status === "ativo" ? "ativo" : "inativo"}
+                          </span>
+                        )}
+                      </div>
+                      <Select
+                        value={m?.role ?? "equipe"}
+                        onValueChange={async (v) => {
+                          const r = await setMembership(membershipsFor.id, t.id, v as TenantRole, m?.status ?? "ativo");
+                          if (!r.ok) setLinkError(r.reason ?? "Falha ao salvar vínculo.");
+                        }}
+                      >
+                        <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dono">Dono</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="equipe">Equipe</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {m && m.status === "ativo" ? (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const r = await setMembership(membershipsFor.id, t.id, m.role, "inativo");
+                          if (!r.ok) setLinkError(r.reason ?? "Falha ao desativar.");
+                          else setMembershipsFor((prev) => prev && { ...prev, memberships: (prev.memberships ?? []).map((x) => x.tenantId === t.id ? { ...x, status: "inativo" } : x) });
+                        }}>Desativar</Button>
+                      ) : m ? (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const r = await setMembership(membershipsFor.id, t.id, m.role, "ativo");
+                          if (!r.ok) setLinkError(r.reason ?? "Falha ao ativar.");
+                        }}>Ativar</Button>
+                      ) : (
+                        <Button size="sm" onClick={async () => {
+                          const r = await setMembership(membershipsFor.id, t.id, "equipe", "ativo");
+                          if (!r.ok) setLinkError(r.reason ?? "Falha ao vincular.");
+                        }}>Vincular</Button>
+                      )}
+                      {m && (
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => {
+                          const r = await removeMembership(membershipsFor.id, t.id);
+                          if (!r.ok) setLinkError(r.reason ?? "Falha ao remover.");
+                        }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setMembershipsFor(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
+
 
 /* ------------------- PERMISSÕES ------------------- */
 const PERM_PROFILES: { key: Exclude<ProfileRole, "super_admin">; label: string }[] = [
