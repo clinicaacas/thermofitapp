@@ -539,10 +539,11 @@ function publicUrlError(url: string) {
   return null;
 }
 
-function accessText(u: TeamUser, baseUrl: string, temporaryPassword: string) {
+function accessText(u: TeamUser, baseUrl: string) {
   const link = `${baseUrl}/login`;
-  return `Olá, seu acesso ao sistema ThermoFit Acas foi criado.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail: ${u.email}\nSenha: ${temporaryPassword}\n\nImportante: este acesso é pessoal e não deve ser compartilhado.`;
+  return `Olá ${u.name},\n\nSeu acesso ao sistema ThermoFit Acas está pronto.\n\nAcesse pelo link abaixo:\n${link}\n\nE-mail de acesso: ${u.email}\n\nOrientação: ao entrar pela primeira vez, utilize a opção "Esqueci minha senha" para definir uma senha pessoal. Este acesso é individual e não deve ser compartilhado.`;
 }
+
 
 const TENANT_ROLE_LABEL: Record<TenantRole, string> = {
   dono: "Dono",
@@ -619,10 +620,11 @@ function UsersTab() {
     });
   }, [tenant.team, tenantFilter]);
 
-  function copyAccess(u: TeamUser, temporaryPassword: string) {
+  function copyAccess(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) { setLinkError(invalid); return; }
-    navigator.clipboard.writeText(accessText(u, accessBaseUrl, temporaryPassword));
+    // Segurança: apenas nome, e-mail, link e orientação. Nunca senha/token/sessão.
+    navigator.clipboard.writeText(accessText(u, accessBaseUrl));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -632,15 +634,18 @@ function UsersTab() {
     const invalid = publicUrlError(accessBaseUrl);
     if (invalid) { setLinkError(invalid); return; }
     const result = await resetUserPassword(u.id);
-    if (!result.ok || !result.user || !result.temporaryPassword) {
+    if (!result.ok || !result.user) {
       setLinkError(result.reason ?? "Não foi possível redefinir a senha.");
       return;
     }
-    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl, result.temporaryPassword));
+    // Apenas dados de acesso seguros vão para o clipboard. A senha temporária é exibida
+    // separadamente no modal de criação (uso pessoal do administrador) e nunca é copiada.
+    navigator.clipboard.writeText(accessText(result.user, accessBaseUrl));
     setLinkError(null);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
+
 
   function toggleMembership(tenantId: string, checked: boolean) {
     setForm((f) => {
@@ -788,12 +793,22 @@ function UsersTab() {
                           {PUBLIC_URL_WARNING}
                         </div>
                       ) : (
-                        <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl, created.temporaryPassword)}</pre>
+                        <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">{accessText(created.user, accessBaseUrl)}</pre>
                       )}
                     </div>
-                    <Button onClick={() => copyAccess(created.user, created.temporaryPassword)} className="w-full">
+                    {created.temporaryPassword && (
+                      <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                        <div className="mb-1 font-semibold">Senha temporária (uso interno)</div>
+                        <div className="font-mono">{created.temporaryPassword}</div>
+                        <div className="mt-1 text-[11px] opacity-80">
+                          Por segurança, a senha não é copiada automaticamente. Entregue ao usuário por canal seguro ou peça que use "Esqueci minha senha".
+                        </div>
+                      </div>
+                    )}
+                    <Button onClick={() => copyAccess(created.user)} className="w-full">
                       <Copy className="h-3 w-3" /> {copied ? "Copiado!" : "Copiar dados de acesso"}
                     </Button>
+
                   </div>
                   <DialogFooter>
                     <Button onClick={() => setOpen(false)}>Concluir</Button>
@@ -893,9 +908,10 @@ function UsersTab() {
                           <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => resetPassword(u)}>
+                          <DropdownMenuItem onClick={() => copyAccess(u)}>
                             <Copy className="h-3 w-3" /> Copiar dados de acesso
                           </DropdownMenuItem>
+
                           <DropdownMenuItem onClick={() => resetPassword(u)}>
                             <KeyRound className="h-3 w-3" /> Redefinir senha
                           </DropdownMenuItem>

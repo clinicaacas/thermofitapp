@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClientRecord } from "@/lib/thermofit-data.functions";
+import { useTenant } from "@/lib/tenant-context";
 
 import { ArrowLeft } from "lucide-react";
+
 
 export const Route = createFileRoute("/clientes/nova")({
   head: () => ({ meta: [{ title: "Nova cliente — ThermoFit" }] }),
@@ -24,8 +26,17 @@ function Page() {
   const create = useServerFn(createClientRecord);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { tenant, allTenants, callerIsSuperAdmin } = useTenant();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const tenantOptions = useMemo(() => {
+    if (!callerIsSuperAdmin) return [{ id: tenant.id, clinicName: tenant.clinicName }];
+    const list = allTenants.length > 0 ? allTenants : [{ id: tenant.id, clinicName: tenant.clinicName }];
+    return list.map((t) => ({ id: t.id, clinicName: t.clinicName }));
+  }, [callerIsSuperAdmin, allTenants, tenant.id, tenant.clinicName]);
+  const [tenantId, setTenantId] = useState<string>(tenant.id);
+
 
   const [form, setForm] = useState({
     name: "",
@@ -72,6 +83,7 @@ function Page() {
           clinicalNotes: form.clinicalNotes,
           hydrationGoalMl: Number(form.hydrationGoalMl) || 0,
           status: "ativa",
+          ...(callerIsSuperAdmin ? { tenantId } : {}),
           consents: {
             terms: form.terms,
             privacy: form.privacy,
@@ -106,7 +118,27 @@ function Page() {
         </header>
 
         <form onSubmit={onSubmit} className="space-y-6">
+          {callerIsSuperAdmin && (
+            <Section title="Clínica responsável">
+              <Field label="Clínica onde a cliente será cadastrada *">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={tenantId}
+                  onChange={(e) => setTenantId(e.target.value)}
+                  required
+                >
+                  {tenantOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.clinicName}</option>
+                  ))}
+                </select>
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                Como Super Admin você pode criar clientes em qualquer clínica. A jornada e o Plano de Voo serão criados nesta clínica.
+              </p>
+            </Section>
+          )}
           <Section title="Dados pessoais">
+
             <Field label="Nome completo *">
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
             </Field>
