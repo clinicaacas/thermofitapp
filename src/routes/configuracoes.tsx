@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus } from "@/lib/tenant-context";
+import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus, type TenantRole, type Membership } from "@/lib/tenant-context";
 import {
   Pencil,
   Trash2,
