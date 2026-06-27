@@ -371,6 +371,17 @@ function Th({ children }: { children: React.ReactNode }) {
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-3 py-2 align-middle ${className}`}>{children}</td>;
 }
+function MilesCell({ row }: { row: CentralRow }) {
+  if (row.status === "completed") {
+    if (row.inconsistent) {
+      return <span className="text-xs text-amber-700">Inconsistência de crédito</span>;
+    }
+    return <span className="font-medium">+{row.miles}</span>;
+  }
+  const p = row.predictedMiles ?? 0;
+  if (p > 0) return <span className="text-xs text-muted-foreground">+{p} previstas</span>;
+  return <span className="text-xs text-muted-foreground">0 Milhas</span>;
+}
 function StatusBadge({ status }: { status: string }) {
   const m: Record<string, string> = {
     completed: "bg-green-100 text-green-800",
