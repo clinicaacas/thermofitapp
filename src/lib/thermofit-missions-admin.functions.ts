@@ -48,13 +48,16 @@ export type MissionRow = {
   title: string;
   status: "completed" | "pending" | "blocked" | "late";
   date: string;           // YYYY-MM-DD
-  miles: number;
+  miles: number;          // milhas efetivamente creditadas (miles_ledger)
+  predictedMiles: number; // milhas previstas (mission_settings)
+  inconsistent: boolean;  // concluída sem crédito correspondente no ledger
   origin: "auto" | "manual" | "derived";
   updatedAt: string | null;
-  missionId: string | null; // só quando vem de client_missions
+  missionId: string | null;
   totalMiles: number;
   details: any | null;
 };
+
 
 const TYPE_LABEL: Record<string, string> = {
   daily_checkin: "Check-in",
@@ -108,7 +111,22 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     const from = data.from ?? today;
     const to = data.to ?? today;
 
-    const sb = (context as Ctx).supabase;
+    // Caller já validado como membro do tenant. Usamos o admin client para
+    // leitura agregada, evitando que RLS silenciosamente devolva conjuntos
+    // vazios em joins/aggregations e gere zeros falsos no painel.
+    const sb = await getAdmin();
+
+    // Defaults previstos por tipo de missão (mission_settings)
+    const { data: settings } = await sb
+      .from("mission_settings")
+      .select("mission_kind, default_miles, label")
+      .eq("tenant_id", tenantId);
+    const predictedByKind = new Map<string, number>();
+    for (const s of settings ?? []) {
+      predictedByKind.set(s.mission_kind, Number(s.default_miles ?? 0));
+    }
+    const predictedFor = (kind: string, fallback = 0) =>
+      predictedByKind.get(kind) ?? fallback;
 
     // Clientes do tenant + jornada ativa
     const { data: clientsRaw, error: cErr } = await sb
@@ -135,7 +153,7 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
     const ledgerByKindRef = new Map<string, any>();
     const { data: ledgerRows } = await sb
       .from("miles_ledger")
-      .select("client_id, journey_id, source_kind, source_ref, miles, occurred_on, created_at, awarded_at, reason, idempotency_key")
+      .select("client_id, journey_id, source_kind, source_ref, miles, occurred_on, awarded_at, reason, idempotency_key")
       .in("client_id", clientIds);
     for (const l of ledgerRows ?? []) {
       ledgerByClient.set(l.client_id, (ledgerByClient.get(l.client_id) ?? 0) + Number(l.miles ?? 0));
@@ -156,14 +174,20 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       if (!existing) return false;
       if (patch.status) existing.status = patch.status as MissionRow["status"];
       if (patch.title !== undefined) existing.title = patch.title;
-      if (patch.miles !== undefined) existing.miles = patch.miles;
+      // Nunca sobrescrever milhas já creditadas com 0. Só atualiza quando o
+      // patch traz um valor positivo (ledger encontrado).
+      if (patch.miles !== undefined && patch.miles > 0) existing.miles = patch.miles;
+      if (patch.predictedMiles !== undefined && patch.predictedMiles > 0) existing.predictedMiles = patch.predictedMiles;
       if (patch.updatedAt !== undefined) existing.updatedAt = patch.updatedAt;
       if (patch.origin !== undefined) existing.origin = patch.origin;
       if (patch.details !== undefined) {
         existing.details = { ...(existing.details ?? {}), ...patch.details };
       }
+      // Recalcula inconsistência: concluída sem crédito.
+      existing.inconsistent = existing.status === "completed" && (existing.miles ?? 0) <= 0;
       return true;
     }
+
 
     function jDay(clientId: string, date: string) {
       const j = journeysByClient.get(clientId);
@@ -210,6 +234,14 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       }
       const jinfo = jDay(m.client_id, m.due_date);
       const isPast = m.due_date < today;
+      // Prioriza o crédito real no ledger para a missão; cai para completion;
+      // por último, 0. Nunca usa m.miles (default) como crédito real.
+      const ledgerForMission =
+        (m.linked_video_id ? ledgerByKindRef.get(`${m.client_id}:${kind}:${m.linked_video_id}`) : null) ||
+        ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`);
+      const actualMiles = Number(ledgerForMission?.miles ?? comp?.miles_awarded ?? 0);
+      const predicted = Number(m.miles ?? predictedFor(kind, 0));
+      const status: MissionRow["status"] = comp ? "completed" : isPast ? "late" : "pending";
       pushRow({
         refId: `cm:${m.id}`,
         clientId: m.client_id,
@@ -220,9 +252,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         type: kind,
         typeLabel: TYPE_LABEL[kind] ?? kind,
         title: m.title,
-        status: comp ? "completed" : isPast ? "late" : "pending",
+        status,
         date: m.due_date,
-        miles: comp?.miles_awarded ?? m.miles ?? 0,
+        miles: actualMiles,
+        predictedMiles: predicted,
+        inconsistent: status === "completed" && actualMiles <= 0,
         origin: m.created_by ? "manual" : "auto",
         updatedAt: comp?.completed_at ?? m.updated_at ?? m.created_at,
         missionId: m.id,
@@ -233,11 +267,12 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
           taskRef: m.task_ref ?? null,
           response: taskResponse?.response ?? null,
           taskCompletedAt: taskResponse?.completed_at ?? null,
-          ledger: ledgerByKindDay.get(`${m.client_id}:${m.due_date}:${kind}`) ?? null,
+          ledger: ledgerForMission ?? null,
           completion: comp ?? null,
         },
       });
     }
+
 
     // 2) client_daily_responses → derived rows (check-in, alimentação, treino, foto treino)
     const { data: dailies } = await sb
@@ -266,49 +301,43 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
       const workoutLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:daily_workout`);
       const workoutPhotoLedger = ledgerByKindDay.get(`${d.client_id}:${d.response_date}:workout_photo`);
       const workoutPhotoUrl = await signedClientPhotoUrl(d.workout_photo_path);
-      const checkinPatch = {
-        status: d.checkin_done ? "completed" as const : "pending" as const,
-        miles: Number(checkinLedger?.miles ?? 0),
-        updatedAt: d.checkin_at ?? d.updated_at,
-        details: { checkinDone: !!d.checkin_done, completedAt: d.checkin_at ?? null, ledger: checkinLedger ?? null },
+
+      const mkPatch = (kind: string, ledger: any, completed: boolean, updatedAt: any, extraDetails: any) => {
+        const miles = Number(ledger?.miles ?? 0);
+        const predicted = predictedFor(kind, 0);
+        return {
+          status: (completed ? "completed" : "pending") as "completed" | "pending",
+          miles,
+          predictedMiles: predicted,
+          inconsistent: completed && miles <= 0,
+          updatedAt,
+          details: { ...extraDetails, ledger: ledger ?? null },
+        };
       };
+
+      const checkinPatch = mkPatch("daily_checkin", checkinLedger, !!d.checkin_done, d.checkin_at ?? d.updated_at, { checkinDone: !!d.checkin_done, completedAt: d.checkin_at ?? null });
       if (has("daily_checkin")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_checkin", checkinPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:checkin`, type: "daily_checkin", typeLabel: TYPE_LABEL.daily_checkin, title: "Check-in diário", ...checkinPatch });
 
-      const mealPatch = {
-        status: d.meal_choice ? "completed" as const : "pending" as const,
-        miles: Number(mealLedger?.miles ?? 0),
-        updatedAt: d.meal_at ?? d.updated_at,
-        details: { mealChoice: d.meal_choice ?? null, completedAt: d.meal_at ?? null, ledger: mealLedger ?? null },
-      };
+      const mealPatch = mkPatch("daily_meal", mealLedger, !!d.meal_choice, d.meal_at ?? d.updated_at, { mealChoice: d.meal_choice ?? null, completedAt: d.meal_at ?? null });
       if (has("daily_meal")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_meal", mealPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:meal`, type: "daily_meal", typeLabel: TYPE_LABEL.daily_meal, title: "Alimentação do dia", ...mealPatch });
 
-      const workoutPatch = {
-        status: d.workout_choice ? "completed" as const : "pending" as const,
-        miles: Number(workoutLedger?.miles ?? 0),
-        updatedAt: d.workout_at ?? d.updated_at,
-        details: { workoutChoice: d.workout_choice ?? null, completedAt: d.workout_at ?? null, ledger: workoutLedger ?? null },
-      };
+      const workoutPatch = mkPatch("daily_workout", workoutLedger, !!d.workout_choice, d.workout_at ?? d.updated_at, { workoutChoice: d.workout_choice ?? null, completedAt: d.workout_at ?? null });
       if (has("daily_workout")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "daily_workout", workoutPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:workout`, type: "daily_workout", typeLabel: TYPE_LABEL.daily_workout, title: "Treino do dia", ...workoutPatch });
 
-      const workoutPhotoPatch = {
-        status: d.workout_photo_path ? "completed" as const : "pending" as const,
-        miles: Number(workoutPhotoLedger?.miles ?? 0),
-        updatedAt: d.workout_photo_at ?? d.updated_at,
-        details: {
-          workoutChoice: d.workout_choice ?? null,
-          photoPath: d.workout_photo_path ?? null,
-          note: d.workout_photo_note ?? null,
-          photoUrl: workoutPhotoUrl,
-          completedAt: d.workout_photo_at ?? null,
-          ledger: workoutPhotoLedger ?? null,
-        },
-      };
+      const workoutPhotoPatch = mkPatch("workout_photo", workoutPhotoLedger, !!d.workout_photo_path, d.workout_photo_at ?? d.updated_at, {
+        workoutChoice: d.workout_choice ?? null,
+        photoPath: d.workout_photo_path ?? null,
+        note: d.workout_photo_note ?? null,
+        photoUrl: workoutPhotoUrl,
+        completedAt: d.workout_photo_at ?? null,
+      });
       if (has("workout_photo")) mergeExistingRow((r) => r.clientId === d.client_id && r.date === d.response_date && r.type === "workout_photo", workoutPhotoPatch);
       else pushRow({ ...base, refId: `dr:${d.client_id}:${d.response_date}:wphoto`, type: "workout_photo", typeLabel: TYPE_LABEL.workout_photo, title: "Foto do treino", ...workoutPhotoPatch });
     }
+
 
     // 3) Hidratação — agrega por (cliente, dia) ≥ 2000ml = completed
     const { data: hydro } = await sb
@@ -344,9 +373,10 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         type: "hydration_goal", typeLabel: TYPE_LABEL.hydration_goal,
         title: hydrationPatch.title,
         status: hydrationPatch.status,
-        date: agg.date, miles: hydrationPatch.miles, origin: "derived", updatedAt: hydrationPatch.updatedAt, missionId: null,
+        date: agg.date, miles: hydrationPatch.miles, predictedMiles: predictedFor("hydration_goal", 0), inconsistent: hydrationPatch.status === "completed" && hydrationPatch.miles <= 0, origin: "derived", updatedAt: hydrationPatch.updatedAt, missionId: null,
         totalMiles: ledgerByClient.get(agg.client_id) ?? 0,
         details: hydrationPatch.details,
+
       });
     }
 
@@ -386,8 +416,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         status: "completed",
         date,
         miles: photoPatch.miles,
+        predictedMiles: predictedFor("weekly_photo", 0),
+        inconsistent: photoPatch.miles <= 0,
         origin: "derived",
         updatedAt: photoPatch.updatedAt,
+
         missionId: null,
         totalMiles: ledgerByClient.get(p.client_id) ?? 0,
         details: photoPatch.details,
@@ -430,8 +463,11 @@ export const listMissionsCentral = createServerFn({ method: "POST" })
         status: videoPatch.status,
         date,
         miles: videoPatch.miles,
+        predictedMiles: predictedFor("video_complete", 0),
+        inconsistent: videoPatch.status === "completed" && videoPatch.miles <= 0,
         origin: "derived",
         updatedAt: videoPatch.updatedAt,
+
         missionId: null,
         totalMiles: ledgerByClient.get(v.client_id) ?? 0,
         details: videoPatch.details,
