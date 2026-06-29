@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadCloud, Video as VideoIcon } from "lucide-react";
-import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
+import { saveVideo, getMyTenantId, listJourneyTargets } from "@/lib/thermofit-content.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   VideoThumbnailPicker,
@@ -29,7 +29,10 @@ export type VideoFormInitial = {
   thumbnailUrl?: string;
   thumbnailStorageKey?: string;
   thumbnailSource?: ThumbState["source"];
+  journeyId?: string | null;
+  journeyClientName?: string | null;
 };
+
 
 type SourceType = "upload" | "youtube" | "external_link";
 
