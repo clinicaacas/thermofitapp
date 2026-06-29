@@ -342,6 +342,7 @@ function MissionVideoPlayer({
   const fetchPlayback = useServerFn(getClientVideoPlayback);
   const saveProgress = useServerFn(saveVideoProgress);
   const qc = useQueryClient();
+  const identity = useClientIdentity(clientId || null);
   const [reloadKey, setReloadKey] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -350,9 +351,9 @@ function MissionVideoPlayer({
   const [completedInSession, setCompletedInSession] = useState(false);
 
   const playback = useQuery({
-    queryKey: ["client-video-playback", clientId, videoId, reloadKey],
+    queryKey: ["client-video-playback", identity?.tenantId, identity?.clientId, identity?.journeyId, videoId, reloadKey],
     queryFn: () => fetchPlayback({ data: { clientId, videoId } }),
-    enabled: !!clientId && !!videoId,
+    enabled: !!identity && !!videoId,
     staleTime: 55 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     refetchOnMount: false,
