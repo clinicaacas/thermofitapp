@@ -182,14 +182,18 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyIdActive = (client as any).active_journey_id as string | null;
     const { data: video, error: vErr } = await admin
       .from("videos")
-      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
+      .select("id, tenant_id, journey_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
       .eq("id", data.videoId)
       .eq("tenant_id", client.tenant_id)
       .maybeSingle();
     if (vErr) throw vErr;
     if (!video) throw new Error("Vídeo não encontrado.");
+    if (video.journey_id && video.journey_id !== journeyIdActive) {
+      throw new Error("Vídeo não autorizado para esta jornada.");
+    }
     const duration = Math.max(data.durationSeconds || 0, video.duration_seconds || 0);
     const position = Math.min(Math.max(0, Math.floor(data.positionSeconds)), Math.max(duration, 1));
     const pct = duration > 0 ? Math.min(100, Math.round((position / duration) * 100)) : 0;
