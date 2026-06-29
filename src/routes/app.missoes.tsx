@@ -46,6 +46,9 @@ function Page() {
   const fetchHydration = useServerFn(getHydrationToday);
   const toggleFn = useServerFn(toggleMissionCompletion);
   const qc = useQueryClient();
+  useAuthSessionGuard();
+  const identity = useClientIdentity(clientId || null);
+  useVideoCacheGuard(identity);
 
   const { data, isLoading } = useQuery({
     queryKey: ["client-missions", clientId],
@@ -59,10 +62,11 @@ function Page() {
   useMissionsRealtime(clientId || null);
 
   const { data: videoData, isLoading: videoLoading } = useQuery({
-    queryKey: ["client-video-missions", clientId],
+    queryKey: ["client-video-missions", identity?.tenantId, identity?.clientId, identity?.journeyId],
     queryFn: () => fetchVideoMissions({ data: { clientId } }),
-    enabled: !!clientId,
+    enabled: !!identity,
   });
+
 
   const { data: summary } = useQuery({
     queryKey: ["mission-summary", clientId],
