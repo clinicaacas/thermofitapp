@@ -11,6 +11,7 @@ import {
 import { X, Clock, CheckCircle2 } from "lucide-react";
 import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
 import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { useAuthSessionGuard, useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
 
 export const Route = createFileRoute("/app/videos")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
