@@ -15,7 +15,12 @@ import { Loader2, Filter, Settings as SettingsIcon, BarChart3, ChevronDown, Chev
 export const Route = createFileRoute("/missoes-admin")({
   head: () => ({ meta: [{ title: "Missões — ThermoFit" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
-    tab: (s.tab as string) === "configuracoes" ? "configuracoes" : "central",
+    tab:
+      (s.tab as string) === "configuracoes"
+        ? "configuracoes"
+        : (s.tab as string) === "tarefas"
+        ? "tarefas"
+        : "central",
     clientId: typeof s.clientId === "string" ? s.clientId : "",
     type: typeof s.type === "string" ? s.type : "",
     status: typeof s.status === "string" ? s.status : "",
