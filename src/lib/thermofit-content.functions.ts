@@ -69,10 +69,14 @@ const videoSchema = z.object({
   minCompletionPct: z.number().int().min(1).max(100).default(90),
   fileName: z.string().trim().max(255).default(""),
   storageKey: z.string().trim().max(500).default(""),
+  visibility: z.enum(["catalog", "journey"]).default("catalog"),
+  journeyId: z.string().uuid().nullable().default(null),
 });
 
 
-function mapVideo(row: any, signedThumb?: string | null) {
+
+
+function mapVideo(row: any, signedThumb?: string | null, journeyTarget?: { clientName: string } | null) {
   const storedThumb = row.thumbnail_storage_key ?? "";
   return {
     id: row.id,
@@ -93,8 +97,11 @@ function mapVideo(row: any, signedThumb?: string | null) {
     fileName: row.file_name ?? "",
     storageKey: row.storage_key ?? "",
     createdAt: row.created_at,
+    journeyId: (row.journey_id as string | null) ?? null,
+    journeyClientName: journeyTarget?.clientName ?? null,
   };
 }
+
 
 async function signThumb(supabase: any, key: string | null | undefined): Promise<string | null> {
   if (!key) return null;
@@ -113,12 +120,50 @@ export const listVideos = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw error;
     const rows = data ?? [];
+    const journeyIds = Array.from(
+      new Set(rows.map((r: any) => r.journey_id).filter((v: any) => !!v)),
+    ) as string[];
+    let journeyMap = new Map<string, { clientName: string }>();
+    if (journeyIds.length > 0) {
+      const { data: jrs } = await context.supabase
+        .from("client_journeys")
+        .select("id, client_id, clients(name)")
+        .in("id", journeyIds);
+      for (const j of (jrs ?? []) as any[]) {
+        journeyMap.set(j.id, { clientName: j.clients?.name ?? "—" });
+      }
+    }
     const signed = await Promise.all(
       rows.map((r: any) =>
         r.thumbnail_storage_key ? signThumb(context.supabase, r.thumbnail_storage_key) : Promise.resolve(null),
       ),
     );
-    return { videos: rows.map((r: any, i: number) => mapVideo(r, signed[i])) };
+    return {
+      videos: rows.map((r: any, i: number) =>
+        mapVideo(r, signed[i], r.journey_id ? journeyMap.get(r.journey_id) ?? null : null),
+      ),
+    };
+  });
+
+// Lista clientes do tenant com jornada ativa, para o seletor de visibilidade.
+export const listJourneyTargets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { tenantId } = await callerTenant(context);
+    const { data, error } = await context.supabase
+      .from("clients")
+      .select("id, name, active_journey_id")
+      .eq("tenant_id", tenantId)
+      .not("active_journey_id", "is", null)
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return {
+      targets: (data ?? []).map((c: any) => ({
+        clientId: c.id,
+        clientName: c.name,
+        journeyId: c.active_journey_id as string,
+      })),
+    };
   });
 
 
@@ -129,6 +174,26 @@ export const saveVideo = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { tenantId } = await callerTenant(context);
+
+    // Resolução de visibilidade — exige decisão explícita.
+    let resolvedJourneyId: string | null = null;
+    if (data.patch.visibility === "journey") {
+      if (!data.patch.journeyId) {
+        throw new Error("Selecione a jornada exclusiva para este vídeo.");
+      }
+      // Confirma que a jornada existe e pertence ao mesmo tenant (trigger reforça no banco).
+      const { data: jr, error: jErr } = await context.supabase
+        .from("client_journeys")
+        .select("id, tenant_id")
+        .eq("id", data.patch.journeyId)
+        .maybeSingle();
+      if (jErr) throw jErr;
+      if (!jr || (jr as any).tenant_id !== tenantId) {
+        throw new Error("Jornada inválida ou de outra clínica.");
+      }
+      resolvedJourneyId = data.patch.journeyId;
+    }
+
     const payload: any = {
       tenant_id: tenantId,
       title: data.patch.title.trim(),
@@ -147,6 +212,7 @@ export const saveVideo = createServerFn({ method: "POST" })
       min_completion_pct: data.patch.minCompletionPct,
       file_name: data.patch.fileName,
       storage_key: data.patch.storageKey,
+      journey_id: resolvedJourneyId,
     };
 
     if (data.id) {
@@ -158,7 +224,7 @@ export const saveVideo = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (error) throw new Error(error.message);
-      await logAudit(context, tenantId, "video.update", "video", row.id, {});
+      await logAudit(context, tenantId, "video.update", "video", row.id, { journeyId: resolvedJourneyId });
       const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
       return { video: mapVideo(row, sig) };
     } else {
@@ -168,7 +234,7 @@ export const saveVideo = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (error) throw new Error(error.message);
-      await logAudit(context, tenantId, "video.create", "video", row.id, {});
+      await logAudit(context, tenantId, "video.create", "video", row.id, { journeyId: resolvedJourneyId });
       const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
       return { video: mapVideo(row, sig) };
     }
@@ -189,6 +255,7 @@ export const deleteVideo = createServerFn({ method: "POST" })
     await logAudit(context, tenantId, "video.delete", "video", data.id, {});
     return { ok: true };
   });
+
 
 // ---------------------------------------------------------------------------
 // EXERCISES

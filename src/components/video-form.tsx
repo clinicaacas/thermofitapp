@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadCloud, Video as VideoIcon } from "lucide-react";
-import { saveVideo, getMyTenantId } from "@/lib/thermofit-content.functions";
+import { saveVideo, getMyTenantId, listJourneyTargets } from "@/lib/thermofit-content.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   VideoThumbnailPicker,
@@ -29,7 +29,10 @@ export type VideoFormInitial = {
   thumbnailUrl?: string;
   thumbnailStorageKey?: string;
   thumbnailSource?: ThumbState["source"];
+  journeyId?: string | null;
+  journeyClientName?: string | null;
 };
+
 
 type SourceType = "upload" | "youtube" | "external_link";
 
@@ -45,7 +48,10 @@ type Form = {
   externalUrl: string;
   category: string;
   status: "ativo" | "rascunho" | "arquivado";
+  visibility: "catalog" | "journey" | "";
+  journeyId: string;
 };
+
 
 const YT_RE =
   /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]+/i;
@@ -61,6 +67,13 @@ function detectSource(initial?: VideoFormInitial): SourceType {
 
 function buildInitialForm(initial?: VideoFormInitial): Form {
   const source = detectSource(initial);
+  // Em edição: visibilidade derivada do journey_id atual. Em criação: vazio (exige escolha).
+  const isEditing = !!initial?.id;
+  const visibility: Form["visibility"] = isEditing
+    ? initial?.journeyId
+      ? "journey"
+      : "catalog"
+    : "";
   return {
     title: initial?.title ?? "",
     videoType: (initial?.videoType as Form["videoType"]) || "manha",
@@ -74,8 +87,11 @@ function buildInitialForm(initial?: VideoFormInitial): Form {
     externalUrl: source === "upload" ? "" : initial?.url ?? "",
     category: initial?.category ?? "",
     status: (initial?.status as Form["status"]) || "ativo",
+    visibility,
+    journeyId: initial?.journeyId ?? "",
   };
 }
+
 
 export function VideoForm({
   mode,
@@ -90,6 +106,7 @@ export function VideoForm({
 }) {
   const save = useServerFn(saveVideo);
   const getTenant = useServerFn(getMyTenantId);
+  const fetchTargets = useServerFn(listJourneyTargets);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Form>(() => buildInitialForm(initial));
   const [file, setFile] = useState<File | null>(null);
@@ -99,6 +116,7 @@ export function VideoForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [tenantId, setTenantId] = useState<string>("");
+  const [targets, setTargets] = useState<{ clientId: string; clientName: string; journeyId: string }[]>([]);
   const [thumb, setThumb] = useState<ThumbState>({
     url: initial?.thumbnailUrl ?? "",
     storageKey: initial?.thumbnailStorageKey ?? "",
@@ -113,7 +131,9 @@ export function VideoForm({
 
   useEffect(() => {
     getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
-  }, [getTenant]);
+    fetchTargets().then((r) => setTargets(r.targets)).catch(() => {});
+  }, [getTenant, fetchTargets]);
+
 
   // Auto-set YouTube thumb when URL changes (only if no manual thumb yet).
   useEffect(() => {
@@ -148,9 +168,15 @@ export function VideoForm({
         e.externalUrl = "URL inválida.";
       }
     }
+    if (form.visibility !== "catalog" && form.visibility !== "journey") {
+      e.visibility = "Escolha a visibilidade deste vídeo.";
+    } else if (form.visibility === "journey" && !form.journeyId) {
+      e.journeyId = "Selecione a jornada exclusiva.";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
+
 
   async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -211,9 +237,12 @@ export function VideoForm({
             minCompletionPct: Number(form.minCompletionPct) || 90,
             fileName,
             storageKey,
+            visibility: form.visibility === "" ? "catalog" : form.visibility,
+            journeyId: form.visibility === "journey" ? form.journeyId : null,
           },
         },
       });
+
       setSuccess(
         mode === "edit" ? "Vídeo atualizado com sucesso." : "Vídeo cadastrado com sucesso.",
       );
@@ -324,6 +353,70 @@ export function VideoForm({
             </select>
           </Field>
         </div>
+
+        <Field label="Visibilidade *" error={errors.visibility}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { v: "catalog", label: "Catálogo da clínica", hint: "Disponível para todas as clientes da clínica" },
+                { v: "journey", label: "Exclusivo de uma jornada", hint: "Visível apenas para 1 cliente/jornada" },
+              ] as { v: "catalog" | "journey"; label: string; hint: string }[]
+            ).map((opt) => (
+              <button
+                type="button"
+                key={opt.v}
+                onClick={() => setForm({ ...form, visibility: opt.v })}
+                className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                  form.visibility === opt.v
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-input bg-background text-foreground hover:bg-accent"
+                }`}
+              >
+                <div className="font-medium">{opt.label}</div>
+                <div className="text-[11px] text-muted-foreground">{opt.hint}</div>
+              </button>
+            ))}
+          </div>
+          {form.visibility === "" && (
+            <p className="mt-1 text-xs text-amber-600">
+              Escolha onde este vídeo deve aparecer. Sem decisão explícita ele não pode ser salvo.
+            </p>
+          )}
+          {form.visibility === "journey" && (
+            <div className="mt-2">
+              <Label className="mb-1 block text-xs font-medium">
+                Cliente / jornada ativa *
+              </Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.journeyId}
+                onChange={(e) => setForm({ ...form, journeyId: e.target.value })}
+              >
+                <option value="">— Selecione a cliente —</option>
+                {targets.map((t) => (
+                  <option key={t.journeyId} value={t.journeyId}>
+                    {t.clientName}
+                  </option>
+                ))}
+              </select>
+              {errors.journeyId && (
+                <p className="mt-1 text-xs text-red-600">{errors.journeyId}</p>
+              )}
+              {targets.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Nenhuma cliente com jornada ativa nesta clínica.
+                </p>
+              )}
+            </div>
+          )}
+          {mode === "edit" && form.visibility === "journey" && initial?.journeyClientName && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Atualmente exclusivo para: <strong>{initial.journeyClientName}</strong>
+            </p>
+          )}
+        </Field>
+
+
 
         <Field label="Descrição">
           <Textarea
