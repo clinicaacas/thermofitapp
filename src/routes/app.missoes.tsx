@@ -149,7 +149,7 @@ function Page() {
       </div>
       <VideoDayBlock
         clientId={clientId}
-        identityKey={identity}
+        identityKey={identity ?? null}
         onOpenVideo={openVideo}
       />
 
