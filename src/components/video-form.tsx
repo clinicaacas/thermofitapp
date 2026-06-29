@@ -106,6 +106,7 @@ export function VideoForm({
 }) {
   const save = useServerFn(saveVideo);
   const getTenant = useServerFn(getMyTenantId);
+  const fetchTargets = useServerFn(listJourneyTargets);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Form>(() => buildInitialForm(initial));
   const [file, setFile] = useState<File | null>(null);
@@ -115,6 +116,7 @@ export function VideoForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [tenantId, setTenantId] = useState<string>("");
+  const [targets, setTargets] = useState<{ clientId: string; clientName: string; journeyId: string }[]>([]);
   const [thumb, setThumb] = useState<ThumbState>({
     url: initial?.thumbnailUrl ?? "",
     storageKey: initial?.thumbnailStorageKey ?? "",
@@ -129,7 +131,9 @@ export function VideoForm({
 
   useEffect(() => {
     getTenant().then((r) => setTenantId(r.tenantId)).catch(() => {});
-  }, [getTenant]);
+    fetchTargets().then((r) => setTargets(r.targets)).catch(() => {});
+  }, [getTenant, fetchTargets]);
+
 
   // Auto-set YouTube thumb when URL changes (only if no manual thumb yet).
   useEffect(() => {
@@ -164,9 +168,15 @@ export function VideoForm({
         e.externalUrl = "URL inválida.";
       }
     }
+    if (form.visibility !== "catalog" && form.visibility !== "journey") {
+      e.visibility = "Escolha a visibilidade deste vídeo.";
+    } else if (form.visibility === "journey" && !form.journeyId) {
+      e.journeyId = "Selecione a jornada exclusiva.";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
+
 
   async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -227,9 +237,12 @@ export function VideoForm({
             minCompletionPct: Number(form.minCompletionPct) || 90,
             fileName,
             storageKey,
+            visibility: form.visibility === "" ? "catalog" : form.visibility,
+            journeyId: form.visibility === "journey" ? form.journeyId : null,
           },
         },
       });
+
       setSuccess(
         mode === "edit" ? "Vídeo atualizado com sucesso." : "Vídeo cadastrado com sucesso.",
       );
