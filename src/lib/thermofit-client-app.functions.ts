@@ -64,14 +64,21 @@ export const listClientVideos = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const journeyDay = getClientJourneyDay(client.start_date);
+    const journeyId = (client as any).active_journey_id as string | null;
     const admin = await getAdmin();
-    const { data: rows, error } = await admin
+    let query = admin
       .from("videos")
       .select(
-        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, release_day, miles_on_complete, min_completion_pct",
+        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, release_day, miles_on_complete, min_completion_pct, journey_id",
       )
       .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
+      .eq("status", "ativo");
+    // Isolamento de jornada: vídeos sem journey_id são do catálogo do tenant;
+    // vídeos com journey_id só aparecem para essa jornada específica.
+    query = journeyId
+      ? query.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
+      : query.is("journey_id", null);
+    const { data: rows, error } = await query
       .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -97,6 +104,7 @@ export const listClientVideos = createServerFn({ method: "GET" })
     );
     return {
       journeyDay,
+      journeyId,
       videos: list.map((r: any, i: number) => ({
         ...r,
         thumbnail_url: signed[i],
@@ -104,6 +112,7 @@ export const listClientVideos = createServerFn({ method: "GET" })
       })),
     };
   });
+
 
 export const listTodayVideoMissions = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
