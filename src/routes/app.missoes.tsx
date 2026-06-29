@@ -18,6 +18,7 @@ import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
 import { PostVideoTaskCard } from "@/components/post-video-task-card";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { useAuthSessionGuard, useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
 
 export const Route = createFileRoute("/app/missoes")({
   validateSearch: (s: Record<string, unknown>) => ({
