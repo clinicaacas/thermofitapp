@@ -15,7 +15,8 @@ import {
 import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
-import { PostVideoTaskCard } from "@/components/post-video-task-card";
+import { VideoDayBlock } from "@/components/video-day-block";
+import { PostVideoTasksList } from "@/components/post-video-tasks-list";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { useAuthSessionGuard, useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
