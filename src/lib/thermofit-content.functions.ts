@@ -69,10 +69,14 @@ const videoSchema = z.object({
   minCompletionPct: z.number().int().min(1).max(100).default(90),
   fileName: z.string().trim().max(255).default(""),
   storageKey: z.string().trim().max(500).default(""),
+  visibility: z.enum(["catalog", "journey"]).default("catalog"),
+  journeyId: z.string().uuid().nullable().default(null),
 });
 
 
-function mapVideo(row: any, signedThumb?: string | null) {
+
+
+function mapVideo(row: any, signedThumb?: string | null, journeyTarget?: { clientName: string } | null) {
   const storedThumb = row.thumbnail_storage_key ?? "";
   return {
     id: row.id,
@@ -93,8 +97,11 @@ function mapVideo(row: any, signedThumb?: string | null) {
     fileName: row.file_name ?? "",
     storageKey: row.storage_key ?? "",
     createdAt: row.created_at,
+    journeyId: (row.journey_id as string | null) ?? null,
+    journeyClientName: journeyTarget?.clientName ?? null,
   };
 }
+
 
 async function signThumb(supabase: any, key: string | null | undefined): Promise<string | null> {
   if (!key) return null;
