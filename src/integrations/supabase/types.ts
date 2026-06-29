@@ -2430,6 +2430,7 @@ export type Database = {
           duration_seconds: number
           file_name: string | null
           id: string
+          journey_id: string | null
           miles_on_complete: number
           min_completion_pct: number
           phase: string | null
@@ -2456,6 +2457,7 @@ export type Database = {
           duration_seconds?: number
           file_name?: string | null
           id?: string
+          journey_id?: string | null
           miles_on_complete?: number
           min_completion_pct?: number
           phase?: string | null
@@ -2482,6 +2484,7 @@ export type Database = {
           duration_seconds?: number
           file_name?: string | null
           id?: string
+          journey_id?: string | null
           miles_on_complete?: number
           min_completion_pct?: number
           phase?: string | null
@@ -2501,6 +2504,13 @@ export type Database = {
           video_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "videos_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "videos_tenant_id_fkey"
             columns: ["tenant_id"]
