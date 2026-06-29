@@ -64,14 +64,21 @@ export const listClientVideos = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const journeyDay = getClientJourneyDay(client.start_date);
+    const journeyId = (client as any).active_journey_id as string | null;
     const admin = await getAdmin();
-    const { data: rows, error } = await admin
+    let query = admin
       .from("videos")
       .select(
-        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, release_day, miles_on_complete, min_completion_pct",
+        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, phase, release_day, miles_on_complete, min_completion_pct, journey_id",
       )
       .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
+      .eq("status", "ativo");
+    // Isolamento de jornada: vídeos sem journey_id são do catálogo do tenant;
+    // vídeos com journey_id só aparecem para essa jornada específica.
+    query = journeyId
+      ? query.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
+      : query.is("journey_id", null);
+    const { data: rows, error } = await query
       .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -97,6 +104,7 @@ export const listClientVideos = createServerFn({ method: "GET" })
     );
     return {
       journeyDay,
+      journeyId,
       videos: list.map((r: any, i: number) => ({
         ...r,
         thumbnail_url: signed[i],
@@ -105,20 +113,26 @@ export const listClientVideos = createServerFn({ method: "GET" })
     };
   });
 
+
 export const listTodayVideoMissions = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const journeyDay = getClientJourneyDay(client.start_date);
     const admin = await getAdmin();
-    const { data: rows, error } = await admin
+    const journeyId = (client as any).active_journey_id as string | null;
+    let q = admin
       .from("videos")
       .select(
-        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, miles_on_complete, min_completion_pct, release_day",
+        "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, miles_on_complete, min_completion_pct, release_day, journey_id",
       )
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo")
       .eq("release_day", journeyDay);
+    q = journeyId
+      ? q.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
+      : q.is("journey_id", null);
+    const { data: rows, error } = await q;
     if (error) throw error;
     const list = rows ?? [];
     const { data: progressRows } = await admin
@@ -168,14 +182,18 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyIdActive = (client as any).active_journey_id as string | null;
     const { data: video, error: vErr } = await admin
       .from("videos")
-      .select("id, tenant_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
+      .select("id, tenant_id, journey_id, min_completion_pct, miles_on_complete, duration_seconds, release_day")
       .eq("id", data.videoId)
       .eq("tenant_id", client.tenant_id)
       .maybeSingle();
     if (vErr) throw vErr;
     if (!video) throw new Error("Vídeo não encontrado.");
+    if (video.journey_id && video.journey_id !== journeyIdActive) {
+      throw new Error("Vídeo não autorizado para esta jornada.");
+    }
     const duration = Math.max(data.durationSeconds || 0, video.duration_seconds || 0);
     const position = Math.min(Math.max(0, Math.floor(data.positionSeconds)), Math.max(duration, 1));
     const pct = duration > 0 ? Math.min(100, Math.round((position / duration) * 100)) : 0;
@@ -298,14 +316,18 @@ export const getClientVideoPlayback = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyIdActive = (client as any).active_journey_id as string | null;
     const { data: v, error } = await admin
       .from("videos")
-      .select("id, title, url, storage_key, duration_seconds, min_completion_pct")
+      .select("id, title, url, storage_key, duration_seconds, min_completion_pct, journey_id")
       .eq("tenant_id", client.tenant_id)
       .eq("id", data.videoId)
       .maybeSingle();
     if (error) throw error;
     if (!v) throw new Error("Vídeo não encontrado.");
+    if (v.journey_id && v.journey_id !== journeyIdActive) {
+      throw new Error("Vídeo não autorizado para esta jornada.");
+    }
     let playUrl: string | null = v.url || null;
     let kind: "youtube" | "file" | "external" = "external";
     if (v.storage_key) {
