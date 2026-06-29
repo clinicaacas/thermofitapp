@@ -311,6 +311,32 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
         .eq("client_id", client.id)
         .eq("video_id", video.id);
       if (finErr) throw finErr;
+
+      // 4) Materializa tarefas pós-vídeo elegíveis para este vídeo/jornada.
+      //    Não concede Milhas aqui — apenas cria as missões pendentes.
+      try {
+        const { data: tasks } = await admin
+          .from("video_post_tasks")
+          .select("id, journey_id, active, archived_at")
+          .eq("tenant_id", video.tenant_id)
+          .eq("video_id", video.id)
+          .eq("active", true)
+          .is("archived_at", null);
+        const eligibleTasks = (tasks ?? []).filter(
+          (t: any) => !t.journey_id || t.journey_id === journeyId,
+        );
+        for (const t of eligibleTasks) {
+          await admin.rpc("ensure_post_video_task", {
+            _client_id: client.id,
+            _journey_id: journeyId,
+            _day: dueDate,
+            _video_id: video.id as any,
+            _task_ref: t.id,
+          } as any);
+        }
+      } catch (taskErr) {
+        console.error("[saveVideoProgress] materialize post_video_task failed", taskErr);
+      }
     }
 
     return {
