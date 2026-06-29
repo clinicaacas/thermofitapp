@@ -145,19 +145,14 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
     const journeyId = (client as any).active_journey_id as string | null;
     if (!journeyId) return { tasks: [] as any[] };
 
-    const today = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
-    )
-      .toISOString()
-      .slice(0, 10);
-
+    // Considera todas as missões post_video_task ativas da cliente nesta jornada
+    // (não filtra por due_date, para que uma tarefa criada após a conclusão do vídeo apareça).
     const { data: missions, error: mErr } = await admin
       .from("client_missions")
       .select("id, linked_video_id, task_ref, due_date, miles")
       .eq("client_id", client.id)
       .eq("journey_id", journeyId)
       .eq("mission_type", "post_video_task")
-      .eq("due_date", today)
       .eq("active", true);
     if (mErr) throw mErr;
 

@@ -136,13 +136,13 @@ export const getClientVideoDayState = createServerFn({ method: "GET" })
     const pendingPriorVideos = priorVideos.filter((v: any) => !progMap.get(v.id)?.is_completed).length;
     const nextReleaseDay = futureVideos.length ? Number(futureVideos[0].release_day) + 1 : null;
     const allPlannedCompleted =
-      all.length > 0 && all.every((v: any) => progMap.get(v.id)?.is_completed);
+      all.length > 0 && all.every((v: any) => progMap.get(v.id)?.is_completed) && futureVideos.length === 0;
 
+    // REGRA OFICIAL: o bloco "Vídeo do Dia" considera apenas o grupo do dia atual.
+    // Não agrega backlog de vídeos anteriores (isso é responsabilidade da aba Vídeos).
     let state: VideoDayState;
     if (todayVideos.length > 0) {
       state = todayVideos.every((v) => v.completed) ? "video_done" : "video_available";
-    } else if (pendingPriorVideos > 0) {
-      state = "prior_pending";
     } else if (allPlannedCompleted) {
       state = "all_completed";
     } else {
