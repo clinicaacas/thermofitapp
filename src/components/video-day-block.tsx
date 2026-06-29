@@ -95,18 +95,11 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
       {state === "prior_pending" && (
         <InfoCard icon={<Info className="h-4 w-4" style={{ color: "#8A6A3D" }} />}>
           <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-            Você tem {pendingPriorVideos} vídeo{pendingPriorVideos > 1 ? "s" : ""} pendente{pendingPriorVideos > 1 ? "s" : ""}.
+            Hoje não há um vídeo programado para esta etapa.
           </p>
           <p className="text-xs mt-1" style={{ color: "#6B7280" }}>
-            Assista para liberar Milhas e manter sua constância.
+            Veja seus conteúdos anteriores na aba Vídeos.
           </p>
-          <a
-            href="/app/videos"
-            className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ background: "#C9A24A", color: "#FFFFFF" }}
-          >
-            Ver vídeos pendentes
-          </a>
         </InfoCard>
       )}
 
