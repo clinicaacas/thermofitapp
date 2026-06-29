@@ -35,7 +35,10 @@ type V = {
   minCompletionPct: number;
   fileName: string;
   storageKey: string;
+  journeyId: string | null;
+  journeyClientName: string | null;
 };
+
 
 function Page() {
   const qc = useQueryClient();
