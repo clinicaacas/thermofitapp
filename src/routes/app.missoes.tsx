@@ -15,7 +15,8 @@ import {
 import { getTodayMissionSummary, getJourneyProgress } from "@/lib/thermofit-missions.functions";
 import { DailyRoutineCard } from "@/components/daily-routine-card";
 import { WeeklyPhotoCard } from "@/components/weekly-photo-card";
-import { PostVideoTaskCard } from "@/components/post-video-task-card";
+import { VideoDayBlock } from "@/components/video-day-block";
+import { PostVideoTasksList } from "@/components/post-video-tasks-list";
 import { useClientPhotosRealtime } from "@/hooks/use-client-photos-realtime";
 import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { useAuthSessionGuard, useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
@@ -141,67 +142,18 @@ function Page() {
   return (
     <ClientAppShell
       title="Missões de hoje"
-      subtitle={`Dia ${String(journeyDay).padStart(2, "0")} · ${done} de ${total} concluídas`}
+      subtitle={`Dia ${String((journeyDay ?? 0) + 1).padStart(2, "0")} · ${done} de ${total} concluídas`}
     >
       <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: allDone ? "#BFD8B7" : "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#C9A24A" }} />
       </div>
-      {videoMissions.length > 0 && (
-        <section className="mt-4">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
-            Vídeos do dia
-          </h3>
-          <ul className="space-y-2">
-            {videoMissions.map((v: any) => (
-              <li key={v.id}>
-                <button
-                  onClick={() => openVideo(v.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left"
-                  style={{ border: "1px solid #E5D6BD" }}
-                >
-                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg" style={{ background: "#F3E8D2" }}>
-                    {v.thumbnail_url ? (
-                      <img src={v.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center">
-                        <Play className="h-5 w-5" style={{ color: "#8A6A3D" }} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold" style={{ color: "#1F2933" }}>
-                      {v.title}
-                    </p>
-                    <p className="text-xs capitalize" style={{ color: "#6B7280" }}>
-                      {v.category || "geral"} · assistir {v.min_completion_pct ?? 90}%
-                    </p>
-                  </div>
-                  {v.is_completed ? (
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold inline-flex items-center gap-1"
-                      style={{ background: "#E8F2E5", color: "#3F7A3A" }}
-                    >
-                      <Check className="h-3 w-3" /> Concluído
-                    </span>
-                  ) : (
-                    v.miles_on_complete > 0 && (
-                      <span
-                        className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                        style={{ background: "#F3E8D2", color: "#8A6A3D" }}
-                      >
-                        +{v.miles_on_complete}
-                      </span>
-                    )
-                  )}
+      <VideoDayBlock
+        clientId={clientId}
+        identityKey={identity ?? null}
+        onOpenVideo={openVideo}
+      />
 
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {clientId && <PostVideoTaskCard clientId={clientId} />}
+      {clientId && <PostVideoTasksList clientId={clientId} />}
       {clientId && <DailyRoutineCard clientId={clientId} />}
       {clientId && <HydrationMissionCard data={hydrationData} />}
       {clientId && <WeeklyPhotoCard clientId={clientId} />}

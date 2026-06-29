@@ -2421,6 +2421,78 @@ export type Database = {
           },
         ]
       }
+      video_post_tasks: {
+        Row: {
+          active: boolean
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          instruction: string
+          journey_id: string | null
+          miles: number
+          ordering: number
+          response_required: boolean
+          tenant_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          video_id: string
+        }
+        Insert: {
+          active?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instruction?: string
+          journey_id?: string | null
+          miles?: number
+          ordering?: number
+          response_required?: boolean
+          tenant_id: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          video_id: string
+        }
+        Update: {
+          active?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instruction?: string
+          journey_id?: string | null
+          miles?: number
+          ordering?: number
+          response_required?: boolean
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_post_tasks_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_post_tasks_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           category: string

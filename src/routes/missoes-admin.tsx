@@ -10,12 +10,25 @@ import {
   updateMissionSetting,
 } from "@/lib/thermofit-missions-admin.functions";
 import { listClients } from "@/lib/thermofit-data.functions";
+import { PostVideoTasksManager } from "@/components/post-video-tasks-manager";
+import { useTenant } from "@/lib/tenant-context";
 import { Loader2, Filter, Settings as SettingsIcon, BarChart3, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+
+function TarefasPosVideo() {
+  const { tenant } = useTenant();
+  if (!tenant?.id) return <p className="text-sm text-muted-foreground">Carregando contexto…</p>;
+  return <PostVideoTasksManager tenantId={tenant.id} />;
+}
 
 export const Route = createFileRoute("/missoes-admin")({
   head: () => ({ meta: [{ title: "Missões — ThermoFit" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
-    tab: (s.tab as string) === "configuracoes" ? "configuracoes" : "central",
+    tab:
+      (s.tab as string) === "configuracoes"
+        ? "configuracoes"
+        : (s.tab as string) === "tarefas"
+        ? "tarefas"
+        : "central",
     clientId: typeof s.clientId === "string" ? s.clientId : "",
     type: typeof s.type === "string" ? s.type : "",
     status: typeof s.status === "string" ? s.status : "",
@@ -66,6 +79,12 @@ function Page() {
               <BarChart3 className="h-3.5 w-3.5" /> Central
             </button>
             <button
+              onClick={() => navigate({ search: (s: any) => ({ ...s, tab: "tarefas" }) })}
+              className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 ${tab === "tarefas" ? "bg-accent" : "hover:bg-accent"}`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" /> Tarefas pós-vídeo
+            </button>
+            <button
               onClick={() => navigate({ search: (s: any) => ({ ...s, tab: "configuracoes" }) })}
               className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 ${tab === "configuracoes" ? "bg-accent" : "hover:bg-accent"}`}
             >
@@ -74,7 +93,7 @@ function Page() {
           </nav>
         </header>
 
-        {tab === "central" ? <Central /> : <Configuracoes />}
+        {tab === "central" ? <Central /> : tab === "tarefas" ? <TarefasPosVideo /> : <Configuracoes />}
       </div>
     </AppShell>
   );
