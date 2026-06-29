@@ -354,6 +354,70 @@ export function VideoForm({
           </Field>
         </div>
 
+        <Field label="Visibilidade *" error={errors.visibility}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { v: "catalog", label: "Catálogo da clínica", hint: "Disponível para todas as clientes da clínica" },
+                { v: "journey", label: "Exclusivo de uma jornada", hint: "Visível apenas para 1 cliente/jornada" },
+              ] as { v: "catalog" | "journey"; label: string; hint: string }[]
+            ).map((opt) => (
+              <button
+                type="button"
+                key={opt.v}
+                onClick={() => setForm({ ...form, visibility: opt.v })}
+                className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                  form.visibility === opt.v
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-input bg-background text-foreground hover:bg-accent"
+                }`}
+              >
+                <div className="font-medium">{opt.label}</div>
+                <div className="text-[11px] text-muted-foreground">{opt.hint}</div>
+              </button>
+            ))}
+          </div>
+          {form.visibility === "" && (
+            <p className="mt-1 text-xs text-amber-600">
+              Escolha onde este vídeo deve aparecer. Sem decisão explícita ele não pode ser salvo.
+            </p>
+          )}
+          {form.visibility === "journey" && (
+            <div className="mt-2">
+              <Label className="mb-1 block text-xs font-medium">
+                Cliente / jornada ativa *
+              </Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.journeyId}
+                onChange={(e) => setForm({ ...form, journeyId: e.target.value })}
+              >
+                <option value="">— Selecione a cliente —</option>
+                {targets.map((t) => (
+                  <option key={t.journeyId} value={t.journeyId}>
+                    {t.clientName}
+                  </option>
+                ))}
+              </select>
+              {errors.journeyId && (
+                <p className="mt-1 text-xs text-red-600">{errors.journeyId}</p>
+              )}
+              {targets.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Nenhuma cliente com jornada ativa nesta clínica.
+                </p>
+              )}
+            </div>
+          )}
+          {mode === "edit" && form.visibility === "journey" && initial?.journeyClientName && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Atualmente exclusivo para: <strong>{initial.journeyClientName}</strong>
+            </p>
+          )}
+        </Field>
+
+
+
         <Field label="Descrição">
           <Textarea
             rows={3}
