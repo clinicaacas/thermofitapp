@@ -10,7 +10,15 @@ import {
   updateMissionSetting,
 } from "@/lib/thermofit-missions-admin.functions";
 import { listClients } from "@/lib/thermofit-data.functions";
+import { PostVideoTasksManager } from "@/components/post-video-tasks-manager";
+import { useTenant } from "@/lib/tenant-context";
 import { Loader2, Filter, Settings as SettingsIcon, BarChart3, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+
+function TarefasPosVideo() {
+  const { tenant } = useTenant();
+  if (!tenant?.id) return <p className="text-sm text-muted-foreground">Carregando contexto…</p>;
+  return <PostVideoTasksManager tenantId={tenant.id} />;
+}
 
 export const Route = createFileRoute("/missoes-admin")({
   head: () => ({ meta: [{ title: "Missões — ThermoFit" }] }),
