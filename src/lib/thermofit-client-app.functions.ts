@@ -316,14 +316,18 @@ export const getClientVideoPlayback = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyIdActive = (client as any).active_journey_id as string | null;
     const { data: v, error } = await admin
       .from("videos")
-      .select("id, title, url, storage_key, duration_seconds, min_completion_pct")
+      .select("id, title, url, storage_key, duration_seconds, min_completion_pct, journey_id")
       .eq("tenant_id", client.tenant_id)
       .eq("id", data.videoId)
       .maybeSingle();
     if (error) throw error;
     if (!v) throw new Error("Vídeo não encontrado.");
+    if (v.journey_id && v.journey_id !== journeyIdActive) {
+      throw new Error("Vídeo não autorizado para esta jornada.");
+    }
     let playUrl: string | null = v.url || null;
     let kind: "youtube" | "file" | "external" = "external";
     if (v.storage_key) {
