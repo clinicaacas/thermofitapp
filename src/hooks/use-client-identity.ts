@@ -19,7 +19,9 @@ export function useClientIdentity(clientId: string | null | undefined) {
     queryKey: ["client-identity", clientId],
     queryFn: () => fetchIdentity({ data: { clientId: clientId! } }),
     enabled: !!clientId,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
   return q.data as ClientIdentity | undefined;
 }
