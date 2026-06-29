@@ -119,11 +119,28 @@ function Page() {
                   <div className="truncate text-[11px] text-muted-foreground">
                     {v.category} • {source} • {v.status}
                   </div>
+                  <div
+                    className={`inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      v.journeyId
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                    title={
+                      v.journeyId
+                        ? `Exclusivo para: ${v.journeyClientName ?? "—"}`
+                        : "Disponível para todas as clientes da clínica"
+                    }
+                  >
+                    {v.journeyId
+                      ? `Exclusivo: ${v.journeyClientName ?? "—"}`
+                      : "Catálogo da clínica"}
+                  </div>
                   {v.description && (
                     <p className="line-clamp-1 text-[11px] text-muted-foreground">
                       {v.description}
                     </p>
                   )}
+
                   <div className="mt-auto flex justify-end gap-1 pt-1.5">
                     <button
                       onClick={() => openEdit(v)}
