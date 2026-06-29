@@ -48,7 +48,10 @@ type Form = {
   externalUrl: string;
   category: string;
   status: "ativo" | "rascunho" | "arquivado";
+  visibility: "catalog" | "journey" | "";
+  journeyId: string;
 };
+
 
 const YT_RE =
   /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]+/i;
@@ -64,6 +67,13 @@ function detectSource(initial?: VideoFormInitial): SourceType {
 
 function buildInitialForm(initial?: VideoFormInitial): Form {
   const source = detectSource(initial);
+  // Em edição: visibilidade derivada do journey_id atual. Em criação: vazio (exige escolha).
+  const isEditing = !!initial?.id;
+  const visibility: Form["visibility"] = isEditing
+    ? initial?.journeyId
+      ? "journey"
+      : "catalog"
+    : "";
   return {
     title: initial?.title ?? "",
     videoType: (initial?.videoType as Form["videoType"]) || "manha",
@@ -77,8 +87,11 @@ function buildInitialForm(initial?: VideoFormInitial): Form {
     externalUrl: source === "upload" ? "" : initial?.url ?? "",
     category: initial?.category ?? "",
     status: (initial?.status as Form["status"]) || "ativo",
+    visibility,
+    journeyId: initial?.journeyId ?? "",
   };
 }
+
 
 export function VideoForm({
   mode,
