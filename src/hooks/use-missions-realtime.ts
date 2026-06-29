@@ -31,8 +31,6 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["client-home", clientId],
     ["client-miles", clientId],
     ["client-hydration", clientId],
-    ["client-video-missions", clientId],
-    ["client-videos", clientId],
     ["journey-progress", clientId],
     ["weekly-photo-state", clientId],
     ["client-photos", clientId],
@@ -48,9 +46,24 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["admin-client-photos", clientId],
   ];
   for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "all" });
+  // Chaves de vídeo são escopadas por (tenantId, clientId, journeyId).
+  // Invalida por predicate para alcançar a chave exata da identidade ativa
+  // sem reativar caches de jornadas anteriores.
+  qc.invalidateQueries({
+    predicate: (q) => {
+      const k = q.queryKey as unknown[];
+      const head = String(k[0] ?? "");
+      if (head !== "client-videos" && head !== "client-video-missions" && head !== "client-video-playback") {
+        return false;
+      }
+      return k.includes(clientId);
+    },
+    refetchType: "all",
+  });
   qc.invalidateQueries({ queryKey: ["missions-central"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "all" });
 }
+
 
 export function useMissionsRealtime(clientId: string | null | undefined) {
   const qc = useQueryClient();

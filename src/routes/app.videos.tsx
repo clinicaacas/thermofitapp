@@ -11,6 +11,7 @@ import {
 import { X, Clock, CheckCircle2 } from "lucide-react";
 import { VideoThumbnail, youtubeThumb } from "@/components/video-thumbnail";
 import { useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { useAuthSessionGuard, useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
 
 export const Route = createFileRoute("/app/videos")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -51,13 +52,16 @@ function fmtDuration(sec: number): string {
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/videos" });
+  useAuthSessionGuard();
   useMissionsRealtime(clientId || null);
+  const identity = useClientIdentity(clientId || null);
+  useVideoCacheGuard(identity);
   const fetchVideos = useServerFn(listClientVideos);
   const fetchPlayback = useServerFn(getClientVideoPlayback);
   const { data, isLoading } = useQuery({
-    queryKey: ["client-videos", clientId],
+    queryKey: ["client-videos", identity?.tenantId, identity?.clientId, identity?.journeyId],
     queryFn: () => fetchVideos({ data: { clientId } }),
-    enabled: !!clientId,
+    enabled: !!identity,
   });
 
   const videos: V[] = (data?.videos ?? []) as V[];
@@ -75,10 +79,11 @@ function Page() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const playbackQuery = useQuery({
-    queryKey: ["client-video-playback", clientId, openId],
+    queryKey: ["client-video-playback", identity?.tenantId, identity?.clientId, identity?.journeyId, openId],
     queryFn: () => fetchPlayback({ data: { clientId, videoId: openId! } }),
-    enabled: !!openId && !!clientId,
+    enabled: !!openId && !!identity,
   });
+
 
   return (
     <ClientAppShell title="Vídeos">

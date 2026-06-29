@@ -59,6 +59,19 @@ export const getClientHome = createServerFn({ method: "GET" })
     };
   });
 
+// Identidade mínima da cliente — usada para escopo de cache (tenant + jornada ativa).
+export const getClientIdentity = createServerFn({ method: "GET" })
+  .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data }) => {
+    const client = await loadClient(data.clientId);
+    return {
+      clientId: client.id,
+      tenantId: client.tenant_id as string,
+      journeyId: (client as any).active_journey_id as string | null,
+    };
+  });
+
+
 export const listClientVideos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
