@@ -26,6 +26,7 @@ const TABLES = [
 // Todas as telas consomem destas chaves — nunca calcular paralelo.
 export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient>, clientId: string) {
   const keys = [
+    ["client-identity", clientId],
     ["mission-summary", clientId],
     ["client-missions", clientId],
     ["client-home", clientId],
