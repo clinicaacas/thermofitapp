@@ -1,89 +1,143 @@
-## Escopo e ordem de execução
+# Entrega — Vídeo do Dia (todos os estados) + Tarefas Pós-Vídeo
 
-Vou tratar as 10 frentes como uma única entrega coesa. Antes de codar, abro com um mapa de auditoria do estado atual (ledger da Celestina, sumário get_today_mission_summary, vídeos com >=90% sem crédito, tarefas pós-vídeo órfãs) e só depois aplico as correções.
+Escopo grande, com mudanças de schema, backend, painel admin e App da Cliente. Nada que altere Milhas, jornadas, vídeos, fotos, conclusões ou clientes existentes (Celestina, Dona Chiquinha, E2E Missões). Tarefas legadas inválidas são preservadas em banco e apenas filtradas funcionalmente.
 
-### 1. Auditoria inicial (somente leitura, ~6 queries)
-- Snapshot do `miles_ledger` da Celestina por `source_kind` x `occurred_on` para detectar gaps reais.
-- Lista de `client_video_progress` com `progress_percent >= 90` sem linha correspondente em `client_mission_completions` de `video_complete`.
-- Conferência das chaves idempotentes em uso (`award_miles`) para garantir formato único.
-- Inventário de `mission_settings` e `client_missions` ativas para validar a fonte única do contador.
+## 0. Convenção oficial de dias da jornada
 
-### 2. Migração única (estrutura + reconciliação)
-- `mission_settings`: garantir 8 chaves oficiais via `ensure_mission_settings` (já existe) e ativar `weekly_photo=15`, `post_video_task=10`, `hydration_goal=10`.
-- `mission_settings`: travar `default_miles` nos valores oficiais (5/5/10/5/10/5/15/10) por tenant.
-- Coluna `client_task_responses.miles_awarded boolean default false` se ainda não existir (idempotência).
-- View materializada NÃO — manter `get_today_mission_summary` como fonte única.
-- Reescrever `get_today_mission_summary` para considerar: vídeos do dia, tarefas pós-vídeo, check-in, refeição, treino, foto treino, hidratação 2L, foto semanal quando dia==release_day.
-- Função `reconcile_client_video_miles(_client_id, _journey_id)` que, para cada `client_video_progress` >=90% sem crédito, chama `award_miles` com `source_kind='video_complete'` e `idempotency_key='video:'||video_id||':'||occurred_on`. Roda 1x para a Celestina via migração (DO block ao final).
-- Trigger `BEFORE UPDATE` em `client_video_progress` para emitir `award_miles` quando `progress_percent` cruza 90% pela primeira vez (idempotência via chave única).
+Centralizar num único helper server-side `resolveJourneyDay(journey)` em `src/lib/journey-day.server.ts`:
 
-### 3. Backend (server functions)
-- `thermofit-missions.functions.ts`:
-  - `markVideoProgress`: passa a chamar a nova RPC com `progress` real do player; concede +5 só ao cruzar 90%, idempotente.
-  - `submitPostVideoConfirm`: requer vídeo concluído antes; concede +10 1x por (cliente, task, jornada).
-  - `submitHydrationGoal`: detecta cruzamento de 2L (lê `client_hydration_logs` do dia), idempotente.
-  - `submitWeeklyPhoto`: já existe — garantir +15 1x via idempotency `weekly_photo:journey:week`.
-  - `submitCheckin/submitMeal/submitWorkout/submitWorkoutPhoto`: revisar idempotência e travar regra de "treino → libera foto", "descanso → bloqueia foto, sem milhas, sem penalidade".
-- `thermofit-missions-admin.functions.ts`:
-  - Novas funções `listPostVideoTasks`, `upsertPostVideoTask`, `togglePostVideoTask` (tipo fixo "confirmação simples" nesta entrega).
-- `thermofit-client-app.functions.ts`: garantir que `getHomeBundle` NÃO retorna mais o bloco de check-in/rotina (Home limpa).
+- `journeyDayIndex` = `today_SP - started_on` (inteiro, base 0) — usado internamente. Mantém compatibilidade com `release_day` atual (`release_day = 0` é o primeiro dia).
+- `journeyDayNumber` = `journeyDayIndex + 1` — número humano exibido à cliente (“Dia 1, Dia 2…”).
+- `programDurationDays` = 84.
+- `journeyStatus` = `active` | `completed` | `archived` (derivado de `client_journeys.status` + dias decorridos).
 
-### 4. App da Cliente
-- `app.missoes.tsx`:
-  - Vídeo do Dia: registra 90% via `timeupdate` (não só `ended`); mostra check verde persistente; reassistir não credita.
-  - Tarefa pós-vídeo: só renderiza quando há registros em `client_missions` tipo `post_video_task` ativos do dia E vídeo concluído.
-  - Rotina: refeição/treino com seleção única (radio behavior); foto treino oculta até treino registrado.
-  - Hidratação: barra ligada ao `client_hydration_logs` e mostra "+10 ao atingir 2L".
-  - Foto semanal: mantém upload, mostra check verde e Milhas creditadas; mensagens de erro humanas.
-- `app.index.tsx`: remover bloco "Me conta como foi a sua jornada hoje". Manter Suporte e atalhos.
-- `app.videos.tsx`: idem player com 90% + status verde persistente.
-- `app.premios.tsx`, `app.passaporte.tsx`: já consomem `client-miles` — adicionar invalidação cruzada.
+Substituir cálculos ad-hoc em `materialize_daily_missions_all`, `listClientVideos`, `listTodayVideoMissions`, `get_journey_progress`, `clientes.$id.missoes.tsx`. **Não** renumerar `release_day` em vídeos existentes — a convenção atual (base 0) permanece oficial. Apenas a exibição soma +1.
 
-### 5. Painel Admin
-- `missoes-admin.tsx`: nova aba **Tarefas pós-vídeo** dentro do mesmo módulo, com CRUD por vídeo (lista de vídeos do tenant + tarefas vinculadas + toggle ativo + Milhas fixas 10).
-- `clientes.$id.missoes.tsx`: já existe — adicionar coluna de origem real (vídeo X, tarefa Y).
-- `clientes.$id.premios.tsx`: já reflete ledger; só revisar invalidação Realtime.
+## 1. Server function unificada `getClientVideoDayState`
 
-### 6. Realtime e invalidação cruzada
-- Hook `useMissionsRealtime(clientId)` em `app.missoes.tsx` e `app.index.tsx` escutando `miles_ledger`, `client_mission_completions`, `client_video_progress`, `client_hydration_logs`, `client_progress_photos`, `client_task_responses` filtrados por cliente.
-- Em cada evento, invalidar: `mission-summary`, `daily-routine`, `client-miles`, `client-home`, `today-mission-summary`, `client-rewards`, `client-achievements`, `journey-progress`.
-- Adicionar `ALTER PUBLICATION` para tabelas que ainda não estão no Realtime.
+Novo arquivo `src/lib/thermofit-video-day.functions.ts` com `requireSupabaseAuth`. Retorna shape único consumido pelo App:
 
-### 7. Reconciliação Celestina (automática, conforme aprovado)
-- Bloco DO ao fim da migração que:
-  1. Para cada `client_video_progress` da Celestina com `progress_percent >= 90` e sem linha em `miles_ledger` com `source_ref` correspondente, chama `award_miles` com `source_kind='video_complete'` e key idempotente.
-  2. Grava 1 linha em `miles_audit_log` por crédito com `source_kind='reconciliation'` e justificativa "Reconciliação técnica Entrega 1".
-- Não toca em refeição/treino/hidratação/foto (não temos comprovação binária sem timestamp confiável).
+```ts
+{
+  journeyStatus, journeyDayNumber, programDurationDays,
+  todayVideos: [{ videoId, missionId, title, miles, completed, progressPct }],
+  pendingPriorVideos: number,
+  nextReleaseDay: number | null,
+  allPlannedCompleted: boolean,
+  state: "video_available" | "video_done" | "no_video_today"
+       | "prior_pending" | "all_completed" | "journey_finished"
+}
+```
 
-### 8. Teste runtime E2E
-- Script `bun /tmp/missions-e2e.ts` que, autenticado como admin via service role, executa para a Celestina:
-  1. Marca progresso de vídeo 95% → confere +5.
-  2. Repete → confere idempotência.
-  3. Marca tarefa pós-vídeo → confere +10 1x.
-  4. Check-in/refeição/treino/foto → confere +5/+5/+10/+5.
-  5. Hidratação 2L → confere +10 1x.
-  6. Snapshot final do ledger e do `get_today_mission_summary`.
-- Resultado anexado na resposta final.
+Resolve tenant/client/journey via `clients.auth_user_id`. Materializa idempotentemente vídeos do dia (chama `ensure_video_mission` apenas se faltarem) para cobrir vídeos cadastrados após o cron.
 
-### Arquivos a alterar
-- `supabase/migrations/<timestamp>_missions_delivery_1.sql` (única)
-- `src/lib/thermofit-missions.functions.ts`
-- `src/lib/thermofit-missions-admin.functions.ts`
-- `src/lib/thermofit-client-app.functions.ts`
-- `src/routes/app.missoes.tsx`
-- `src/routes/app.index.tsx`
-- `src/routes/app.videos.tsx`
-- `src/routes/missoes-admin.tsx`
-- `src/components/post-video-task-card.tsx`
-- `src/components/weekly-photo-card.tsx`
-- `src/components/daily-routine-card.tsx`
-- novo `src/hooks/use-missions-realtime.ts`
-- `/tmp/missions-e2e.ts` (script)
+## 2. App da Cliente — bloco Vídeo do Dia sempre visível
 
-### Limitações conhecidas
-- Tarefas pós-vídeo entram apenas com tipo "confirmação simples" (conforme aprovado); texto curto e seleção ficam para entrega futura.
-- Reconciliação automática cobre apenas vídeos (única ação com timestamp e percentual auditáveis). Refeições/treinos/hidratação dependem de auto-relato e não são reconciliados retroativamente.
-- Selos/Marcos seguem regras já implementadas via triggers — não serão alterados nesta entrega, apenas validados.
-- Detecção de 2L na hidratação considera a soma do dia local (`America/Sao_Paulo`), não o instante exato em que o usuário cruzou — credita no primeiro evento que totaliza >=2000ml.
+`src/routes/app.missoes.tsx`: remover `videoMissions.length > 0 && (...)`. Novo componente `VideoDayBlock` renderiza conforme `state`:
 
-Posso executar tudo nesta ordem agora?
+- `video_available` — cards atuais + player + Milhas previstas.
+- `video_done` — card verde, “Milhas conquistadas”, permite rever sem novo crédito.
+- `no_video_today` — card informativo (“Hoje não há um vídeo programado…” + “Seu próximo vídeo será liberado no dia X”).
+- `prior_pending` — card com contagem + botão “Ver vídeos pendentes” → `/app/videos`.
+- `all_completed` — card de celebração.
+- `journey_finished` — card “Seu Plano de Voo foi concluído…”.
+
+Nenhum estado informativo cria missão, botão de conclusão ou Milhas.
+
+## 3. Materialização
+
+Ajustar `materialize_daily_missions_all` (migration) para idempotência reforçada e usar `journeyDayIndex` consistente. Adicionar `ensure_today_video_missions(client_id, journey_id)` chamada também por `getClientVideoDayState` para cobrir vídeos recém-cadastrados sem esperar cron. Sem alteração de Milhas, sem duplicidade (índices únicos atuais já protegem).
+
+## 4. Catálogo de Tarefas Pós-Vídeo (migration)
+
+Nova tabela `public.video_post_tasks`:
+
+- `id, tenant_id, video_id, journey_id (nullable), title, instruction, ordering, miles (default 10, CHECK 0..50), response_required bool, active bool, archived_at, archived_by, created_by, updated_by, created_at, updated_at`.
+- Trigger valida: `video.tenant_id = task.tenant_id`; se `video.journey_id` não nulo → `task.journey_id` deve coincidir; se `task.journey_id` não nulo → mesmo tenant.
+- Índice único parcial `(video_id, ordering, COALESCE(journey_id,'00000000-...'))` para evitar ordens duplicadas no mesmo escopo.
+- GRANTs `authenticated` + `service_role`; RLS: SELECT para membros do tenant ou cliente dono do vídeo elegível; INSERT/UPDATE/DELETE só `is_profile_manager`.
+- Estender `client_missions`: já existe `linked_video_id` e `task_ref`. `task_ref` passará a armazenar o `video_post_tasks.id`.
+
+## 5. Admin > Missões > Tarefas Pós-Vídeo
+
+Nova aba em `src/routes/missoes-admin.tsx` + componente `PostVideoTasksManager`:
+- Listar por vídeo, filtros (vídeo, jornada, status), CRUD, arquivar (não apaga), ordenar.
+- Escopo: “Catálogo da clínica” | “Exclusiva de jornada” com seletor de jornada.
+- No formulário de vídeo (`src/components/video-form.tsx`): contador “N tarefas vinculadas” + link “Gerenciar tarefas”.
+- Alerta admin para vídeos ativos sem tarefa: badge na listagem de vídeos.
+
+Server functions em `src/lib/thermofit-post-video-tasks.functions.ts`: `listPostVideoTasks`, `savePostVideoTask`, `archivePostVideoTask`, `applyTaskToCompletedClients` (idempotente, sem Milhas).
+
+## 6. Materialização e execução de tarefas
+
+Em `saveVideoProgress` (já existe em `thermofit-client-app.functions.ts`):
+- Quando vídeo atinge `min_completion_pct` e conclui → buscar `video_post_tasks` ativas elegíveis (mesmo tenant + (journey nula ou = jornada da cliente)) → criar missões `post_video_task` via `ensure_post_video_task` passando `task_ref = task.id`.
+- Milhas da tarefa **não** são concedidas aqui.
+
+Nova função `completePostVideoTask({ missionId, response? })`:
+- Valida ownership (client/tenant/journey), busca tarefa via `task_ref`, exige resposta se `response_required`.
+- Insere `client_task_responses` (idempotente), conclui missão, chama `award_miles` com `miles` lidas da tarefa (nunca do payload), `idempotency_key = "post_video_task:" || mission_id`.
+
+## 7. App da Cliente — Tarefas Pós-Vídeo
+
+Em Missões, abaixo do `VideoDayBlock`, novo `PostVideoTasksList`:
+- Lista missões `post_video_task` do dia/jornada com `linked_video_id` válido e `task_ref` resolvendo para tarefa ativa.
+- Filtra tarefas legadas: missões com `task_ref IN ('daily', NULL)` ou `task_ref` que não bate com `video_post_tasks.id` ficam ocultas e excluídas dos contadores.
+- Render: nome do vídeo, título, instrução, Milhas, textarea (se obrigatório), botão “Concluir/Enviar”.
+- Tarefas concluídas continuam visíveis (estado verde).
+
+Componente atual `post-video-task-card.tsx` é genérico (sem `linked_video_id`) — será desativado e substituído pelo novo fluxo. Dados antigos permanecem em banco.
+
+## 8. Segurança
+
+Toda função respeita `tenant_id + client_id + journey_id + video_id + task_ref` simultaneamente. Trigger de integridade na tabela + validação em servidor. Sem leitura de `miles`/`client_id`/`journey_id` a partir do payload do cliente.
+
+## 9. Filtragem de tarefas legadas
+
+`listTodayMissions` e contadores do admin ignoram missões `post_video_task` com `task_ref` inválido (não-UUID ou sem match em `video_post_tasks`). Registros preservados para auditoria.
+
+## 10. Testes runtime
+
+Após deploy, executar via Playwright em cliente técnica isolada:
+1. Dia ativo com vídeo → conclui 1x, Milhas creditadas.
+2. Dia ativo sem vídeo → card informativo, sem missão/Milhas.
+3. Vídeo futuro não aparece antes; aparece no dia certo.
+4. Todos concluídos → card celebração.
+5. Jornada encerrada → estado final.
+6. Vídeo técnico + 2 tarefas → tarefas aparecem só após `min_completion_pct`.
+7. Conclui tarefa 1 → +10 Milhas, 2ª permanece pendente.
+8. Re-conclusão não duplica Milhas/resposta.
+9. Outra cliente não enxerga vídeo/tarefa técnica.
+
+E validação visual na Celestina:
+- Vídeo do Dia visível no dia 13 com mensagem correta.
+- Tarefas legadas não aparecem.
+
+## Arquivos previstos
+
+**Migrations:**
+- `video_post_tasks` (tabela + trigger + RLS + GRANTs + índice único)
+- ajuste `materialize_daily_missions_all` (idempotência reforçada)
+
+**Backend:**
+- `src/lib/journey-day.server.ts` (novo)
+- `src/lib/thermofit-video-day.functions.ts` (novo — `getClientVideoDayState`)
+- `src/lib/thermofit-post-video-tasks.functions.ts` (novo — CRUD + apply-to-completed)
+- `src/lib/thermofit-client-app.functions.ts` (estender `saveVideoProgress` + nova `completePostVideoTask`)
+
+**Frontend:**
+- `src/routes/app.missoes.tsx` (substituir bloco vídeo + integrar tarefas)
+- `src/components/video-day-block.tsx` (novo)
+- `src/components/post-video-tasks-list.tsx` (novo)
+- `src/routes/missoes-admin.tsx` (nova aba)
+- `src/components/post-video-tasks-manager.tsx` (novo)
+- `src/components/video-form.tsx` (contador + atalho)
+- `src/routes/videos.index.tsx` (badge “sem tarefa”)
+
+## Limitações conhecidas
+
+- `release_day` permanece base 0 internamente; exibição soma +1. Vídeos já cadastrados não se deslocam.
+- Tarefas legadas em `client_missions` com `task_ref` genérico não são apagadas — apenas ocultas.
+- `applyTaskToCompletedClients` é manual (botão admin), não automático, para evitar surpresas em massa.
+
+Aprova para implementar?
