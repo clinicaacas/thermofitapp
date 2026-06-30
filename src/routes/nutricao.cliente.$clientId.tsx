@@ -121,7 +121,7 @@ function Page() {
 
   useEffect(() => {
     if (isListError && import.meta.env.DEV) {
-      console.error("Nutrition editor failed to load client plans", listError);
+      console.warn("Nutrition editor failed to load client plans", listError);
     }
   }, [isListError, listError]);
 
@@ -149,7 +149,7 @@ function Page() {
 
   useEffect(() => {
     if (isPlanError && import.meta.env.DEV) {
-      console.error("Nutrition editor failed to load selected plan", planError);
+      console.warn("Nutrition editor failed to load selected plan", planError);
     }
   }, [isPlanError, planError]);
 
