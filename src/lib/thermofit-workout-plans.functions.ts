@@ -597,3 +597,70 @@ export const signWorkoutMaterialUrl = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl };
   });
+
+// ---------------------------------------------------------------------------
+// Same-origin PDF viewer token (avoids ERR_BLOCKED_BY_CLIENT on supabase.co).
+// Used by both admin and client final. Token is short-lived (10 min), HMAC-signed.
+// Open with: /api/public/materiais/treino?t=<token>[&dl=1]
+// ---------------------------------------------------------------------------
+
+export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ path: z.string().min(3).max(500) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const parts = data.path.split("/");
+    if (parts.length < 3 || parts[1] !== "plans") throw new Error("Caminho inválido.");
+    const tenantId = parts[0];
+    const planId = parts[2];
+
+    // 1) Staff (super or active member of the plan's tenant)
+    const { data: prof } = await context.supabase
+      .from("profiles")
+      .select("tenant_id, profile, status")
+      .eq("id", context.userId)
+      .maybeSingle();
+    let allowed = false;
+    if (prof && prof.status === "ativo") {
+      const role = prof.profile as string;
+      if (role === "super_admin") allowed = true;
+      else if (["dono", "admin", "equipe"].includes(role) && prof.tenant_id === tenantId) allowed = true;
+    }
+
+    // 2) Client final owning a published plan that references this path
+    if (!allowed) {
+      const { data: cli } = await context.supabase
+        .from("clients")
+        .select("id")
+        .eq("auth_user_id", context.userId)
+        .maybeSingle();
+      if (cli) {
+        const { data: plan } = await context.supabase
+          .from("workout_plans")
+          .select("id, status, client_id, tenant_id, pdf_path")
+          .eq("id", planId)
+          .maybeSingle();
+        if (plan && plan.status === "publicado" && plan.client_id === cli.id && plan.tenant_id === tenantId) {
+          if (plan.pdf_path === data.path) allowed = true;
+          else {
+            const { data: item } = await context.supabase
+              .from("plan_exercises")
+              .select("id")
+              .eq("plan_id", planId)
+              .eq("pdf_path", data.path)
+              .maybeSingle();
+            if (item) allowed = true;
+          }
+        }
+      }
+    }
+
+    if (!allowed) throw new Error("Sem acesso ao material.");
+
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    if (!secret) throw new Error("Servidor sem chave de assinatura.");
+    const exp = Math.floor(Date.now() / 1000) + 600;
+    const payloadB64 = Buffer.from(JSON.stringify({ p: data.path, e: exp })).toString("base64url");
+    const { createHmac } = await import("crypto");
+    const sig = createHmac("sha256", secret).update(payloadB64).digest("hex");
+    return { token: `${payloadB64}.${sig}`, expiresAt: exp };
+  });

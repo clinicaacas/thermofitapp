@@ -1533,23 +1533,85 @@ export const getClientNutritionPlan = createServerFn({ method: "GET" })
   });
 
 // ============ TREINO ============
+// Read-only: planos personalizados publicados na jornada ativa da própria cliente.
+// Não cria milhas, missões, pontos ou check-ins.
 
 export const getClientWorkoutPlan = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
+    if (!client.active_journey_id) {
+      return { plan: null, identity: { tenantId: client.tenant_id, clientId: client.id, journeyId: null } };
+    }
     const admin = await getAdmin();
     const { data: row, error } = await admin
-      .from("client_workout_plans")
-      .select("id, title, frequency_per_week, duration_minutes, focus, notes, sessions, updated_at")
+      .from("workout_plans")
+      .select(
+        "id, title, description, pdf_path, pdf_uploaded_at, published_at, updated_at, tenant_id, client_id, journey_id, status",
+      )
       .eq("client_id", client.id)
-      .eq("active", true)
-      .order("updated_at", { ascending: false })
+      .eq("tenant_id", client.tenant_id)
+      .eq("journey_id", client.active_journey_id)
+      .eq("status", "publicado")
+      .order("published_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    return { plan: row ?? null };
+    if (!row) {
+      return {
+        plan: null,
+        identity: { tenantId: client.tenant_id, clientId: client.id, journeyId: client.active_journey_id },
+      };
+    }
+    const { data: items } = await admin
+      .from("plan_exercises")
+      .select(
+        "id, sets, reps, notes, pdf_path, order_index, exercises:exercise_id (id, title, description, video_url, muscle_group, equipment, sets, reps, pdf_path)",
+      )
+      .eq("plan_id", row.id)
+      .order("order_index", { ascending: true });
+
+    return {
+      identity: { tenantId: row.tenant_id, clientId: row.client_id, journeyId: row.journey_id },
+      plan: {
+        id: row.id,
+        tenantId: row.tenant_id,
+        clientId: row.client_id,
+        journeyId: row.journey_id,
+        title: row.title,
+        description: row.description ?? "",
+        pdfPath: row.pdf_path,
+        pdfUploadedAt: row.pdf_uploaded_at,
+        publishedAt: row.published_at,
+        updatedAt: row.updated_at,
+        exercises: (items ?? []).map((it: any) => {
+          const ex = it.exercises;
+          const customized =
+            it.sets != null ||
+            (typeof it.reps === "string" && it.reps.length > 0) ||
+            (typeof it.notes === "string" && it.notes.length > 0) ||
+            !!it.pdf_path;
+          return {
+            id: it.id,
+            title: ex?.title ?? "Exercício",
+            muscleGroup: ex?.muscle_group ?? null,
+            equipment: ex?.equipment ?? null,
+            videoUrl: ex?.video_url ?? null,
+            description: ex?.description ?? "",
+            defaultSets: ex?.sets ?? null,
+            defaultReps: ex?.reps ?? null,
+            baseExercisePdfPath: ex?.pdf_path ?? null,
+            sets: it.sets,
+            reps: it.reps,
+            notes: it.notes ?? "",
+            pdfPath: it.pdf_path,
+            customized,
+          };
+        }),
+      },
+    };
   });
+
 
 // ============ CARTAS ============
 

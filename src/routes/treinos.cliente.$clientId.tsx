@@ -14,7 +14,7 @@ import {
   getClientPlans, getPlan, createPlan, updatePlan, publishPlan, archivePlan, duplicatePlanAsDraft,
   addPlanExercise, updatePlanExercise, removePlanExercise, reorderPlanExercises,
   uploadPlanPdf, removePlanPdf, uploadPlanExercisePdf, removePlanExercisePdf,
-  signWorkoutMaterialUrl,
+  mintWorkoutMaterialToken,
 } from "@/lib/thermofit-workout-plans.functions";
 
 export const Route = createFileRoute("/treinos/cliente/$clientId")({
@@ -198,7 +198,7 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
   const removePdfMut = useMutation({ mutationFn: useServerFn(removePlanPdf), onSuccess: invalidatePlan });
 
   const uploadPdf = useServerFn(uploadPlanPdf);
-  const signUrl = useServerFn(signWorkoutMaterialUrl);
+  const mintToken = useServerFn(mintWorkoutMaterialToken);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -218,10 +218,11 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
 
   async function onViewPdf(path: string) {
     try {
-      const { url } = await signUrl({ data: { path, expiresIn: 600 } });
-      window.open(url, "_blank", "noopener");
+      const { token } = await mintToken({ data: { path } });
+      // Same-origin streamer — evita ERR_BLOCKED_BY_CLIENT em URLs *.supabase.co.
+      window.open(`/api/public/materiais/treino?t=${encodeURIComponent(token)}`, "_blank", "noopener");
     } catch (e: any) {
-      alert(e.message || "Falha ao gerar link.");
+      alert(e.message || "Falha ao abrir PDF.");
     }
   }
 
