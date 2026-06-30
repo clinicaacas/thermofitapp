@@ -110,7 +110,7 @@ export function DailyRoutineCard({ clientId }: Props) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60"
+      className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition disabled:opacity-60"
       style={{
         background: active ? "#C8A15A" : "#FFFFFF",
         color: active ? "#FFFFFF" : "#5B4A2E",
@@ -123,29 +123,29 @@ export function DailyRoutineCard({ clientId }: Props) {
 
   return (
     <section
-      className="mt-3 rounded-2xl bg-white p-3"
+      className="mt-2 rounded-2xl bg-white p-2.5"
       style={{ border: "1px solid #E5D6BD" }}
     >
       <h3
-        className="mb-1.5 text-xs font-bold uppercase tracking-wider"
+        className="mb-1 text-[10px] font-bold uppercase tracking-wider"
         style={{ color: "#8A6A3D" }}
       >
         Rotina de hoje
       </h3>
 
       {/* Check-in */}
-      <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 py-0.5">
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+          <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
             Me conta sua jornada
           </p>
-          <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+          <p className="text-[10px] leading-tight" style={{ color: "#6B7280" }}>
             Check-in diário · +5
           </p>
         </div>
         {checkinDone ? (
           <span
-            className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
             <Check className="h-3 w-3" /> +5
@@ -155,37 +155,37 @@ export function DailyRoutineCard({ clientId }: Props) {
             type="button"
             disabled={checkin.isPending}
             onClick={() => checkin.mutate()}
-            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+            className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
             style={{ background: "#C8A15A", color: "#FFFFFF" }}
           >
-            Fazer check-in
+            Check-in
           </button>
         )}
       </div>
 
-      <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
+      <div className="my-1 h-px" style={{ background: "#F3E8D2" }} />
 
       {/* Alimentação */}
-      <div className="py-1.5">
+      <div className="py-0.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+            <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
               Como foi sua alimentação?
             </p>
-            <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+            <p className="text-[10px] leading-tight" style={{ color: "#6B7280" }}>
               +5 · pode editar hoje
             </p>
           </div>
           {mealChoice && (
             <span
-              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
               style={{ background: "#E8F2E5", color: "#3F7A3A" }}
             >
               <Check className="h-3 w-3" /> +5
             </span>
           )}
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-wrap gap-1">
           {MEALS.map((m) => (
             <Pill
               key={m.value}
@@ -199,22 +199,22 @@ export function DailyRoutineCard({ clientId }: Props) {
         </div>
       </div>
 
-      <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
+      <div className="my-1 h-px" style={{ background: "#F3E8D2" }} />
 
       {/* Treino */}
-      <div className="py-1.5">
+      <div className="py-0.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+            <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
               Como foi seu treino?
             </p>
-            <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+            <p className="text-[10px] leading-tight" style={{ color: "#6B7280" }}>
               Realizado +10 · descanso sem pontuação
             </p>
           </div>
           {workoutChoice && (
             <span
-              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
               style={{ background: "#E8F2E5", color: "#3F7A3A" }}
             >
               <Check className="h-3 w-3" />
@@ -222,7 +222,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             </span>
           )}
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-wrap gap-1">
           {WORKOUTS.map((w) => (
             <Pill
               key={w.value}
@@ -239,20 +239,20 @@ export function DailyRoutineCard({ clientId }: Props) {
       {/* Foto do treino — só libera após treino realizado */}
       {workoutDone && (
         <>
-          <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
-          <div className="py-1.5">
+          <div className="my-1 h-px" style={{ background: "#F3E8D2" }} />
+          <div className="py-0.5">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+                <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
                   Foto do treino
                 </p>
-                <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+                <p className="text-[10px] leading-tight" style={{ color: "#6B7280" }}>
                   Privada · +5 · 1x por dia
                 </p>
               </div>
               {photoSent && (
                 <span
-                  className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                   style={{ background: "#E8F2E5", color: "#3F7A3A" }}
                 >
                   <Check className="h-3 w-3" /> Enviada
@@ -264,11 +264,11 @@ export function DailyRoutineCard({ clientId }: Props) {
                 value={note}
                 onChange={(e) => setNote(e.target.value.slice(0, 500))}
                 placeholder="Observação (opcional)"
-                className="mt-1.5 w-full rounded-lg px-3 py-1.5 text-xs"
+                className="mt-1 w-full rounded-lg px-2 py-1 text-[11px]"
                 style={{ border: "1px solid #E5D6BD", color: "#1F2933" }}
               />
             )}
-            <div className="mt-1.5 flex items-center gap-2">
+            <div className="mt-1 flex items-center gap-2">
               <input
                 ref={fileRef}
                 type="file"
@@ -284,11 +284,11 @@ export function DailyRoutineCard({ clientId }: Props) {
                 type="button"
                 disabled={busy}
                 onClick={() => fileRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:opacity-60"
                 style={{ background: "#C8A15A", color: "#FFFFFF" }}
               >
-                <Camera className="h-3.5 w-3.5" />
-                {busy ? "Enviando…" : photoSent ? "Reenviar foto" : "Enviar foto"}
+                <Camera className="h-3 w-3" />
+                {busy ? "Enviando…" : photoSent ? "Reenviar" : "Enviar foto"}
               </button>
             </div>
           </div>
@@ -297,3 +297,4 @@ export function DailyRoutineCard({ clientId }: Props) {
     </section>
   );
 }
+
