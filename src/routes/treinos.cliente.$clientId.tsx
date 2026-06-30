@@ -335,6 +335,12 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
       </div>
 
       <PlanExercisesSection planId={planId} items={items} tenantId={plan.tenantId} canEdit={canEdit} onChanged={invalidatePlan} onViewPdf={onViewPdf} />
+      <WorkoutPlanPdfViewer
+        open={!!viewer}
+        path={viewer?.path ?? null}
+        title={viewer?.title ?? "Material"}
+        onClose={() => setViewer(null)}
+      />
     </div>
   );
 }
