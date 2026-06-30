@@ -25,9 +25,9 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
 
   if (isLoading || !data) {
     return (
-      <section className="mt-4">
+      <section className="mt-3">
         <Title />
-        <div className="rounded-2xl bg-white p-4 text-sm" style={{ border: "1px solid #E5D6BD", color: "#6B7280" }}>
+        <div className="rounded-2xl bg-white p-3 text-sm" style={{ border: "1px solid #E5D6BD", color: "#6B7280" }}>
           Carregando…
         </div>
       </section>
@@ -37,37 +37,37 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
   const { state, todayVideos, nextReleaseDay, pendingPriorVideos } = data as any;
 
   return (
-    <section className="mt-4">
+    <section className="mt-3">
       <Title plural={todayVideos.length > 1} />
       {(state === "video_available" || state === "video_done") && (
-        <ul className="space-y-2">
+        <ul className="space-y-1.5">
           {todayVideos.map((v: any) => (
             <li key={v.videoId}>
               <button
                 onClick={() => onOpenVideo(v.videoId)}
-                className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left"
+                className="flex w-full items-center gap-2.5 rounded-2xl bg-white p-2.5 text-left"
                 style={{ border: `1px solid ${v.completed ? "#BFD8B7" : "#E5D6BD"}`, background: v.completed ? "#F1F8EF" : "#FFFFFF" }}
               >
-                <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg" style={{ background: "#F3E8D2" }}>
+                <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg" style={{ background: "#F3E8D2" }}>
                   {v.thumbnailUrl ? (
                     <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full w-full place-items-center">
-                      <Play className="h-5 w-5" style={{ color: "#8A6A3D" }} />
+                      <Play className="h-4 w-4" style={{ color: "#8A6A3D" }} />
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold" style={{ color: "#1F2933" }}>
+                  <p className="truncate text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
                     {v.title}
                   </p>
-                  <p className="text-xs capitalize" style={{ color: "#6B7280" }}>
-                    {v.category || "geral"} · assistir {v.minCompletionPct}%
+                  <p className="truncate text-[11px] capitalize leading-tight mt-0.5" style={{ color: "#6B7280" }}>
+                    {v.category || "geral"} · {v.minCompletionPct}%
                   </p>
                 </div>
                 {v.completed ? (
                   <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#E8F2E5", color: "#3F7A3A" }}>
-                    <Check className="h-3 w-3" /> Concluído {v.miles > 0 ? `· +${v.miles}` : ""}
+                    <Check className="h-3 w-3" /> {v.miles > 0 ? `+${v.miles}` : "Ok"}
                   </span>
                 ) : v.miles > 0 ? (
                   <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
