@@ -176,19 +176,19 @@ function Page() {
                         )}
                         {ex.pdfPath ? (
                           <button
-                            onClick={() => openViewer(ex.pdfPath!, ex.title)}
+                            onClick={() => downloadMaterial(ex.pdfPath!)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#A7F3D0", background: "#ECFDF5", color: "#047857" }}
                           >
-                            <FileText className="h-3 w-3" /> Material personalizado
+                            <Download className="h-3 w-3" /> Baixar material
                           </button>
                         ) : ex.baseExercisePdfPath ? (
                           <button
-                            onClick={() => openViewer(ex.baseExercisePdfPath!, ex.title)}
+                            onClick={() => downloadMaterial(ex.baseExercisePdfPath!)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                           >
-                            <FileText className="h-3 w-3" /> Material do exercício
+                            <Download className="h-3 w-3" /> Baixar material
                           </button>
                         ) : null}
                       </div>
@@ -201,15 +201,10 @@ function Page() {
         </>
       )}
     </ClientAppShell>
-      <WorkoutPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? "Material"}
-        onClose={() => setViewer(null)}
-      />
     </>
   );
 }
+
 
 function EmptyState() {
   return (
