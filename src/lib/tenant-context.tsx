@@ -157,6 +157,7 @@ type Ctx = {
   tenantError: string | null;
   allTenants: ManagedTenant[];
   callerIsSuperAdmin: boolean;
+  teamCount: number;
   plans: Plan[];
   currentPlan: Plan;
   updateTenant: (patch: Partial<Tenant>) => void;
@@ -179,6 +180,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [allTenants, setAllTenants] = useState<ManagedTenant[]>([]);
   const [callerIsSuperAdmin, setCallerIsSuperAdmin] = useState(false);
+  const [teamCount, setTeamCount] = useState(0);
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const getSnapshot = useServerFn(getTenantSnapshot);
   const saveTenant = useServerFn(updateTenantSettings);
@@ -197,9 +199,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setTenant(normalizeTenant(r.tenant as Partial<Tenant>));
       setAllTenants(((r as any).allTenants ?? []) as ManagedTenant[]);
       setCallerIsSuperAdmin(!!(r as any).callerIsSuperAdmin);
+      setTeamCount(Number((r as any).teamCount ?? 0));
     } catch (err) {
-      console.error("Erro ao buscar lista de usuários", err);
-      setTenantError("Não foi possível carregar os usuários salvos no banco.");
+      console.error("Erro ao buscar dados do tenant", err);
+      setTenantError("Não foi possível carregar os dados administrativos.");
     } finally {
       setTenantLoading(false);
     }
@@ -228,6 +231,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tenantError,
     allTenants,
     callerIsSuperAdmin,
+    teamCount,
     plans,
     currentPlan,
     refreshTenant,

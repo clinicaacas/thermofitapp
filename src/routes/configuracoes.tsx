@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getTenantTeam } from "@/lib/thermofit-auth.functions";
 import { AppShell } from "@/components/app-shell";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -564,16 +567,45 @@ type NewUserDraft = {
 
 function UsersTab() {
   const {
-    tenant, tenantLoading, tenantError, allTenants, callerIsSuperAdmin,
-    currentPlan, refreshTenant,
-    addUser, updateUser, resetUserPassword, removeUser,
-    setMembership, removeMembership,
+    tenant, allTenants, callerIsSuperAdmin, teamCount: basicsTeamCount,
+    currentPlan,
+    addUser: _addUser, updateUser: _updateUser,
+    resetUserPassword: _resetUserPassword, removeUser: _removeUser,
+    setMembership: _setMembership, removeMembership: _removeMembership,
   } = useTenant();
+  // Wrap context mutations so we also invalidate the local team query.
+  const addUser: typeof _addUser = async (...a) => { const r = await _addUser(...a); invalidateTeam(); return r; };
+  const updateUser: typeof _updateUser = async (...a) => { const r = await _updateUser(...a); invalidateTeam(); return r; };
+  const resetUserPassword: typeof _resetUserPassword = async (...a) => { const r = await _resetUserPassword(...a); invalidateTeam(); return r; };
+  const removeUser: typeof _removeUser = async (...a) => { const r = await _removeUser(...a); invalidateTeam(); return r; };
+  const setMembership: typeof _setMembership = async (...a) => { const r = await _setMembership(...a); invalidateTeam(); return r; };
+  const removeMembership: typeof _removeMembership = async (...a) => { const r = await _removeMembership(...a); invalidateTeam(); return r; };
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string; existed?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [membershipsFor, setMembershipsFor] = useState<TeamUser | null>(null);
+
+  // A1: team is loaded ONLY when this tab opens, scoped by filter, via React Query.
+  const queryClient = useQueryClient();
+  const fetchTeam = useServerFn(getTenantTeam);
+  const teamScope = callerIsSuperAdmin
+    ? (tenantFilter === "all" ? "all" : tenantFilter)
+    : tenant.id;
+  const teamQuery = useQuery({
+    queryKey: ["tenant-team", teamScope],
+    queryFn: () => fetchTeam({ data: { scope: teamScope } }),
+    enabled: Boolean(teamScope),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const team: TeamUser[] = useMemo(
+    () => ((teamQuery.data?.team as any[]) ?? []) as TeamUser[],
+    [teamQuery.data],
+  );
+  const invalidateTeam = () =>
+    queryClient.invalidateQueries({ queryKey: ["tenant-team"] });
 
   // Tenants visible to caller (super = all; otherwise only tenants where they have membership)
   const visibleTenants = useMemo<{ id: string; clinicName: string }[]>(() => {
@@ -598,12 +630,11 @@ function UsersTab() {
   const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
   const unlimited = isInternal || limit === -1;
-  const teamCount = tenant.team.length;
+  // Plan-limit gate uses the lightweight count from basics (always available).
+  const teamCount = basicsTeamCount;
   const atLimit = !unlimited && teamCount >= limit;
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
-
-  useEffect(() => { void refreshTenant(); }, [refreshTenant]);
 
   // Reset form defaults when tenant changes
   useEffect(() => {
@@ -612,13 +643,20 @@ function UsersTab() {
 
   // Filter rows
   const visibleUsers = useMemo(() => {
-    if (tenantFilter === "all") return tenant.team;
-    return tenant.team.filter((u) => {
+    if (tenantFilter === "all") return team;
+    return team.filter((u) => {
       const m = u.memberships ?? [];
       if (m.length === 0) return u.tenantId === tenantFilter;
       return m.some((x) => x.tenantId === tenantFilter && x.status === "ativo");
     });
-  }, [tenant.team, tenantFilter]);
+  }, [team, tenantFilter]);
+
+  const teamLoading = teamQuery.isPending;
+  const teamErrorMsg = teamQuery.error
+    ? "Não foi possível carregar usuários agora."
+    : null;
+
+
 
   function copyAccess(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
@@ -849,18 +887,29 @@ function UsersTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenantLoading ? (
+              {teamLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 7 }).map((__, j) => (
+                      <TableCell key={j} className="py-3">
+                        <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : teamErrorMsg ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    Carregando usuários...
+                  <TableCell colSpan={7} className="py-8 text-center text-sm">
+                    <div className="text-muted-foreground">{teamErrorMsg}</div>
+                    <Button size="sm" variant="outline" className="mt-3" onClick={() => teamQuery.refetch()}>
+                      Tentar novamente
+                    </Button>
                   </TableCell>
                 </TableRow>
               ) : visibleUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    {tenantError
-                      ? "Não foi possível carregar a lista completa. Tente novamente."
-                      : "Nenhum usuário encontrado para o filtro selecionado."}
+                    Nenhum usuário encontrado para o filtro selecionado.
                   </TableCell>
                 </TableRow>
               ) : visibleUsers.map((u) => {
@@ -1168,7 +1217,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function AccountTab() {
-  const { tenant, currentPlan } = useTenant();
+  const { tenant, currentPlan, teamCount } = useTenant();
   const isInternal = tenant.planId === "interno";
   const planName = isInternal ? "Interno / Master" : currentPlan?.name ?? "—";
   const userLimit = isInternal
@@ -1193,7 +1242,7 @@ function AccountTab() {
           <Info label="Status da assinatura" value={tenant.status === "ativa" ? "Ativa" : tenant.status} />
           <Info label="Data de renovação" value={isInternal ? "Não aplicável" : tenant.renewalDate || "—"} />
           <Info label="Limite de usuários" value={userLimit} />
-          <Info label="Usuários cadastrados" value={String(tenant.team.length)} />
+          <Info label="Usuários cadastrados" value={String(teamCount)} />
           <Info label="Limite de clientes ativos" value={clientLimit} />
           <Info label="Clientes ativos cadastrados" value="0" />
         </div>
