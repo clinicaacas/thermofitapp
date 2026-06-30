@@ -1705,6 +1705,186 @@ export type Database = {
           },
         ]
       }
+      nutrition_library_materials: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nutrition_plan_materials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_title: string | null
+          id: string
+          library_material_id: string | null
+          mime_type: string | null
+          note: string | null
+          origin: string
+          plan_id: string
+          size_bytes: number | null
+          sort_order: number
+          storage_path: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_title?: string | null
+          id?: string
+          library_material_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          origin: string
+          plan_id: string
+          size_bytes?: number | null
+          sort_order?: number
+          storage_path?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_title?: string | null
+          id?: string
+          library_material_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          origin?: string
+          plan_id?: string
+          size_bytes?: number | null
+          sort_order?: number
+          storage_path?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_plan_materials_library_material_id_fkey"
+            columns: ["library_material_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_library_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_plan_materials_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_plans: {
+        Row: {
+          archived_at: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          general_guidance: string
+          id: string
+          journey_id: string | null
+          main_pdf_path: string | null
+          main_pdf_uploaded_at: string | null
+          published_at: string | null
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          general_guidance?: string
+          id?: string
+          journey_id?: string | null
+          main_pdf_path?: string | null
+          main_pdf_uploaded_at?: string | null
+          published_at?: string | null
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          general_guidance?: string
+          id?: string
+          journey_id?: string | null
+          main_pdf_path?: string | null
+          main_pdf_uploaded_at?: string | null
+          published_at?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_plans_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_exercises: {
         Row: {
           created_at: string
@@ -2773,6 +2953,10 @@ export type Database = {
       }
       can_access_client_photos_topic: {
         Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_access_nutrition_material: {
+        Args: { _name: string; _user: string }
         Returns: boolean
       }
       can_access_workout_material: {
