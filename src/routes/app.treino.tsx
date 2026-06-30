@@ -1,12 +1,10 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Dumbbell, FileText, Download, Sparkles, Video, Eye } from "lucide-react";
+import { Dumbbell, FileText, Download, Sparkles, Video } from "lucide-react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { getClientWorkoutPlan } from "@/lib/thermofit-client-app.functions";
 import { fetchWorkoutMaterial } from "@/lib/thermofit-workout-plans.functions";
-import { WorkoutPlanPdfViewer } from "@/components/workout-plan-pdf-viewer";
 import { useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
 
 export const Route = createFileRoute("/app/treino")({
