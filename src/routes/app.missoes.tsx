@@ -1,9 +1,10 @@
-import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { Target, Check, Play, X, Droplet } from "lucide-react";
+import { Target, Check, Play, X, Droplet, ChevronRight } from "lucide-react";
+
 import {
   listClientMissions,
   toggleMissionCompletion,
