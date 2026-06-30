@@ -162,8 +162,10 @@ export function VideoForm({
     if (Number.isNaN(pct) || pct < 1 || pct > 100)
       e.minCompletionPct = "Use um valor entre 1 e 100.";
     if (form.releaseDay !== "") {
-      const d = Number(form.releaseDay);
-      if (Number.isNaN(d) || d < 0) e.releaseDay = "Dia inválido.";
+      const human = Number(form.releaseDay);
+      if (!Number.isInteger(human) || human < 1 || human > PROGRAM_DURATION_DAYS) {
+        e.releaseDay = `Use um dia entre 1 e ${PROGRAM_DURATION_DAYS}.`;
+      }
     }
     if (form.sourceType === "upload") {
       if (mode === "create" && !file) e.file = "Selecione um arquivo de vídeo.";
