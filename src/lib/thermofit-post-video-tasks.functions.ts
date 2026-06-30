@@ -130,14 +130,17 @@ export const archivePostVideoTask = createServerFn({ method: "POST" })
 // APP DA CLIENTE — leitura/conclusão
 // =====================================================================
 
-// Lista as tarefas pós-vídeo materializadas para a cliente hoje (filtra legados inválidos)
+// Lista tarefas pós-vídeo para a cliente, baseando-se nos vídeos do DIA ATUAL
+// (read-only). Inclui também tarefas já materializadas como `client_missions`
+// para vídeos passados/já concluídos. Tarefas bloqueadas aparecem com missionId
+// nulo até a cliente atingir o percentual mínimo do vídeo.
 export const listClientPostVideoTasks = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
     const { data: client, error: cErr } = await admin
       .from("clients")
-      .select("id, tenant_id, active_journey_id")
+      .select("id, tenant_id, active_journey_id, start_date")
       .eq("id", data.clientId)
       .maybeSingle();
     if (cErr) throw cErr;
@@ -145,67 +148,130 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
     const journeyId = (client as any).active_journey_id as string | null;
     if (!journeyId) return { tasks: [] as any[] };
 
-    // Considera todas as missões post_video_task ativas da cliente nesta jornada
-    // (não filtra por due_date, para que uma tarefa criada após a conclusão do vídeo apareça).
-    const { data: missions, error: mErr } = await admin
+    const { data: journey } = await admin
+      .from("client_journeys")
+      .select("id, started_on, status")
+      .eq("id", journeyId)
+      .maybeSingle();
+    if (!journey || (journey as any).status !== "active") return { tasks: [] };
+
+    // Calcula o dia atual da jornada (base 0).
+    const startISO = String((journey as any).started_on).slice(0, 10);
+    const start = new Date(`${startISO}T12:00:00-03:00`);
+    const todayISO = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+    )
+      .toISOString()
+      .slice(0, 10);
+    const ref = new Date(`${todayISO}T12:00:00-03:00`);
+    const todayIdx = Math.max(0, Math.floor((ref.getTime() - start.getTime()) / 86400000));
+
+    // Vídeos elegíveis do dia atual (catálogo OU exclusivos da jornada).
+    const { data: todayVideos } = await admin
+      .from("videos")
+      .select("id, title, journey_id")
+      .eq("tenant_id", (client as any).tenant_id)
+      .eq("status", "ativo")
+      .eq("release_day", todayIdx)
+      .or(`journey_id.is.null,journey_id.eq.${journeyId}`);
+    const todayVideoIds = (todayVideos ?? []).map((v: any) => v.id);
+
+    // 1) Tarefas configuradas no catálogo para os vídeos do dia.
+    let configured: any[] = [];
+    if (todayVideoIds.length) {
+      const { data } = await admin
+        .from("video_post_tasks")
+        .select("id, video_id, title, instruction, miles, response_required, active, archived_at, journey_id, ordering")
+        .in("video_id", todayVideoIds)
+        .eq("tenant_id", (client as any).tenant_id)
+        .is("archived_at", null)
+        .eq("active", true)
+        .or(`journey_id.is.null,journey_id.eq.${journeyId}`)
+        .order("ordering", { ascending: true });
+      configured = data ?? [];
+    }
+
+    // 2) Missões pós-vídeo já materializadas para a cliente (independente do dia).
+    const { data: missions } = await admin
       .from("client_missions")
       .select("id, linked_video_id, task_ref, due_date, miles")
       .eq("client_id", client.id)
       .eq("journey_id", journeyId)
       .eq("mission_type", "post_video_task")
       .eq("active", true);
-    if (mErr) throw mErr;
-
-    // Mantém só missões com task_ref UUID válido (descarta legados "daily"/null)
-    const valid = (missions ?? []).filter(
+    const validMissions = (missions ?? []).filter(
       (m: any) => m.task_ref && UUID_RE.test(m.task_ref) && m.linked_video_id,
     );
-    if (valid.length === 0) return { tasks: [] };
 
-    const taskIds = Array.from(new Set(valid.map((m: any) => m.task_ref)));
-    const videoIds = Array.from(new Set(valid.map((m: any) => m.linked_video_id)));
+    // Conjunto unificado de (videoId, taskId) a exibir.
+    type Pair = { videoId: string; taskId: string; missionId: string | null };
+    const pairs = new Map<string, Pair>();
+    for (const t of configured) {
+      pairs.set(`${t.video_id}:${t.id}`, { videoId: t.video_id, taskId: t.id, missionId: null });
+    }
+    for (const m of validMissions) {
+      const key = `${m.linked_video_id}:${m.task_ref}`;
+      const existing = pairs.get(key);
+      if (existing) existing.missionId = m.id;
+      else pairs.set(key, { videoId: m.linked_video_id, taskId: m.task_ref, missionId: m.id });
+    }
+    if (pairs.size === 0) return { tasks: [] };
 
-    const [{ data: tasks }, { data: videos }, { data: completions }, { data: responses }, { data: videoProgress }] =
+    const allTaskIds = Array.from(new Set(Array.from(pairs.values()).map((p) => p.taskId)));
+    const allVideoIds = Array.from(new Set(Array.from(pairs.values()).map((p) => p.videoId)));
+    const allMissionIds = Array.from(
+      new Set(
+        Array.from(pairs.values())
+          .map((p) => p.missionId)
+          .filter((v): v is string => !!v),
+      ),
+    );
+
+    const [{ data: tasks }, { data: videos }, completionsRes, responsesRes, { data: videoProgress }] =
       await Promise.all([
         admin
           .from("video_post_tasks")
-          .select("id, title, instruction, miles, response_required, active, archived_at")
-          .in("id", taskIds),
-        admin.from("videos").select("id, title").in("id", videoIds),
-        admin
-          .from("client_mission_completions")
-          .select("mission_id, completed_at")
-          .eq("client_id", client.id)
-          .in("mission_id", valid.map((m: any) => m.id)),
-        admin
-          .from("client_task_responses")
-          .select("mission_id, response, completed_at")
-          .eq("client_id", client.id)
-          .in("mission_id", valid.map((m: any) => m.id)),
+          .select("id, title, instruction, miles, response_required, active, archived_at, video_id")
+          .in("id", allTaskIds),
+        admin.from("videos").select("id, title").in("id", allVideoIds),
+        allMissionIds.length
+          ? admin
+              .from("client_mission_completions")
+              .select("mission_id, completed_at")
+              .eq("client_id", client.id)
+              .in("mission_id", allMissionIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+        allMissionIds.length
+          ? admin
+              .from("client_task_responses")
+              .select("mission_id, response, completed_at")
+              .eq("client_id", client.id)
+              .in("mission_id", allMissionIds)
+          : Promise.resolve({ data: [] as any[] } as any),
         admin
           .from("client_video_progress")
           .select("video_id, is_completed")
           .eq("client_id", client.id)
-          .in("video_id", videoIds),
+          .in("video_id", allVideoIds),
       ]);
 
     const taskMap = new Map((tasks ?? []).map((t: any) => [t.id, t]));
     const videoMap = new Map((videos ?? []).map((v: any) => [v.id, v]));
-    const completionMap = new Map((completions ?? []).map((c: any) => [c.mission_id, c]));
-    const responseMap = new Map((responses ?? []).map((r: any) => [r.mission_id, r]));
-    const videoCompletedSet = new Set(
+    const completionMap = new Map(((completionsRes as any).data ?? []).map((c: any) => [c.mission_id, c]));
+    const responseMap = new Map(((responsesRes as any).data ?? []).map((r: any) => [r.mission_id, r]));
+    const completedVideos = new Set(
       (videoProgress ?? []).filter((p: any) => p.is_completed).map((p: any) => p.video_id),
     );
 
-    const rows = valid
-      .map((m: any) => {
-        const t: any = taskMap.get(m.task_ref);
-        const v: any = videoMap.get(m.linked_video_id);
+    const rows = Array.from(pairs.values())
+      .map((p) => {
+        const t: any = taskMap.get(p.taskId);
+        const v: any = videoMap.get(p.videoId);
         if (!t || !v || !t.active || t.archived_at) return null;
-        const completed = completionMap.has(m.id);
-        const response = responseMap.get(m.id);
+        const completed = !!(p.missionId && completionMap.has(p.missionId));
+        const response = p.missionId ? responseMap.get(p.missionId) : null;
         return {
-          missionId: m.id,
+          missionId: p.missionId,
           taskId: t.id,
           videoId: v.id,
           videoTitle: v.title,
@@ -213,7 +279,7 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
           instruction: t.instruction,
           miles: t.miles,
           responseRequired: t.response_required,
-          unlocked: videoCompletedSet.has(v.id),
+          unlocked: !!p.missionId && completedVideos.has(v.id),
           completed,
           response: (response?.response as string | null) ?? null,
           completedAt: (response?.completed_at as string | null) ?? null,
