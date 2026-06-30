@@ -287,8 +287,25 @@ function PlanEditor({
   }, [plan.id]);
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
   const [showLib, setShowLib] = useState(false);
+  const fetchPdf = useServerFn(fetchNutritionMaterial);
+
+  async function downloadPdf(path: string, fallbackName: string) {
+    try {
+      const res: any = await fetchPdf({ data: { path } });
+      const bin = atob(res.base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename || fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao baixar PDF.");
+    }
+  }
 
   const { data: libData } = useQuery({
     queryKey: ["nutrition-library", "ativo"],
