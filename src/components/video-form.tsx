@@ -65,6 +65,14 @@ function detectSource(initial?: VideoFormInitial): SourceType {
   return "upload";
 }
 
+// Convenção oficial: `release_day` no banco é base 0 (Dia 1 humano = release_day 0).
+// O formulário expõe SEMPRE o dia humano (1..84). Conversão acontece aqui.
+export const PROGRAM_DURATION_DAYS = 84;
+function releaseDayToHuman(rd: number | null | undefined): string {
+  if (rd == null || Number.isNaN(Number(rd))) return "";
+  return String(Number(rd) + 1);
+}
+
 function buildInitialForm(initial?: VideoFormInitial): Form {
   const source = detectSource(initial);
   // Em edição: visibilidade derivada do journey_id atual. Em criação: vazio (exige escolha).
@@ -77,7 +85,7 @@ function buildInitialForm(initial?: VideoFormInitial): Form {
   return {
     title: initial?.title ?? "",
     videoType: (initial?.videoType as Form["videoType"]) || "manha",
-    releaseDay: initial?.releaseDay == null ? "" : String(initial.releaseDay),
+    releaseDay: releaseDayToHuman(initial?.releaseDay),
     phase: initial?.phase ?? "",
     milesOnComplete: initial?.milesOnComplete == null ? "5" : String(initial.milesOnComplete),
     minCompletionPct:
