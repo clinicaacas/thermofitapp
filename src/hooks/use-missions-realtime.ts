@@ -36,6 +36,8 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["weekly-photo-state", clientId],
     ["client-photos", clientId],
     ["post-video-task-state", clientId],
+    ["client-video-day-state", clientId],
+    ["client-post-video-tasks", clientId],
     ["daily-routine", clientId],
     ["client-rewards", clientId],
     ["client-redemptions", clientId],
@@ -54,7 +56,7 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     predicate: (q) => {
       const k = q.queryKey as unknown[];
       const head = String(k[0] ?? "");
-      if (head !== "client-videos" && head !== "client-video-missions" && head !== "client-video-playback") {
+      if (head !== "client-videos" && head !== "client-video-missions" && head !== "client-video-playback" && head !== "client-video-day-state") {
         return false;
       }
       return k.includes(clientId);

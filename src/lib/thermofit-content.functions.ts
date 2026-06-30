@@ -225,6 +225,7 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.update", "video", row.id, { journeyId: resolvedJourneyId });
+      await syncVideoMissionForEligibleJourneys(row);
       const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
       return { video: mapVideo(row, sig) };
     } else {
@@ -235,11 +236,57 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.create", "video", row.id, { journeyId: resolvedJourneyId });
+      await syncVideoMissionForEligibleJourneys(row);
       const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
       return { video: mapVideo(row, sig) };
     }
 
   });
+
+// Materialização explícita e imediata (write-only, idempotente).
+// Cria `client_missions` do tipo `video_complete` para clientes cujo dia atual
+// da jornada coincide com o `release_day` do vídeo. Não gera Milhas, não cria
+// missão para dia diferente nem para vídeos futuros. Catálogo aplica a todas
+// as jornadas ativas do tenant; vídeo exclusivo aplica apenas à jornada dele.
+async function syncVideoMissionForEligibleJourneys(video: any) {
+  try {
+    if (!video || video.status !== "ativo" || video.release_day == null) return;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const todayISO = today.toISOString().slice(0, 10);
+    const releaseDay = Number(video.release_day);
+    let jq = supabaseAdmin
+      .from("client_journeys")
+      .select("id, client_id, started_on, status, tenant_id")
+      .eq("tenant_id", video.tenant_id)
+      .eq("status", "active");
+    if (video.journey_id) jq = jq.eq("id", video.journey_id);
+    const { data: journeys, error } = await jq;
+    if (error) {
+      console.error("syncVideoMissionForEligibleJourneys: list journeys", error);
+      return;
+    }
+    for (const j of journeys ?? []) {
+      const startISO = String((j as any).started_on).slice(0, 10);
+      const start = new Date(`${startISO}T12:00:00-03:00`);
+      const ref = new Date(`${todayISO}T12:00:00-03:00`);
+      const diff = Math.floor((ref.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+      if (diff !== releaseDay) continue;
+      try {
+        await supabaseAdmin.rpc("ensure_video_mission", {
+          _client_id: (j as any).client_id,
+          _journey_id: (j as any).id,
+          _day: todayISO,
+          _video_id: video.id,
+        });
+      } catch (err) {
+        console.error("ensure_video_mission failed", err);
+      }
+    }
+  } catch (err) {
+    console.error("syncVideoMissionForEligibleJourneys failed", err);
+  }
+}
 
 export const deleteVideo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

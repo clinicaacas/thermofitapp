@@ -65,6 +65,14 @@ function detectSource(initial?: VideoFormInitial): SourceType {
   return "upload";
 }
 
+// Convenção oficial: `release_day` no banco é base 0 (Dia 1 humano = release_day 0).
+// O formulário expõe SEMPRE o dia humano (1..84). Conversão acontece aqui.
+export const PROGRAM_DURATION_DAYS = 84;
+function releaseDayToHuman(rd: number | null | undefined): string {
+  if (rd == null || Number.isNaN(Number(rd))) return "";
+  return String(Number(rd) + 1);
+}
+
 function buildInitialForm(initial?: VideoFormInitial): Form {
   const source = detectSource(initial);
   // Em edição: visibilidade derivada do journey_id atual. Em criação: vazio (exige escolha).
@@ -77,7 +85,7 @@ function buildInitialForm(initial?: VideoFormInitial): Form {
   return {
     title: initial?.title ?? "",
     videoType: (initial?.videoType as Form["videoType"]) || "manha",
-    releaseDay: initial?.releaseDay == null ? "" : String(initial.releaseDay),
+    releaseDay: releaseDayToHuman(initial?.releaseDay),
     phase: initial?.phase ?? "",
     milesOnComplete: initial?.milesOnComplete == null ? "5" : String(initial.milesOnComplete),
     minCompletionPct:
@@ -154,8 +162,10 @@ export function VideoForm({
     if (Number.isNaN(pct) || pct < 1 || pct > 100)
       e.minCompletionPct = "Use um valor entre 1 e 100.";
     if (form.releaseDay !== "") {
-      const d = Number(form.releaseDay);
-      if (Number.isNaN(d) || d < 0) e.releaseDay = "Dia inválido.";
+      const human = Number(form.releaseDay);
+      if (!Number.isInteger(human) || human < 1 || human > PROGRAM_DURATION_DAYS) {
+        e.releaseDay = `Use um dia entre 1 e ${PROGRAM_DURATION_DAYS}.`;
+      }
     }
     if (form.sourceType === "upload") {
       if (mode === "create" && !file) e.file = "Selecione um arquivo de vídeo.";
@@ -231,7 +241,7 @@ export function VideoForm({
             category: form.category || form.videoType,
             status: form.status,
             videoType: form.videoType,
-            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay),
+            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay) - 1,
             phase: form.phase,
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,
@@ -300,12 +310,15 @@ export function VideoForm({
               <option value="motivacional">Motivacional</option>
             </select>
           </Field>
-          <Field label="Liberar no dia da jornada" error={errors.releaseDay}>
+          <Field label={`Liberar no dia da jornada (1 a ${PROGRAM_DURATION_DAYS})`} error={errors.releaseDay}>
             <Input
+              type="number"
+              min={1}
+              max={PROGRAM_DURATION_DAYS}
               inputMode="numeric"
               value={form.releaseDay}
               onChange={(e) => setForm({ ...form, releaseDay: e.target.value })}
-              placeholder="Ex: 0 para o primeiro dia, 1 para o segundo dia"
+              placeholder="Ex: 1 = primeiro dia · 16 = décimo sexto dia"
             />
           </Field>
 
