@@ -172,17 +172,15 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [savedKey, setSavedKey] = useState(planId);
 
-  if (savedKey !== planId) {
-    setSavedKey(planId);
-    setTitle(plan?.title ?? "");
-    setDescription(plan?.description ?? "");
-    setDirty(false);
-  } else if (!dirty && plan && (title === "" && description === "") && (plan.title || plan.description)) {
-    setTitle(plan.title);
-    setDescription(plan.description ?? "");
-  }
+  useEffect(() => {
+    if (plan) {
+      setTitle(plan.title ?? "");
+      setDescription(plan.description ?? "");
+      setDirty(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planId, plan?.updatedAt]);
 
   const invalidatePlan = () => {
     qc.invalidateQueries({ queryKey: ["workout-plan", planId] });
