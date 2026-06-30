@@ -162,17 +162,8 @@ function Page() {
             {plan.mainPdfPath && (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <button
-                  onClick={() =>
-                    setViewer({ path: plan.mainPdfPath!, title: plan.title })
-                  }
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1F2933] px-3 py-2 text-xs font-semibold text-white"
-                >
-                  <FileText className="h-3.5 w-3.5" /> Ver plano
-                </button>
-                <button
                   onClick={() => downloadPath(plan.mainPdfPath!, "plano-alimentar.pdf")}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-3 py-2 text-xs font-semibold"
-                  style={{ color: "#1F2933" }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1F2933] px-3 py-2 text-xs font-semibold text-white"
                 >
                   <Download className="h-3.5 w-3.5" /> Baixar PDF
                 </button>
