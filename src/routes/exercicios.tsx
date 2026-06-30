@@ -13,7 +13,7 @@ import {
 } from "@/lib/thermofit-content.functions";
 
 export const Route = createFileRoute("/exercicios")({
-  head: () => ({ meta: [{ title: "Exercícios — ThermoFit" }] }),
+  head: () => ({ meta: [{ title: "Treinos — ThermoFit" }] }),
   component: Page,
 });
 
@@ -46,6 +46,7 @@ function Page() {
   const save = useServerFn(saveExercise);
   const remove = useServerFn(deleteExercise);
   const { data, isLoading } = useQuery({ queryKey: ["exercises"], queryFn: () => fetchAll() });
+  const [tab, setTab] = useState<"planos" | "biblioteca">("planos");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<E, "id">>(empty);
@@ -82,17 +83,51 @@ function Page() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Exercícios</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Treinos</h1>
             <p className="text-sm text-muted-foreground">
-              {items.length} exercício{items.length === 1 ? "" : "s"} no catálogo
+              Planos personalizados das clientes e biblioteca de exercícios reutilizáveis.
             </p>
           </div>
-          <button onClick={openNew} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-            <Plus className="h-4 w-4" /> Novo exercício
-          </button>
+          {tab === "biblioteca" && (
+            <button onClick={openNew} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+              <Plus className="h-4 w-4" /> Novo exercício
+            </button>
+          )}
         </header>
+
+        <div className="inline-flex rounded-md border border-border bg-card p-1 text-sm">
+          {([
+            { id: "planos", label: "Planos das clientes" },
+            { id: "biblioteca", label: "Biblioteca de exercícios" },
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={[
+                "rounded px-3 py-1.5 font-medium transition-colors",
+                tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "planos" && (
+          <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center">
+            <p className="text-sm font-medium text-foreground">Central de planos das clientes</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Em breve: listagem de clientes com status do plano, criação e publicação de treinos personalizados.
+            </p>
+          </div>
+        )}
+
+        {tab === "biblioteca" && <>
+        <p className="text-xs text-muted-foreground">
+          {items.length} exercício{items.length === 1 ? "" : "s"} no catálogo
+        </p>
 
         {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
         {!isLoading && items.length === 0 && (
@@ -125,6 +160,7 @@ function Page() {
             </div>
           ))}
         </div>
+        </>}
       </div>
 
       {open && (

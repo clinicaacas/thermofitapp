@@ -1377,6 +1377,8 @@ export type Database = {
           equipment: string
           id: string
           muscle_group: string
+          pdf_path: string | null
+          pdf_uploaded_at: string | null
           reps: string
           sets: number
           status: string
@@ -1392,6 +1394,8 @@ export type Database = {
           equipment?: string
           id?: string
           muscle_group?: string
+          pdf_path?: string | null
+          pdf_uploaded_at?: string | null
           reps?: string
           sets?: number
           status?: string
@@ -1407,6 +1411,8 @@ export type Database = {
           equipment?: string
           id?: string
           muscle_group?: string
+          pdf_path?: string | null
+          pdf_uploaded_at?: string | null
           reps?: string
           sets?: number
           status?: string
@@ -1695,6 +1701,60 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_exercises: {
+        Row: {
+          created_at: string
+          exercise_id: string
+          id: string
+          notes: string | null
+          order_index: number
+          pdf_path: string | null
+          plan_id: string
+          reps: string | null
+          sets: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          pdf_path?: string | null
+          plan_id: string
+          reps?: string | null
+          sets?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          pdf_path?: string | null
+          plan_id?: string
+          reps?: string | null
+          sets?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_exercises_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "workout_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -2592,6 +2652,79 @@ export type Database = {
           },
         ]
       }
+      workout_plans: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          journey_id: string | null
+          pdf_path: string | null
+          pdf_uploaded_at: string | null
+          published_at: string | null
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          journey_id?: string | null
+          pdf_path?: string | null
+          pdf_uploaded_at?: string | null
+          published_at?: string | null
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          journey_id?: string | null
+          pdf_path?: string | null
+          pdf_uploaded_at?: string | null
+          published_at?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_plans_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "client_journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2640,6 +2773,10 @@ export type Database = {
       }
       can_access_client_photos_topic: {
         Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_access_workout_material: {
+        Args: { _name: string; _user: string }
         Returns: boolean
       }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
