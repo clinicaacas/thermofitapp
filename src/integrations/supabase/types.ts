@@ -2775,6 +2775,10 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      can_access_workout_material: {
+        Args: { _name: string; _user: string }
+        Returns: boolean
+      }
       client_id_for_user: { Args: { _user_id: string }; Returns: string }
       count_active_super_admins: { Args: never; Returns: number }
       create_client_with_journey: {
