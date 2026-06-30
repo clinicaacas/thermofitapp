@@ -567,7 +567,7 @@ type NewUserDraft = {
 
 function UsersTab() {
   const {
-    tenant, tenantLoading, tenantError, allTenants, callerIsSuperAdmin,
+    tenant, allTenants, callerIsSuperAdmin, teamCount: basicsTeamCount,
     currentPlan, refreshTenant,
     addUser, updateUser, resetUserPassword, removeUser,
     setMembership, removeMembership,
@@ -577,6 +577,27 @@ function UsersTab() {
   const [copied, setCopied] = useState(false);
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [membershipsFor, setMembershipsFor] = useState<TeamUser | null>(null);
+
+  // A1: team is loaded ONLY when this tab opens, scoped by filter, via React Query.
+  const queryClient = useQueryClient();
+  const fetchTeam = useServerFn(getTenantTeam);
+  const teamScope = callerIsSuperAdmin
+    ? (tenantFilter === "all" ? "all" : tenantFilter)
+    : tenant.id;
+  const teamQuery = useQuery({
+    queryKey: ["tenant-team", teamScope],
+    queryFn: () => fetchTeam({ data: { scope: teamScope } }),
+    enabled: Boolean(teamScope),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const team: TeamUser[] = useMemo(
+    () => ((teamQuery.data?.team as any[]) ?? []) as TeamUser[],
+    [teamQuery.data],
+  );
+  const invalidateTeam = () =>
+    queryClient.invalidateQueries({ queryKey: ["tenant-team"] });
 
   // Tenants visible to caller (super = all; otherwise only tenants where they have membership)
   const visibleTenants = useMemo<{ id: string; clinicName: string }[]>(() => {
@@ -601,12 +622,11 @@ function UsersTab() {
   const isInternal = tenant.planId === "interno";
   const limit = currentPlan?.userLimit ?? 0;
   const unlimited = isInternal || limit === -1;
-  const teamCount = tenant.team.length;
+  // Plan-limit gate uses the lightweight count from basics (always available).
+  const teamCount = basicsTeamCount;
   const atLimit = !unlimited && teamCount >= limit;
   const accessBaseUrl = publicBaseUrl(tenant.publicAppUrl);
   const accessUrlError = publicUrlError(accessBaseUrl);
-
-  useEffect(() => { void refreshTenant(); }, [refreshTenant]);
 
   // Reset form defaults when tenant changes
   useEffect(() => {
@@ -615,13 +635,20 @@ function UsersTab() {
 
   // Filter rows
   const visibleUsers = useMemo(() => {
-    if (tenantFilter === "all") return tenant.team;
-    return tenant.team.filter((u) => {
+    if (tenantFilter === "all") return team;
+    return team.filter((u) => {
       const m = u.memberships ?? [];
       if (m.length === 0) return u.tenantId === tenantFilter;
       return m.some((x) => x.tenantId === tenantFilter && x.status === "ativo");
     });
-  }, [tenant.team, tenantFilter]);
+  }, [team, tenantFilter]);
+
+  const teamLoading = teamQuery.isPending;
+  const teamErrorMsg = teamQuery.error
+    ? "Não foi possível carregar usuários agora."
+    : null;
+
+
 
   function copyAccess(u: TeamUser) {
     const invalid = publicUrlError(accessBaseUrl);
