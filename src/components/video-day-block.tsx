@@ -146,7 +146,7 @@ function InfoCard({
   const bg = tint === "success" ? "#F1F8EF" : "#FFFFFF";
   const border = tint === "success" ? "#BFD8B7" : "#E5D6BD";
   return (
-    <div className="rounded-2xl p-4" style={{ background: bg, border: `1px solid ${border}` }}>
+    <div className="rounded-2xl p-3" style={{ background: bg, border: `1px solid ${border}` }}>
       <div className="flex items-start gap-2">
         <div className="mt-0.5">{icon}</div>
         <div className="min-w-0 flex-1">{children}</div>
