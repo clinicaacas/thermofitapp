@@ -101,16 +101,9 @@ function Page() {
             {plan.pdfPath && (
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => openViewer(plan.pdfPath!, plan.title)}
+                  onClick={() => downloadMaterial(plan.pdfPath!)}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold"
                   style={{ background: "#8A6A3D", color: "#FFFFFF" }}
-                >
-                  <Eye className="h-3.5 w-3.5" /> Ver plano
-                </button>
-                <button
-                  onClick={() => downloadMaterial(plan.pdfPath!)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs"
-                  style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                 >
                   <Download className="h-3.5 w-3.5" /> Baixar PDF
                 </button>
