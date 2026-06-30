@@ -14,7 +14,7 @@ import {
   getClientPlans, getPlan, createPlan, updatePlan, publishPlan, archivePlan, duplicatePlanAsDraft,
   addPlanExercise, updatePlanExercise, removePlanExercise, reorderPlanExercises,
   uploadPlanPdf, removePlanPdf, uploadPlanExercisePdf, removePlanExercisePdf,
-  signWorkoutMaterialUrl,
+  mintWorkoutMaterialToken,
 } from "@/lib/thermofit-workout-plans.functions";
 
 export const Route = createFileRoute("/treinos/cliente/$clientId")({
