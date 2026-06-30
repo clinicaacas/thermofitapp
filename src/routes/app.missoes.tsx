@@ -628,55 +628,55 @@ function SealsAndMilestonesPanel({ progress }: { progress: any }) {
   const milestonePct = nextMilestone ? Math.min(100, (milesTotal / nextMilestone) * 100) : 100;
 
   return (
-    <section className="mt-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
+    <section className="mt-2 rounded-2xl bg-white p-2.5" style={{ border: "1px solid #E5D6BD" }}>
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
+        <h3 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
           Selos e Marcos
         </h3>
-        <span className="text-[11px]" style={{ color: "#8A6A3D" }}>
+        <span className="text-[10px]" style={{ color: "#8A6A3D" }}>
           {milesTotal} Milhas · {streakDays}d
         </span>
       </div>
 
-      <div className="mt-2 grid grid-cols-4 gap-1.5">
+      <div className="mt-1.5 grid grid-cols-4 gap-1">
         {(["streak_7", "streak_14", "streak_21", "program_complete"] as const).map((code) => {
           const meta = SEAL_META[code];
           const earned = sealsEarned.has(code);
           return (
             <div
               key={code}
-              className="flex flex-col items-center rounded-lg p-1.5 text-center"
+              className="flex flex-col items-center rounded-md px-1 py-1 text-center"
               style={{
                 background: earned ? "#FFF7E6" : "#F8F1E2",
                 border: `1px solid ${earned ? "#C9A24A" : "#E5D6BD"}`,
                 opacity: earned ? 1 : 0.55,
               }}
             >
-              <div className="text-sm leading-none">{earned ? "🏅" : "🔒"}</div>
-              <div className="mt-0.5 text-[10px] font-semibold leading-tight" style={{ color: "#5C3F1A" }}>
+              <div className="text-xs leading-none">{earned ? "🏅" : "🔒"}</div>
+              <div className="mt-0.5 text-[9px] font-semibold leading-tight" style={{ color: "#5C3F1A" }}>
                 {meta.label}
               </div>
-              <div className="text-[10px]" style={{ color: "#8A6A3D" }}>+{meta.miles}</div>
+              <div className="text-[9px]" style={{ color: "#8A6A3D" }}>+{meta.miles}</div>
             </div>
           );
         })}
       </div>
 
-      <div className="mt-2">
-        <div className="flex items-center justify-between text-[11px]" style={{ color: "#8A6A3D" }}>
+      <div className="mt-1.5">
+        <div className="flex items-center justify-between text-[10px]" style={{ color: "#8A6A3D" }}>
           <span>Próximo marco</span>
           <span>{nextMilestone ? `${milesTotal}/${nextMilestone}` : "Todos conquistados"}</span>
         </div>
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+        <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
           <div className="h-full rounded-full" style={{ width: `${milestonePct}%`, background: "#C9A24A" }} />
         </div>
-        <div className="mt-1.5 flex justify-between gap-1">
+        <div className="mt-1 flex justify-between gap-1">
           {MILESTONE_ORDER.map((t) => {
             const reached = milestonesEarned.has(t) || milesTotal >= t;
             return (
               <div
                 key={t}
-                className="flex-1 rounded-md py-0.5 text-center text-[10px] font-semibold"
+                className="flex-1 rounded py-0.5 text-center text-[9px] font-semibold"
                 style={{
                   background: reached ? "#C9A24A" : "#F3E8D2",
                   color: reached ? "#FFFFFF" : "#8A6A3D",
@@ -691,3 +691,4 @@ function SealsAndMilestonesPanel({ progress }: { progress: any }) {
     </section>
   );
 }
+
