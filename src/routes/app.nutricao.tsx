@@ -218,17 +218,10 @@ function Page() {
                     {path ? (
                       <div className="mt-2 flex gap-2">
                         <button
-                          onClick={() => setViewer({ path, title })}
+                          onClick={() => downloadPath(path, `${title}.pdf`)}
                           className="inline-flex items-center gap-1.5 rounded-md bg-[#1F2933] px-2.5 py-1.5 text-[11px] font-semibold text-white"
                         >
-                          <FileText className="h-3 w-3" /> Ver material
-                        </button>
-                        <button
-                          onClick={() => downloadPath(path, `${title}.pdf`)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-2.5 py-1.5 text-[11px] font-semibold"
-                          style={{ color: "#1F2933" }}
-                        >
-                          <Download className="h-3 w-3" /> Baixar
+                          <Download className="h-3 w-3" /> Baixar PDF
                         </button>
                       </div>
                     ) : (
@@ -243,13 +236,7 @@ function Page() {
           </section>
         </>
       )}
-
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? "Plano alimentar"}
-        onClose={() => setViewer(null)}
-      />
     </ClientAppShell>
+
   );
 }
