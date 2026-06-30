@@ -116,6 +116,7 @@ function Page() {
     queryKey: ["nutrition-plans", clientId],
     queryFn: () => getPlans({ data: { clientId } }),
     staleTime: 0,
+    retry: false,
   });
 
   useEffect(() => {
@@ -143,6 +144,7 @@ function Page() {
     queryFn: () => getPlanFn({ data: { planId: selectedPlanId! } }),
     enabled: !!selectedPlanId,
     staleTime: 0,
+    retry: false,
   });
 
   useEffect(() => {
