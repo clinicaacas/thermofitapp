@@ -42,11 +42,7 @@ function Page() {
 
   const plan = data?.plan;
   const fetchBytes = useServerFn(fetchWorkoutMaterial);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
 
-  function openViewer(path: string, title: string) {
-    setViewer({ path, title });
-  }
 
   async function downloadMaterial(path: string) {
     try {
