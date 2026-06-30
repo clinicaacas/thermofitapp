@@ -595,8 +595,8 @@ function PlanEditor({
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {path && (
-                        <Button size="sm" variant="outline" onClick={() => setViewer({ path, title })}>
-                          <Eye className="h-3.5 w-3.5" />
+                        <Button size="sm" variant="outline" onClick={() => downloadPdf(path, `${title || "material"}.pdf`)}>
+                          <Download className="h-3.5 w-3.5" /> Baixar
                         </Button>
                       )}
                       {!isReadOnly && (
@@ -620,13 +620,6 @@ function PlanEditor({
           </ul>
         )}
       </div>
-
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? plan.title}
-        onClose={() => setViewer(null)}
-      />
     </div>
   );
 }
