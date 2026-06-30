@@ -26,11 +26,11 @@ export function PostVideoTasksList({ clientId }: Props) {
   if (tasks.length === 0) return null;
 
   return (
-    <section className="mt-3">
-      <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
+    <section className="mt-2">
+      <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
         Tarefas pós-vídeo
       </h3>
-      <ul className="space-y-1.5">
+      <ul className="space-y-1">
         {tasks.map((t) => (
           <TaskCard
             key={t.missionId}
@@ -46,6 +46,7 @@ export function PostVideoTasksList({ clientId }: Props) {
     </section>
   );
 }
+
 
 function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Promise<void> }) {
   const [text, setText] = useState("");
