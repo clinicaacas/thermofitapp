@@ -243,44 +243,46 @@ function Page() {
   );
 }
 
-function HydrationMissionCard({ data }: { data: any }) {
+function HydrationMissionCard({ data, clientId }: { data: any; clientId: string }) {
   const total = Number(data?.total ?? 0);
   const goal = Number(data?.goal ?? 2000);
   const done = goal > 0 && total >= goal;
   const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
   return (
     <section
-      className="mt-3 rounded-2xl p-3"
+      className="mt-2 rounded-2xl p-2.5"
       style={{ background: done ? "#E8F2E5" : "#FFFFFF", border: done ? "1px solid #BFD8B7" : "1px solid #E5D6BD" }}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
-            <Droplet className="h-4 w-4" style={{ color: done ? "#3F7A3A" : "#2F80ED" }} />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+            <Droplet className="h-3.5 w-3.5" style={{ color: done ? "#3F7A3A" : "#2F80ED" }} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold leading-tight" style={{ color: "#1F2933" }}>Hidratação</h3>
-            <p className="text-[11px] leading-tight" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
-              {total}/{goal} ml
+            <h3 className="truncate text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+              Hidratação · <span className="font-normal" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>{total}/{goal} ml</span>
+            </h3>
+            <p className="text-[10px] leading-tight mt-0.5" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
+              {done ? "Meta atingida · +10" : `${Math.max(0, goal - total)} ml restantes`}
             </p>
           </div>
         </div>
-        {done ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
-            <Check className="h-3 w-3" /> Meta · +10
-          </span>
-        ) : (
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#DCEEFF", color: "#2F80ED" }}>
-            {Math.max(0, goal - total)} ml restantes
-          </span>
-        )}
+        <Link
+          to="/app/agua"
+          search={{ clientId }}
+          className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+          style={{ background: done ? "#BFD8B7" : "#2F80ED", color: done ? "#2F6D34" : "#FFFFFF" }}
+        >
+          {done ? <><Check className="h-3 w-3" /> Ok</> : <>Registrar <ChevronRight className="h-3 w-3" /></>}
+        </Link>
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+      <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "#3F7A3A" : "#2F80ED" }} />
       </div>
     </section>
   );
 }
+
 
 function MissionVideoPlayer({
   clientId,
