@@ -67,21 +67,21 @@ export function WeeklyPhotoCard({ clientId }: Props) {
 
   return (
     <section
-      className="mt-3 rounded-2xl bg-white p-4"
+      className="mt-3 rounded-2xl bg-white p-3"
       style={{ border: "1px solid #E5D6BD" }}
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>
-            Foto de evolução — {weekLabel}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold leading-tight" style={{ color: "#1F2933" }}>
+            Foto de evolução · {weekLabel}
           </h3>
-          <p className="text-xs" style={{ color: "#6B7280" }}>
-            {completed ? "Enviada nesta semana da jornada." : "Envie 1 foto por semana • +15 Milhas"}
+          <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+            {completed ? "Enviada nesta semana." : "1 foto por semana · +15"}
           </p>
         </div>
         {completed ? (
           <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
             <Check className="h-3 w-3" /> Concluída
@@ -102,18 +102,18 @@ export function WeeklyPhotoCard({ clientId }: Props) {
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, 500))}
             placeholder="Observação (opcional)"
-            rows={2}
-            className="mt-3 w-full rounded-xl px-3 py-2 text-sm"
+            rows={1}
+            className="mt-2 w-full rounded-xl px-3 py-1.5 text-xs"
             style={{ border: "1px solid #E5D6BD", background: "#FFFDF8", color: "#1F2933" }}
           />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={busy || mut.isPending}
-            className="mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"
+            className="mt-1.5 inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold"
             style={{ background: "#C9A24A", color: "#FFFFFF" }}
           >
-            <Camera className="h-4 w-4" />
+            <Camera className="h-3.5 w-3.5" />
             {busy || mut.isPending ? "Enviando…" : "Tirar foto ou escolher"}
           </button>
           <input
@@ -127,7 +127,7 @@ export function WeeklyPhotoCard({ clientId }: Props) {
         </>
       )}
       {error && (
-        <p className="mt-2 text-xs" style={{ color: "#B23A48" }}>{error}</p>
+        <p className="mt-1.5 text-xs" style={{ color: "#B23A48" }}>{error}</p>
       )}
     </section>
   );
