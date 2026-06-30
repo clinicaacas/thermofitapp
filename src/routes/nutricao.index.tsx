@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Apple, Search, FileText, Archive, RefreshCw, Plus, ExternalLink, Eye, Loader2 } from "lucide-react";
+import { Apple, Search, FileText, Archive, RefreshCw, Plus, ExternalLink, Download, Loader2 } from "lucide-react";
 import {
   listNutritionClientsOverview,
   listNutritionLibrary,
@@ -15,8 +15,8 @@ import {
   updateNutritionLibraryMaterial,
   archiveNutritionLibraryMaterial,
   uploadNutritionLibraryPdf,
+  fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
 export const Route = createFileRoute("/nutricao/")({
   head: () => ({ meta: [{ title: "Nutrição — ThermoFit" }] }),
