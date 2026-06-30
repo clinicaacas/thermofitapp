@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Plane } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IOSInstallHint } from "@/components/ios-install-hint";
+
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/login")({
@@ -126,8 +126,6 @@ function LoginPage() {
           <div className="mt-6 text-center text-[12px] text-neutral-500">
             Clínica Acas — Sistema ThermoFit
           </div>
-
-          <IOSInstallHint />
         </div>
       </div>
     </div>
