@@ -444,9 +444,9 @@ function PlanEditor({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setViewer({ path: plan.mainPdfPath, title: plan.title })}
+              onClick={() => downloadPdf(plan.mainPdfPath!, `${plan.title || "plano"}.pdf`)}
             >
-              <Eye className="h-4 w-4" /> Visualizar
+              <Download className="h-4 w-4" /> Baixar PDF
             </Button>
             {!isReadOnly && (
               <>
