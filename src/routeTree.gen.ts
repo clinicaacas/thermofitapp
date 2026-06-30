@@ -51,7 +51,6 @@ import { Route as ClientesIdPremiosRouteImport } from './routes/clientes.$id.pre
 import { Route as ClientesIdMissoesRouteImport } from './routes/clientes.$id.missoes'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
 import { Route as AppVacuumTreinoRouteImport } from './routes/app.vacuum.treino'
-import { Route as ApiPublicMateriaisTreinoRouteImport } from './routes/api/public/materiais/treino'
 import { Route as ApiPublicHooksMaterializeDailyMissionsRouteImport } from './routes/api/public/hooks/materialize-daily-missions'
 
 const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
@@ -264,12 +263,6 @@ const AppVacuumTreinoRoute = AppVacuumTreinoRouteImport.update({
   path: '/treino',
   getParentRoute: () => AppVacuumRoute,
 } as any)
-const ApiPublicMateriaisTreinoRoute =
-  ApiPublicMateriaisTreinoRouteImport.update({
-    id: '/api/public/materiais/treino',
-    path: '/api/public/materiais/treino',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicHooksMaterializeDailyMissionsRoute =
   ApiPublicHooksMaterializeDailyMissionsRouteImport.update({
     id: '/api/public/hooks/materialize-daily-missions',
@@ -321,7 +314,6 @@ export interface FileRoutesByFullPath {
   '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
-  '/api/public/materiais/treino': typeof ApiPublicMateriaisTreinoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -365,7 +357,6 @@ export interface FileRoutesByTo {
   '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
-  '/api/public/materiais/treino': typeof ApiPublicMateriaisTreinoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -412,7 +403,6 @@ export interface FileRoutesById {
   '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
-  '/api/public/materiais/treino': typeof ApiPublicMateriaisTreinoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -460,7 +450,6 @@ export interface FileRouteTypes {
     | '/treinos/cliente/$clientId'
     | '/app/vacuum/'
     | '/api/public/hooks/materialize-daily-missions'
-    | '/api/public/materiais/treino'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -504,7 +493,6 @@ export interface FileRouteTypes {
     | '/treinos/cliente/$clientId'
     | '/app/vacuum'
     | '/api/public/hooks/materialize-daily-missions'
-    | '/api/public/materiais/treino'
   id:
     | '__root__'
     | '/'
@@ -550,7 +538,6 @@ export interface FileRouteTypes {
     | '/treinos/cliente/$clientId'
     | '/app/vacuum/'
     | '/api/public/hooks/materialize-daily-missions'
-    | '/api/public/materiais/treino'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -577,7 +564,6 @@ export interface RootRouteChildren {
   VideosIndexRoute: typeof VideosIndexRoute
   TreinosClienteClientIdRoute: typeof TreinosClienteClientIdRoute
   ApiPublicHooksMaterializeDailyMissionsRoute: typeof ApiPublicHooksMaterializeDailyMissionsRoute
-  ApiPublicMateriaisTreinoRoute: typeof ApiPublicMateriaisTreinoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -876,13 +862,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumTreinoRouteImport
       parentRoute: typeof AppVacuumRoute
     }
-    '/api/public/materiais/treino': {
-      id: '/api/public/materiais/treino'
-      path: '/api/public/materiais/treino'
-      fullPath: '/api/public/materiais/treino'
-      preLoaderRoute: typeof ApiPublicMateriaisTreinoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/hooks/materialize-daily-missions': {
       id: '/api/public/hooks/materialize-daily-missions'
       path: '/api/public/hooks/materialize-daily-missions'
@@ -986,7 +965,6 @@ const rootRouteChildren: RootRouteChildren = {
   TreinosClienteClientIdRoute: TreinosClienteClientIdRoute,
   ApiPublicHooksMaterializeDailyMissionsRoute:
     ApiPublicHooksMaterializeDailyMissionsRoute,
-  ApiPublicMateriaisTreinoRoute: ApiPublicMateriaisTreinoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
