@@ -569,9 +569,17 @@ function UsersTab() {
   const {
     tenant, allTenants, callerIsSuperAdmin, teamCount: basicsTeamCount,
     currentPlan, refreshTenant,
-    addUser, updateUser, resetUserPassword, removeUser,
-    setMembership, removeMembership,
+    addUser: _addUser, updateUser: _updateUser,
+    resetUserPassword: _resetUserPassword, removeUser: _removeUser,
+    setMembership: _setMembership, removeMembership: _removeMembership,
   } = useTenant();
+  // Wrap context mutations so we also invalidate the local team query.
+  const addUser: typeof _addUser = async (...a) => { const r = await _addUser(...a); invalidateTeam(); return r; };
+  const updateUser: typeof _updateUser = async (...a) => { const r = await _updateUser(...a); invalidateTeam(); return r; };
+  const resetUserPassword: typeof _resetUserPassword = async (...a) => { const r = await _resetUserPassword(...a); invalidateTeam(); return r; };
+  const removeUser: typeof _removeUser = async (...a) => { const r = await _removeUser(...a); invalidateTeam(); return r; };
+  const setMembership: typeof _setMembership = async (...a) => { const r = await _setMembership(...a); invalidateTeam(); return r; };
+  const removeMembership: typeof _removeMembership = async (...a) => { const r = await _removeMembership(...a); invalidateTeam(); return r; };
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<{ user: TeamUser; temporaryPassword: string; existed?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
