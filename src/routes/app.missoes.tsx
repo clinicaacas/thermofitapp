@@ -248,24 +248,24 @@ function HydrationMissionCard({ data }: { data: any }) {
   const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
   return (
     <section
-      className="mt-3 rounded-2xl p-4"
+      className="mt-3 rounded-2xl p-3"
       style={{ background: done ? "#E8F2E5" : "#FFFFFF", border: done ? "1px solid #BFD8B7" : "1px solid #E5D6BD" }}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
             <Droplet className="h-4 w-4" style={{ color: done ? "#3F7A3A" : "#2F80ED" }} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>Hidratação</h3>
-            <p className="text-xs" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
+            <h3 className="text-sm font-bold leading-tight" style={{ color: "#1F2933" }}>Hidratação</h3>
+            <p className="text-[11px] leading-tight" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
               {total}/{goal} ml
             </p>
           </div>
         </div>
         {done ? (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
-            <Check className="h-3 w-3" /> Meta concluída · +10 Milhas
+            <Check className="h-3 w-3" /> Meta · +10
           </span>
         ) : (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#DCEEFF", color: "#2F80ED" }}>
@@ -273,7 +273,7 @@ function HydrationMissionCard({ data }: { data: any }) {
           </span>
         )}
       </div>
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "#3F7A3A" : "#2F80ED" }} />
       </div>
     </section>
