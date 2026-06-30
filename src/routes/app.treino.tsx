@@ -1,10 +1,12 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Dumbbell, FileText, Download, Sparkles, Video } from "lucide-react";
+import { useState } from "react";
+import { Dumbbell, FileText, Download, Sparkles, Video, Eye } from "lucide-react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { getClientWorkoutPlan } from "@/lib/thermofit-client-app.functions";
-import { mintWorkoutMaterialToken } from "@/lib/thermofit-workout-plans.functions";
+import { fetchWorkoutMaterial } from "@/lib/thermofit-workout-plans.functions";
+import { WorkoutPlanPdfViewer } from "@/components/workout-plan-pdf-viewer";
 import { useClientIdentity, useVideoCacheGuard } from "@/hooks/use-client-identity";
 
 export const Route = createFileRoute("/app/treino")({
@@ -41,20 +43,36 @@ function Page() {
   });
 
   const plan = data?.plan;
-  const mint = useServerFn(mintWorkoutMaterialToken);
+  const fetchBytes = useServerFn(fetchWorkoutMaterial);
+  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
 
-  async function openMaterial(path: string, opts?: { download?: boolean }) {
+  function openViewer(path: string, title: string) {
+    setViewer({ path, title });
+  }
+
+  async function downloadMaterial(path: string) {
     try {
-      const { token } = await mint({ data: { path } });
-      const qs = new URLSearchParams({ t: token });
-      if (opts?.download) qs.set("dl", "1");
-      window.open(`/api/public/materiais/treino?${qs.toString()}`, "_blank", "noopener");
+      const res: any = await fetchBytes({ data: { path } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename || "material.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e: any) {
-      alert(e?.message || "Não foi possível abrir o material.");
+      alert(e?.message || "Não foi possível baixar o material.");
     }
   }
 
+
   return (
+    <>
     <ClientAppShell title="Treino" subtitle="Seu plano personalizado">
       {isLoading || !identity ? (
         <p className="text-sm" style={{ color: "#6B7280" }}>Carregando…</p>
@@ -89,14 +107,14 @@ function Page() {
             {plan.pdfPath && (
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => openMaterial(plan.pdfPath!)}
+                  onClick={() => openViewer(plan.pdfPath!, plan.title)}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold"
                   style={{ background: "#8A6A3D", color: "#FFFFFF" }}
                 >
-                  <FileText className="h-3.5 w-3.5" /> Abrir plano em PDF
+                  <Eye className="h-3.5 w-3.5" /> Ver plano
                 </button>
                 <button
-                  onClick={() => openMaterial(plan.pdfPath!, { download: true })}
+                  onClick={() => downloadMaterial(plan.pdfPath!)}
                   className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs"
                   style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                 >
@@ -171,7 +189,7 @@ function Page() {
                         )}
                         {ex.pdfPath ? (
                           <button
-                            onClick={() => openMaterial(ex.pdfPath!)}
+                            onClick={() => openViewer(ex.pdfPath!, ex.title)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#A7F3D0", background: "#ECFDF5", color: "#047857" }}
                           >
@@ -179,7 +197,7 @@ function Page() {
                           </button>
                         ) : ex.baseExercisePdfPath ? (
                           <button
-                            onClick={() => openMaterial(ex.baseExercisePdfPath!)}
+                            onClick={() => openViewer(ex.baseExercisePdfPath!, ex.title)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                           >
@@ -196,6 +214,13 @@ function Page() {
         </>
       )}
     </ClientAppShell>
+      <WorkoutPlanPdfViewer
+        open={!!viewer}
+        path={viewer?.path ?? null}
+        title={viewer?.title ?? "Material"}
+        onClose={() => setViewer(null)}
+      />
+    </>
   );
 }
 

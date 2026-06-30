@@ -599,21 +599,23 @@ export const signWorkoutMaterialUrl = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
-// Same-origin PDF viewer token (avoids ERR_BLOCKED_BY_CLIENT on supabase.co).
-// Used by both admin and client final. Token is short-lived (10 min), HMAC-signed.
-// Open with: /api/public/materiais/treino?t=<token>[&dl=1]
+// Internal PDF bytes fetcher. Streamed via authenticated server function — the
+// bearer token is attached automatically, no URL token is exposed. Used by the
+// in-app viewer (admin and client final) so the file never leaves the
+// ThermoFit origin and is never opened in a new tab.
 // ---------------------------------------------------------------------------
 
-export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
+export const fetchWorkoutMaterial = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ path: z.string().min(3).max(500) }).parse(input))
   .handler(async ({ data, context }) => {
     const parts = data.path.split("/");
-    if (parts.length < 3 || parts[1] !== "plans") throw new Error("Caminho inválido.");
+    if (parts.length < 3) throw new Error("Caminho inválido.");
     const tenantId = parts[0];
-    const planId = parts[2];
+    const kind = parts[1]; // 'plans' | 'library'
+    const refId = parts[2];
 
-    // 1) Staff (super or active member of the plan's tenant)
+    // 1) Staff: super admin OR active member of the file's tenant
     const { data: prof } = await context.supabase
       .from("profiles")
       .select("tenant_id, profile, status")
@@ -626,8 +628,8 @@ export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
       else if (["dono", "admin", "equipe"].includes(role) && prof.tenant_id === tenantId) allowed = true;
     }
 
-    // 2) Client final owning a published plan that references this path
-    if (!allowed) {
+    // 2) Client final: only files of own published plan
+    if (!allowed && kind === "plans") {
       const { data: cli } = await context.supabase
         .from("clients")
         .select("id")
@@ -637,7 +639,7 @@ export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
         const { data: plan } = await context.supabase
           .from("workout_plans")
           .select("id, status, client_id, tenant_id, pdf_path")
-          .eq("id", planId)
+          .eq("id", refId)
           .maybeSingle();
         if (plan && plan.status === "publicado" && plan.client_id === cli.id && plan.tenant_id === tenantId) {
           if (plan.pdf_path === data.path) allowed = true;
@@ -645,7 +647,7 @@ export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
             const { data: item } = await context.supabase
               .from("plan_exercises")
               .select("id")
-              .eq("plan_id", planId)
+              .eq("plan_id", refId)
               .eq("pdf_path", data.path)
               .maybeSingle();
             if (item) allowed = true;
@@ -656,11 +658,16 @@ export const mintWorkoutMaterialToken = createServerFn({ method: "POST" })
 
     if (!allowed) throw new Error("Sem acesso ao material.");
 
-    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-    if (!secret) throw new Error("Servidor sem chave de assinatura.");
-    const exp = Math.floor(Date.now() / 1000) + 600;
-    const payloadB64 = Buffer.from(JSON.stringify({ p: data.path, e: exp })).toString("base64url");
-    const { createHmac } = await import("crypto");
-    const sig = createHmac("sha256", secret).update(payloadB64).digest("hex");
-    return { token: `${payloadB64}.${sig}`, expiresAt: exp };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: file, error } = await supabaseAdmin.storage
+      .from("workout-materials")
+      .download(data.path);
+    if (error || !file) throw new Error("Arquivo não encontrado.");
+    const buf = Buffer.from(await file.arrayBuffer());
+    const filename = (data.path.split("/").pop() || "material.pdf").replace(/[^a-zA-Z0-9._-]+/g, "_");
+    return {
+      base64: buf.toString("base64"),
+      contentType: "application/pdf",
+      filename,
+    };
   });
