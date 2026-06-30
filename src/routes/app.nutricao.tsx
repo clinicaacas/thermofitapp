@@ -1,8 +1,8 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
-import { Apple, FileText, Download, Loader2, AlertCircle } from "lucide-react";
+import { useEffect } from "react";
+import { Apple, Download, Loader2, AlertCircle } from "lucide-react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { useClientIdentity } from "@/hooks/use-client-identity";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import {
   getClientNutritionPlanForApp,
   fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
+
 
 export const Route = createFileRoute("/app/nutricao")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
