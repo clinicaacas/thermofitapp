@@ -13,7 +13,7 @@ import {
 } from "@/lib/thermofit-content.functions";
 
 export const Route = createFileRoute("/exercicios")({
-  head: () => ({ meta: [{ title: "Exercícios — ThermoFit" }] }),
+  head: () => ({ meta: [{ title: "Treinos — ThermoFit" }] }),
   component: Page,
 });
 
