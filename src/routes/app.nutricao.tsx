@@ -1,38 +1,113 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Apple, Flame, Droplet, AlertCircle, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Apple, FileText, Download, Loader2, AlertCircle } from "lucide-react";
 import { ClientAppShell } from "@/components/client-app-shell";
-import { getClientNutritionPlan } from "@/lib/thermofit-client-app.functions";
+import { useClientIdentity } from "@/hooks/use-client-identity";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getClientNutritionPlanForApp,
+  fetchNutritionMaterial,
+} from "@/lib/thermofit-nutrition.functions";
+import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
 export const Route = createFileRoute("/app/nutricao")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
   component: Page,
 });
 
-type Meal = {
-  name?: string;
-  time?: string;
-  items?: string;
-  calories?: number;
+type PlanMaterial = {
+  id: string;
+  origin: "exclusivo" | "biblioteca";
+  storagePath: string | null;
+  displayTitle: string | null;
+  note: string | null;
+  library: {
+    id: string;
+    title: string;
+    category: string;
+    description: string;
+    storagePath: string | null;
+  } | null;
 };
+
+function fmtDate(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR");
+  } catch {
+    return "";
+  }
+}
 
 function Page() {
   const { clientId } = useSearch({ from: "/app/nutricao" });
-  const fetchPlan = useServerFn(getClientNutritionPlan);
+  const identity = useClientIdentity(clientId);
+  const fetchPlan = useServerFn(getClientNutritionPlanForApp);
+  const fetchMaterial = useServerFn(fetchNutritionMaterial);
+  const qc = useQueryClient();
+
   const { data, isLoading } = useQuery({
-    queryKey: ["client-nutrition", clientId],
+    queryKey: [
+      "client-nutrition",
+      identity?.tenantId ?? null,
+      clientId,
+      identity?.journeyId ?? null,
+    ],
     queryFn: () => fetchPlan({ data: { clientId } }),
-    enabled: !!clientId,
+    enabled: !!clientId && !!identity,
+    staleTime: 0,
   });
 
+  // Realtime invalidation
+  useEffect(() => {
+    if (!clientId) return;
+    const ch = supabase
+      .channel(`nut:${clientId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "nutrition_plans", filter: `client_id=eq.${clientId}` },
+        () => qc.invalidateQueries({ queryKey: ["client-nutrition"] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "nutrition_plan_materials" },
+        () => qc.invalidateQueries({ queryKey: ["client-nutrition"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [clientId, qc]);
+
+  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
+
+  async function downloadPath(path: string, fallbackName: string) {
+    const res = await fetchMaterial({ data: { path } });
+    const bin = atob(res.base64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr], { type: res.contentType || "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = res.filename || fallbackName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   const plan = data?.plan;
-  const meals = (plan?.meals ?? []) as Meal[];
+  const materials = (data?.materials ?? []) as PlanMaterial[];
 
   return (
     <ClientAppShell title="Nutrição" subtitle="Seu plano alimentar personalizado">
       {isLoading ? (
-        <p className="text-sm" style={{ color: "#6B7280" }}>Carregando…</p>
+        <div className="grid place-items-center py-10 text-[#6B7280]">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
       ) : !plan ? (
         <section
           className="rounded-2xl bg-white p-6 text-center"
@@ -45,10 +120,10 @@ function Page() {
             <Apple className="h-6 w-6" style={{ color: "#8A6A3D" }} />
           </div>
           <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-            Plano em preparação
+            Seu plano alimentar está sendo preparado.
           </p>
           <p className="mt-1 text-xs" style={{ color: "#6B7280" }}>
-            Sua nutricionista ainda não publicou um plano. Em breve aparecerá aqui.
+            Assim que sua nutricionista publicar as orientações, elas aparecerão aqui.
           </p>
         </section>
       ) : (
@@ -59,137 +134,131 @@ function Page() {
           >
             <div className="flex items-start gap-3">
               <div
-                className="grid h-10 w-10 place-items-center rounded-xl"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
                 style={{ background: "#F3E8D2" }}
               >
                 <Apple className="h-4 w-4" style={{ color: "#8A6A3D" }} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
-                  PLANO ATUAL
+                  PLANO PUBLICADO
                 </p>
                 <p className="text-base font-semibold" style={{ color: "#1F2933" }}>
                   {plan.title}
                 </p>
+                <p className="mt-0.5 text-[11px]" style={{ color: "#6B7280" }}>
+                  Última atualização: {fmtDate(plan.updatedAt)}
+                </p>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Metric
-                icon={<Flame className="h-3.5 w-3.5" style={{ color: "#D97706" }} />}
-                label="Calorias / dia"
-                value={plan.weekly_calories ? `${plan.weekly_calories} kcal` : "—"}
-                bg="#FEF3C7"
-              />
-              <Metric
-                icon={<Droplet className="h-3.5 w-3.5" style={{ color: "#2F80ED" }} />}
-                label="Água / dia"
-                value={plan.water_ml ? `${(plan.water_ml / 1000).toFixed(1).replace(".", ",")}L` : "—"}
-                bg="#DCEEFF"
-              />
-            </div>
-          </section>
-
-          {plan.restrictions && (
-            <section
-              className="mt-3 rounded-2xl p-4"
-              style={{ background: "#FEF3C7", border: "1px solid #FCD34D" }}
-            >
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" style={{ color: "#92400E" }} />
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: "#92400E" }}>
-                    Restrições
-                  </p>
-                  <p className="mt-0.5 text-xs" style={{ color: "#78350F" }}>
-                    {plan.restrictions}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <p className="mt-5 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
-            REFEIÇÕES DO DIA
-          </p>
-          <section className="mt-2 space-y-2">
-            {meals.length === 0 ? (
-              <p className="rounded-2xl bg-white p-4 text-xs" style={{ border: "1px solid #E5E0D8", color: "#6B7280" }}>
-                Nenhuma refeição cadastrada ainda.
+            {plan.generalGuidance && (
+              <p
+                className="mt-3 whitespace-pre-line text-xs"
+                style={{ color: "#4B5563" }}
+              >
+                {plan.generalGuidance}
               </p>
-            ) : (
-              meals.map((meal, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-2xl bg-white p-3"
-                  style={{ border: "1px solid #E5E0D8" }}
+            )}
+            {plan.mainPdfPath && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  onClick={() =>
+                    setViewer({ path: plan.mainPdfPath!, title: plan.title })
+                  }
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1F2933] px-3 py-2 text-xs font-semibold text-white"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-                      {meal.name || `Refeição ${idx + 1}`}
-                    </p>
-                    {meal.time && (
-                      <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "#8A6A3D" }}>
-                        <Clock className="h-3 w-3" />
-                        {meal.time}
-                      </span>
-                    )}
-                  </div>
-                  {meal.items && (
-                    <p className="mt-1 whitespace-pre-line text-xs" style={{ color: "#4B5563" }}>
-                      {meal.items}
-                    </p>
-                  )}
-                  {meal.calories ? (
-                    <p className="mt-1 text-[11px]" style={{ color: "#6B7280" }}>
-                      {meal.calories} kcal
-                    </p>
-                  ) : null}
-                </div>
-              ))
+                  <FileText className="h-3.5 w-3.5" /> Ver plano
+                </button>
+                <button
+                  onClick={() => downloadPath(plan.mainPdfPath!, "plano-alimentar.pdf")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-3 py-2 text-xs font-semibold"
+                  style={{ color: "#1F2933" }}
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar PDF
+                </button>
+              </div>
             )}
           </section>
 
-          {plan.notes && (
-            <section
-              className="mt-3 rounded-2xl bg-white p-4"
-              style={{ border: "1px solid #E5E0D8" }}
-            >
-              <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#8A6A3D" }}>
-                OBSERVAÇÕES
+          <p className="mt-5 text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
+            MATERIAIS DE APOIO
+          </p>
+          <section className="mt-2 space-y-2">
+            {materials.length === 0 ? (
+              <p
+                className="rounded-2xl bg-white p-4 text-xs"
+                style={{ border: "1px solid #E5E0D8", color: "#6B7280" }}
+              >
+                Nenhum material adicional por enquanto.
               </p>
-              <p className="mt-1 whitespace-pre-line text-xs" style={{ color: "#4B5563" }}>
-                {plan.notes}
-              </p>
-            </section>
-          )}
+            ) : (
+              materials.map((m) => {
+                const title =
+                  m.displayTitle ||
+                  m.library?.title ||
+                  (m.origin === "exclusivo" ? "Material personalizado" : "Material");
+                const path = m.origin === "exclusivo" ? m.storagePath : m.library?.storagePath;
+                const category = m.library?.category;
+                const description = m.library?.description;
+                return (
+                  <div
+                    key={m.id}
+                    className="rounded-2xl bg-white p-3"
+                    style={{ border: "1px solid #E5E0D8" }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+                      {title}
+                    </p>
+                    {category && (
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
+                        {category}
+                      </p>
+                    )}
+                    {description && (
+                      <p className="mt-1 text-xs" style={{ color: "#4B5563" }}>
+                        {description}
+                      </p>
+                    )}
+                    {m.note && (
+                      <p className="mt-1 text-[11px] italic" style={{ color: "#6B7280" }}>
+                        {m.note}
+                      </p>
+                    )}
+                    {path ? (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => setViewer({ path, title })}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-[#1F2933] px-2.5 py-1.5 text-[11px] font-semibold text-white"
+                        >
+                          <FileText className="h-3 w-3" /> Ver material
+                        </button>
+                        <button
+                          onClick={() => downloadPath(path, `${title}.pdf`)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-2.5 py-1.5 text-[11px] font-semibold"
+                          style={{ color: "#1F2933" }}
+                        >
+                          <Download className="h-3 w-3" /> Baixar
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 inline-flex items-center gap-1 text-[11px]" style={{ color: "#6B7280" }}>
+                        <AlertCircle className="h-3 w-3" /> PDF ainda não disponível.
+                      </p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </section>
         </>
       )}
-    </ClientAppShell>
-  );
-}
 
-function Metric({
-  icon,
-  label,
-  value,
-  bg,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bg: string;
-}) {
-  return (
-    <div className="rounded-xl p-3" style={{ background: bg }}>
-      <div className="flex items-center gap-1.5">
-        {icon}
-        <p className="text-[10px] font-semibold tracking-wider" style={{ color: "#6B7280" }}>
-          {label}
-        </p>
-      </div>
-      <p className="mt-1 text-sm font-bold" style={{ color: "#1F2933" }}>
-        {value}
-      </p>
-    </div>
+      <NutritionPlanPdfViewer
+        open={!!viewer}
+        path={viewer?.path ?? null}
+        title={viewer?.title ?? "Plano alimentar"}
+        onClose={() => setViewer(null)}
+      />
+    </ClientAppShell>
   );
 }
