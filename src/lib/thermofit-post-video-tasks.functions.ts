@@ -209,11 +209,11 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
     for (const t of configured) {
       pairs.set(`${t.video_id}:${t.id}`, { videoId: t.video_id, taskId: t.id, missionId: null });
     }
-    for (const m of validMissions) {
+    for (const m of validMissions as any[]) {
       const key = `${m.linked_video_id}:${m.task_ref}`;
       const existing = pairs.get(key);
-      if (existing) existing.missionId = m.id;
-      else pairs.set(key, { videoId: m.linked_video_id, taskId: m.task_ref, missionId: m.id });
+      if (existing) existing.missionId = m.id as string;
+      else pairs.set(key, { videoId: m.linked_video_id as string, taskId: m.task_ref as string, missionId: m.id as string });
     }
     if (pairs.size === 0) return { tasks: [] };
 
