@@ -36,6 +36,8 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["weekly-photo-state", clientId],
     ["client-photos", clientId],
     ["post-video-task-state", clientId],
+    ["client-video-day-state", clientId],
+    ["client-post-video-tasks", clientId],
     ["daily-routine", clientId],
     ["client-rewards", clientId],
     ["client-redemptions", clientId],
