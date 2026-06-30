@@ -26,7 +26,7 @@ const items = [
   { to: "/mensagens", label: "Suporte", icon: MessageCircle },
   { to: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
   { to: "/videos", label: "Vídeos", icon: Video },
-  { to: "/exercicios", label: "Exercícios", icon: Dumbbell },
+  { to: "/exercicios", label: "Treinos", icon: Dumbbell },
   { to: "/premios", label: "Prêmios", icon: Gift },
   { to: "/relatorios", label: "Relatórios", icon: FileText },
   { to: "/lgpd", label: "LGPD", icon: ShieldCheck },
