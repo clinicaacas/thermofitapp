@@ -522,12 +522,14 @@ function PlanExerciseRow({
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
         {ex?.videoUrl && <a href={ex.videoUrl} target="_blank" rel="noopener" className="rounded-md border border-input px-2 py-1 hover:bg-accent">Ver vídeo base</a>}
         {ex?.pdfPath && !item.pdfPath && (
-          <button onClick={() => onViewPdf(ex.pdfPath)} className="rounded-md border border-input px-2 py-1 hover:bg-accent">Ver PDF base</button>
+          <button onClick={() => onDownloadPdf(ex.pdfPath, `${ex?.title || "exercicio"}.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 hover:bg-accent">
+            <Download className="h-3 w-3" /> Baixar PDF base
+          </button>
         )}
         {item.pdfPath && (
           <>
-            <button onClick={() => onViewPdf(item.pdfPath)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
-              <FileText className="h-3 w-3" /> PDF exclusivo
+            <button onClick={() => onDownloadPdf(item.pdfPath, `${ex?.title || "exercicio"}-exclusivo.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
+              <Download className="h-3 w-3" /> Baixar PDF exclusivo
             </button>
             {canEdit && (
               <button onClick={() => removeExPdf.mutate({ data: { itemId: item.id } })} className="rounded-md border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50">
