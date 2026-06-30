@@ -129,11 +129,12 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
 
 function Title({ plural }: { plural?: boolean } = {}) {
   return (
-    <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
+    <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
       {plural ? "Vídeos do dia" : "Vídeo do dia"}
     </h3>
   );
 }
+
 
 function InfoCard({
   icon,
