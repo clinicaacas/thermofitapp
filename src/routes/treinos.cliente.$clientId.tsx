@@ -395,7 +395,7 @@ function PlanExercisesSection({
             onMove={(dir) => move(idx, dir)}
             onUpdate={(patch) => updMut.mutate({ data: { itemId: it.id, ...patch } })}
             onRemove={() => { if (confirm("Remover apenas deste plano?")) rmMut.mutate({ data: { itemId: it.id } }); }}
-            onViewPdf={onViewPdf}
+            onDownloadPdf={onDownloadPdf}
             onChanged={onChanged}
           />
         ))}
