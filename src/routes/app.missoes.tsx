@@ -144,7 +144,7 @@ function Page() {
       title="Missões de hoje"
       subtitle={`Dia ${String((journeyDay ?? 0) + 1).padStart(2, "0")} · ${done} de ${total} concluídas`}
     >
-      <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: allDone ? "#BFD8B7" : "#F3E8D2" }}>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: allDone ? "#BFD8B7" : "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#C9A24A" }} />
       </div>
       <VideoDayBlock
@@ -163,7 +163,7 @@ function Page() {
       )}
 
 
-      <section className="mt-4">
+      <section className="mt-3">
         {missions.length > 0 && (
           <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
             Missões
@@ -248,24 +248,24 @@ function HydrationMissionCard({ data }: { data: any }) {
   const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
   return (
     <section
-      className="mt-3 rounded-2xl p-4"
+      className="mt-3 rounded-2xl p-3"
       style={{ background: done ? "#E8F2E5" : "#FFFFFF", border: done ? "1px solid #BFD8B7" : "1px solid #E5D6BD" }}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
             <Droplet className="h-4 w-4" style={{ color: done ? "#3F7A3A" : "#2F80ED" }} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold" style={{ color: "#1F2933" }}>Hidratação</h3>
-            <p className="text-xs" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
+            <h3 className="text-sm font-bold leading-tight" style={{ color: "#1F2933" }}>Hidratação</h3>
+            <p className="text-[11px] leading-tight" style={{ color: done ? "#3F7A3A" : "#6B7280" }}>
               {total}/{goal} ml
             </p>
           </div>
         </div>
         {done ? (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#BFD8B7", color: "#2F6D34" }}>
-            <Check className="h-3 w-3" /> Meta concluída · +10 Milhas
+            <Check className="h-3 w-3" /> Meta · +10
           </span>
         ) : (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#DCEEFF", color: "#2F80ED" }}>
@@ -273,7 +273,7 @@ function HydrationMissionCard({ data }: { data: any }) {
           </span>
         )}
       </div>
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: done ? "#BFD8B7" : "#DCEEFF" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "#3F7A3A" : "#2F80ED" }} />
       </div>
     </section>
@@ -624,32 +624,32 @@ function SealsAndMilestonesPanel({ progress }: { progress: any }) {
   const milestonePct = nextMilestone ? Math.min(100, (milesTotal / nextMilestone) * 100) : 100;
 
   return (
-    <section className="mt-4 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
+    <section className="mt-3 rounded-2xl bg-white p-3" style={{ border: "1px solid #E5D6BD" }}>
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
           Selos e Marcos
         </h3>
-        <span className="text-xs" style={{ color: "#8A6A3D" }}>
-          {milesTotal} Milhas · {streakDays}d seguidos
+        <span className="text-[11px]" style={{ color: "#8A6A3D" }}>
+          {milesTotal} Milhas · {streakDays}d
         </span>
       </div>
 
-      <div className="mt-2 grid grid-cols-4 gap-2">
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
         {(["streak_7", "streak_14", "streak_21", "program_complete"] as const).map((code) => {
           const meta = SEAL_META[code];
           const earned = sealsEarned.has(code);
           return (
             <div
               key={code}
-              className="flex flex-col items-center rounded-xl p-2 text-center"
+              className="flex flex-col items-center rounded-lg p-1.5 text-center"
               style={{
                 background: earned ? "#FFF7E6" : "#F8F1E2",
                 border: `1px solid ${earned ? "#C9A24A" : "#E5D6BD"}`,
                 opacity: earned ? 1 : 0.55,
               }}
             >
-              <div className="text-base">{earned ? "🏅" : "🔒"}</div>
-              <div className="mt-1 text-[10px] font-semibold leading-tight" style={{ color: "#5C3F1A" }}>
+              <div className="text-sm leading-none">{earned ? "🏅" : "🔒"}</div>
+              <div className="mt-0.5 text-[10px] font-semibold leading-tight" style={{ color: "#5C3F1A" }}>
                 {meta.label}
               </div>
               <div className="text-[10px]" style={{ color: "#8A6A3D" }}>+{meta.miles}</div>
@@ -658,21 +658,21 @@ function SealsAndMilestonesPanel({ progress }: { progress: any }) {
         })}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2">
         <div className="flex items-center justify-between text-[11px]" style={{ color: "#8A6A3D" }}>
           <span>Próximo marco</span>
           <span>{nextMilestone ? `${milesTotal}/${nextMilestone}` : "Todos conquistados"}</span>
         </div>
-        <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#F3E8D2" }}>
           <div className="h-full rounded-full" style={{ width: `${milestonePct}%`, background: "#C9A24A" }} />
         </div>
-        <div className="mt-2 flex justify-between gap-1">
+        <div className="mt-1.5 flex justify-between gap-1">
           {MILESTONE_ORDER.map((t) => {
             const reached = milestonesEarned.has(t) || milesTotal >= t;
             return (
               <div
                 key={t}
-                className="flex-1 rounded-lg py-1 text-center text-[10px] font-semibold"
+                className="flex-1 rounded-md py-0.5 text-center text-[10px] font-semibold"
                 style={{
                   background: reached ? "#C9A24A" : "#F3E8D2",
                   color: reached ? "#FFFFFF" : "#8A6A3D",
