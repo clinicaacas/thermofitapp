@@ -349,12 +349,6 @@ function LibraryTab() {
         </div>
       </aside>
 
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? ""}
-        onClose={() => setViewer(null)}
-      />
     </div>
   );
 }
