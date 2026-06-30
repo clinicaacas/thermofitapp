@@ -81,7 +81,7 @@ function Page() {
     };
   }, [clientId, qc]);
 
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
+  
 
   async function downloadPath(path: string, fallbackName: string) {
     const res = await fetchMaterial({ data: { path } });
