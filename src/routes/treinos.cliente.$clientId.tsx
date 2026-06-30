@@ -354,10 +354,10 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
 
 
 function PlanExercisesSection({
-  planId, items, tenantId, canEdit, onChanged, onViewPdf,
+  planId, items, tenantId, canEdit, onChanged, onDownloadPdf,
 }: {
   planId: string; items: any[]; tenantId: string; canEdit: boolean;
-  onChanged: () => void; onViewPdf: (path: string) => void;
+  onChanged: () => void; onDownloadPdf: (path: string, fallbackName?: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const addMut = useMutation({ mutationFn: useServerFn(addPlanExercise), onSuccess: onChanged });
