@@ -46,6 +46,7 @@ import { Route as AppCartasRouteImport } from './routes/app.cartas'
 import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 import { Route as AppVacuumIndexRouteImport } from './routes/app.vacuum.index'
+import { Route as TreinosClienteClientIdRouteImport } from './routes/treinos.cliente.$clientId'
 import { Route as ClientesIdPremiosRouteImport } from './routes/clientes.$id.premios'
 import { Route as ClientesIdMissoesRouteImport } from './routes/clientes.$id.missoes'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
@@ -237,6 +238,11 @@ const AppVacuumIndexRoute = AppVacuumIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppVacuumRoute,
 } as any)
+const TreinosClienteClientIdRoute = TreinosClienteClientIdRouteImport.update({
+  id: '/treinos/cliente/$clientId',
+  path: '/treinos/cliente/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientesIdPremiosRoute = ClientesIdPremiosRouteImport.update({
   id: '/premios',
   path: '/premios',
@@ -305,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
   '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/clientes/$id/premios': typeof ClientesIdPremiosRoute
+  '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
@@ -347,6 +354,7 @@ export interface FileRoutesByTo {
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
   '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/clientes/$id/premios': typeof ClientesIdPremiosRoute
+  '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
@@ -392,6 +400,7 @@ export interface FileRoutesById {
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
   '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/clientes/$id/premios': typeof ClientesIdPremiosRoute
+  '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/clientes/$id/conteudos'
     | '/clientes/$id/missoes'
     | '/clientes/$id/premios'
+    | '/treinos/cliente/$clientId'
     | '/app/vacuum/'
     | '/api/public/hooks/materialize-daily-missions'
   fileRoutesByTo: FileRoutesByTo
@@ -480,6 +490,7 @@ export interface FileRouteTypes {
     | '/clientes/$id/conteudos'
     | '/clientes/$id/missoes'
     | '/clientes/$id/premios'
+    | '/treinos/cliente/$clientId'
     | '/app/vacuum'
     | '/api/public/hooks/materialize-daily-missions'
   id:
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/clientes/$id/conteudos'
     | '/clientes/$id/missoes'
     | '/clientes/$id/premios'
+    | '/treinos/cliente/$clientId'
     | '/app/vacuum/'
     | '/api/public/hooks/materialize-daily-missions'
   fileRoutesById: FileRoutesById
@@ -550,6 +562,7 @@ export interface RootRouteChildren {
   VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
+  TreinosClienteClientIdRoute: typeof TreinosClienteClientIdRoute
   ApiPublicHooksMaterializeDailyMissionsRoute: typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
 
@@ -814,6 +827,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacuumIndexRouteImport
       parentRoute: typeof AppVacuumRoute
     }
+    '/treinos/cliente/$clientId': {
+      id: '/treinos/cliente/$clientId'
+      path: '/treinos/cliente/$clientId'
+      fullPath: '/treinos/cliente/$clientId'
+      preLoaderRoute: typeof TreinosClienteClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clientes/$id/premios': {
       id: '/clientes/$id/premios'
       path: '/premios'
@@ -942,6 +962,7 @@ const rootRouteChildren: RootRouteChildren = {
   VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
+  TreinosClienteClientIdRoute: TreinosClienteClientIdRoute,
   ApiPublicHooksMaterializeDailyMissionsRoute:
     ApiPublicHooksMaterializeDailyMissionsRoute,
 }

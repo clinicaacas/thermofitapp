@@ -223,7 +223,7 @@ function Page() {
             <Camera className="h-3.5 w-3.5" /> Fotos
           </a>
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Apple className="h-3.5 w-3.5" />} label="Nutrição" />
-          <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Dumbbell className="h-3.5 w-3.5" />} label="Treino" />
+          <ActionLink to="/treinos/cliente/$clientId" params={{ clientId: id }} icon={<Dumbbell className="h-3.5 w-3.5" />} label="Treino" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-3.5 w-3.5" />} label="Cartas" />
           <a
             href="#suporte"
