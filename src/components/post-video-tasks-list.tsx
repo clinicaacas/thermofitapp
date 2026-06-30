@@ -56,26 +56,32 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
 
   const blocked = !task.unlocked && !task.completed;
   const instruction: string = task.instruction ?? "";
-  const isLong = instruction.length > 90;
+  const isLong = instruction.length > 60;
+  const titlesMatch =
+    typeof task.videoTitle === "string" &&
+    typeof task.title === "string" &&
+    task.videoTitle.trim().toLowerCase() === task.title.trim().toLowerCase();
 
   return (
     <li
-      className="rounded-2xl bg-white p-2.5"
+      className="rounded-xl bg-white p-2"
       style={{
         border: `1px solid ${task.completed ? "#BFD8B7" : "#E5D6BD"}`,
         background: task.completed ? "#F1F8EF" : "#FFFFFF",
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-2">
-          <MessageSquare className="h-4 w-4 mt-0.5 shrink-0" style={{ color: "#8A6A3D" }} />
+        <div className="flex min-w-0 items-start gap-1.5">
+          <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "#8A6A3D" }} />
           <div className="min-w-0">
-            <p className="truncate text-[10px] uppercase tracking-wide leading-tight" style={{ color: "#8A6A3D" }}>
-              {task.videoTitle}
-            </p>
-            <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+            <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
               {task.title}
             </p>
+            {!titlesMatch && task.videoTitle && (
+              <p className="truncate text-[10px] leading-tight mt-0.5" style={{ color: "#8A6A3D" }}>
+                {task.videoTitle}
+              </p>
+            )}
             {instruction && (
               <div className="mt-0.5 text-[11px] leading-snug" style={{ color: "#6B7280" }}>
                 <p className={!expanded && isLong ? "line-clamp-1" : ""}>{instruction}</p>
@@ -83,7 +89,7 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
                   <button
                     type="button"
                     onClick={() => setExpanded((v) => !v)}
-                    className="mt-0.5 text-[11px] font-semibold"
+                    className="text-[10px] font-semibold"
                     style={{ color: "#8A6A3D" }}
                   >
                     {expanded ? "Ocultar" : "Ver mais"}
@@ -94,11 +100,11 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
           </div>
         </div>
         {task.completed ? (
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#E8F2E5", color: "#3F7A3A" }}>
+          <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "#E8F2E5", color: "#3F7A3A" }}>
             <Check className="h-3 w-3" /> +{task.miles || 0}
           </span>
         ) : task.miles > 0 ? (
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
+          <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
             +{task.miles}
           </span>
         ) : null}
@@ -106,7 +112,7 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
 
       {task.completed && task.response && (
         <p
-          className="mt-1.5 rounded-lg p-1.5 text-xs italic"
+          className="mt-1 rounded-md p-1.5 text-[11px] italic leading-snug"
           style={{ background: "#FBF7EE", color: "#1F2933" }}
         >
           “{task.response}”
@@ -114,13 +120,13 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
       )}
 
       {blocked && (
-        <p className="mt-1.5 text-[11px]" style={{ color: "#6B7280" }}>
+        <p className="mt-1 text-[10px]" style={{ color: "#6B7280" }}>
           Conclua o vídeo para liberar.
         </p>
       )}
 
       {!task.completed && task.unlocked && (
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-1.5 space-y-1">
           {task.responseRequired && (
             <textarea
               value={text}
@@ -128,7 +134,7 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
               rows={2}
               maxLength={2000}
               placeholder="Escreva sua resposta…"
-              className="w-full resize-none rounded-xl bg-white p-2 text-sm outline-none"
+              className="w-full resize-none rounded-lg bg-white p-1.5 text-xs outline-none"
               style={{ border: "1px solid #E5D6BD", color: "#1F2933" }}
             />
           )}
@@ -147,14 +153,15 @@ function TaskCard({ task, onSubmit }: { task: any; onSubmit: (r: string) => Prom
                 setBusy(false);
               }
             }}
-            className="rounded-xl px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+            className="rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50"
             style={{ background: "#C9A24A", color: "#FFFFFF" }}
           >
             {busy ? "Enviando…" : task.responseRequired ? "Enviar e concluir" : "Concluir"}
           </button>
-          {err && <p className="text-xs" style={{ color: "#B23A48" }}>{err}</p>}
+          {err && <p className="text-[10px]" style={{ color: "#B23A48" }}>{err}</p>}
         </div>
       )}
     </li>
   );
 }
+
