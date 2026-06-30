@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft, Plus, Trash2, FileText, Upload, Eye, ArrowUp, ArrowDown, Save, Send,
+  ArrowLeft, Plus, Trash2, FileText, Upload, Download, ArrowUp, ArrowDown, Save, Send,
   Archive, Copy, X, Dumbbell, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { listExercises } from "@/lib/thermofit-content.functions";
@@ -14,8 +14,8 @@ import {
   getClientPlans, getPlan, createPlan, updatePlan, publishPlan, archivePlan, duplicatePlanAsDraft,
   addPlanExercise, updatePlanExercise, removePlanExercise, reorderPlanExercises,
   uploadPlanPdf, removePlanPdf, uploadPlanExercisePdf, removePlanExercisePdf,
+  fetchWorkoutMaterial,
 } from "@/lib/thermofit-workout-plans.functions";
-import { WorkoutPlanPdfViewer } from "@/components/workout-plan-pdf-viewer";
 
 export const Route = createFileRoute("/treinos/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Plano de treino — ThermoFit" }] }),
