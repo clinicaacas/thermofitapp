@@ -18,7 +18,7 @@ import {
 } from "@/lib/thermofit-nutrition.functions";
 import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
-export const Route = createFileRoute("/nutricao")({
+export const Route = createFileRoute("/nutricao/")({
   head: () => ({ meta: [{ title: "Nutrição — ThermoFit" }] }),
   component: Page,
 });

@@ -27,6 +27,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VideosIndexRouteImport } from './routes/videos.index'
+import { Route as NutricaoIndexRouteImport } from './routes/nutricao.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as VideosNovaRouteImport } from './routes/videos.nova'
@@ -144,6 +145,11 @@ const VideosIndexRoute = VideosIndexRouteImport.update({
   id: '/videos/',
   path: '/videos/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const NutricaoIndexRoute = NutricaoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => NutricaoRoute,
 } as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/nutricao/': typeof NutricaoIndexRoute
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
@@ -341,7 +348,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -364,6 +370,7 @@ export interface FileRoutesByTo {
   '/videos/nova': typeof VideosNovaRoute
   '/app': typeof AppIndexRoute
   '/clientes': typeof ClientesIndexRoute
+  '/nutricao': typeof NutricaoIndexRoute
   '/videos': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
@@ -412,6 +419,7 @@ export interface FileRoutesById {
   '/videos/nova': typeof VideosNovaRoute
   '/app/': typeof AppIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/nutricao/': typeof NutricaoIndexRoute
   '/videos/': typeof VideosIndexRoute
   '/app/vacuum/treino': typeof AppVacuumTreinoRoute
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
@@ -461,6 +469,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app/'
     | '/clientes/'
+    | '/nutricao/'
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
@@ -483,7 +492,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
-    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -506,6 +514,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app'
     | '/clientes'
+    | '/nutricao'
     | '/videos'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
@@ -553,6 +562,7 @@ export interface FileRouteTypes {
     | '/videos/nova'
     | '/app/'
     | '/clientes/'
+    | '/nutricao/'
     | '/videos/'
     | '/app/vacuum/treino'
     | '/clientes/$id/conteudos'
@@ -718,6 +728,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/videos/'
       preLoaderRoute: typeof VideosIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/nutricao/': {
+      id: '/nutricao/'
+      path: '/'
+      fullPath: '/nutricao/'
+      preLoaderRoute: typeof NutricaoIndexRouteImport
+      parentRoute: typeof NutricaoRoute
     }
     '/clientes/': {
       id: '/clientes/'
@@ -964,10 +981,12 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface NutricaoRouteChildren {
+  NutricaoIndexRoute: typeof NutricaoIndexRoute
   NutricaoClienteClientIdRoute: typeof NutricaoClienteClientIdRoute
 }
 
 const NutricaoRouteChildren: NutricaoRouteChildren = {
+  NutricaoIndexRoute: NutricaoIndexRoute,
   NutricaoClienteClientIdRoute: NutricaoClienteClientIdRoute,
 }
 
