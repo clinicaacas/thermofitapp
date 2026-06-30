@@ -13,6 +13,7 @@ import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
+import { Route as NutricaoRouteImport } from './routes/nutricao'
 import { Route as MissoesAdminRouteImport } from './routes/missoes-admin'
 import { Route as MensagensRouteImport } from './routes/mensagens'
 import { Route as LoginRouteImport } from './routes/login'
@@ -71,6 +72,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const PremiosRoute = PremiosRouteImport.update({
   id: '/premios',
   path: '/premios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NutricaoRoute = NutricaoRouteImport.update({
+  id: '/nutricao',
+  path: '/nutricao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MissoesAdminRoute = MissoesAdminRouteImport.update({
@@ -283,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -327,6 +334,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -419,6 +428,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
+    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
+    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -507,6 +518,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
+    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -553,6 +565,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
   MissoesAdminRoute: typeof MissoesAdminRoute
+  NutricaoRoute: typeof NutricaoRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -594,6 +607,13 @@ declare module '@tanstack/react-router' {
       path: '/premios'
       fullPath: '/premios'
       preLoaderRoute: typeof PremiosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nutricao': {
+      id: '/nutricao'
+      path: '/nutricao'
+      fullPath: '/nutricao'
+      preLoaderRoute: typeof NutricaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/missoes-admin': {
@@ -953,6 +973,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
   MissoesAdminRoute: MissoesAdminRoute,
+  NutricaoRoute: NutricaoRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
