@@ -106,14 +106,14 @@ function Page() {
             {plan.pdfPath && (
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => openMaterial(plan.pdfPath!)}
+                  onClick={() => openViewer(plan.pdfPath!, plan.title)}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold"
                   style={{ background: "#8A6A3D", color: "#FFFFFF" }}
                 >
-                  <FileText className="h-3.5 w-3.5" /> Abrir plano em PDF
+                  <Eye className="h-3.5 w-3.5" /> Ver plano
                 </button>
                 <button
-                  onClick={() => openMaterial(plan.pdfPath!, { download: true })}
+                  onClick={() => downloadMaterial(plan.pdfPath!)}
                   className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs"
                   style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                 >
@@ -188,7 +188,7 @@ function Page() {
                         )}
                         {ex.pdfPath ? (
                           <button
-                            onClick={() => openMaterial(ex.pdfPath!)}
+                            onClick={() => openViewer(ex.pdfPath!, ex.title)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#A7F3D0", background: "#ECFDF5", color: "#047857" }}
                           >
@@ -196,7 +196,7 @@ function Page() {
                           </button>
                         ) : ex.baseExercisePdfPath ? (
                           <button
-                            onClick={() => openMaterial(ex.baseExercisePdfPath!)}
+                            onClick={() => openViewer(ex.baseExercisePdfPath!, ex.title)}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]"
                             style={{ borderColor: "#E5E0D8", color: "#8A6A3D" }}
                           >
@@ -213,6 +213,13 @@ function Page() {
         </>
       )}
     </ClientAppShell>
+      <WorkoutPlanPdfViewer
+        open={!!viewer}
+        path={viewer?.path ?? null}
+        title={viewer?.title ?? "Material"}
+        onClose={() => setViewer(null)}
+      />
+    </>
   );
 }
 
