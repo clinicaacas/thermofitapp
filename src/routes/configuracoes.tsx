@@ -1242,7 +1242,7 @@ function AccountTab() {
           <Info label="Status da assinatura" value={tenant.status === "ativa" ? "Ativa" : tenant.status} />
           <Info label="Data de renovação" value={isInternal ? "Não aplicável" : tenant.renewalDate || "—"} />
           <Info label="Limite de usuários" value={userLimit} />
-          <Info label="Usuários cadastrados" value={String(tenant.team.length)} />
+          <Info label="Usuários cadastrados" value={String(teamCount)} />
           <Info label="Limite de clientes ativos" value={clientLimit} />
           <Info label="Clientes ativos cadastrados" value="0" />
         </div>
