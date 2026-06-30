@@ -414,13 +414,13 @@ function PlanExercisesSection({
 }
 
 function PlanExerciseRow({
-  item, index, total, canEdit, onMove, onUpdate, onRemove, onViewPdf, onChanged,
+  item, index, total, canEdit, onMove, onUpdate, onRemove, onDownloadPdf, onChanged,
 }: {
   item: any; index: number; total: number; canEdit: boolean;
   onMove: (dir: -1 | 1) => void;
   onUpdate: (patch: { sets?: number | null; reps?: string | null; notes?: string | null }) => void;
   onRemove: () => void;
-  onViewPdf: (path: string) => void;
+  onDownloadPdf: (path: string, fallbackName?: string) => void;
   onChanged: () => void;
 }) {
   const ex = item.exercise;
