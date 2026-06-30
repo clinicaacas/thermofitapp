@@ -71,16 +71,6 @@ function Page() {
       setSaving(false);
     }
   }
-    try {
-      await save({ data: { id: editingId ?? undefined, patch: form as any } });
-      await qc.invalidateQueries({ queryKey: ["exercises"] });
-      close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function onDelete(id: string) {
     if (!confirm("Excluir este exercício?")) return;
