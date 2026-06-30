@@ -1,143 +1,92 @@
-# Entrega — Vídeo do Dia (todos os estados) + Tarefas Pós-Vídeo
+## Módulo Nutrição — Plano de Entrega
 
-Escopo grande, com mudanças de schema, backend, painel admin e App da Cliente. Nada que altere Milhas, jornadas, vídeos, fotos, conclusões ou clientes existentes (Celestina, Dona Chiquinha, E2E Missões). Tarefas legadas inválidas são preservadas em banco e apenas filtradas funcionalmente.
+Entrega isolada, espelhando a arquitetura de Treinos sem tocá-lo. Não cria Milhas, pontos, check-ins ou gamificação. Treinos permanece pausado.
 
-## 0. Convenção oficial de dias da jornada
+### 1. Banco (migrations)
 
-Centralizar num único helper server-side `resolveJourneyDay(journey)` em `src/lib/journey-day.server.ts`:
+**Tabelas novas (public):**
+- `nutrition_plans` — `id, tenant_id, client_id, journey_id, title, general_guidance, status ('rascunho'|'publicado'|'arquivado'), created_by, updated_by, published_at, archived_at, created_at, updated_at`. Único parcial: `(client_id, journey_id) WHERE status='publicado'`.
+- `nutrition_library_materials` — `id, tenant_id, title, category, description, storage_path, mime_type, size_bytes, status ('ativo'|'arquivado'), created_by, created_at, updated_at`.
+- `nutrition_plan_materials` — `id, tenant_id, plan_id, library_material_id (nullable), storage_path (nullable, exclusivo), display_title, note, sort_order, origin ('exclusivo'|'biblioteca'), created_at, updated_at`. Check: exatamente um entre `library_material_id` e `storage_path`.
+- Coluna `main_pdf_path` em `nutrition_plans` (PDF principal).
 
-- `journeyDayIndex` = `today_SP - started_on` (inteiro, base 0) — usado internamente. Mantém compatibilidade com `release_day` atual (`release_day = 0` é o primeiro dia).
-- `journeyDayNumber` = `journeyDayIndex + 1` — número humano exibido à cliente (“Dia 1, Dia 2…”).
-- `programDurationDays` = 84.
-- `journeyStatus` = `active` | `completed` | `archived` (derivado de `client_journeys.status` + dias decorridos).
+**RLS:**
+- Staff do tenant: full access (via `is_tenant_member`).
+- Super admin: global (via `is_super_admin`).
+- Cliente final: SELECT no próprio `nutrition_plans` quando `status='publicado'` (via `client_id_for_user`); SELECT em `nutrition_plan_materials` do próprio plano publicado; SELECT em `nutrition_library_materials` referenciados pelos próprios materiais.
+- GRANTs explícitos para `authenticated` e `service_role`.
 
-Substituir cálculos ad-hoc em `materialize_daily_missions_all`, `listClientVideos`, `listTodayVideoMissions`, `get_journey_progress`, `clientes.$id.missoes.tsx`. **Não** renumerar `release_day` em vídeos existentes — a convenção atual (base 0) permanece oficial. Apenas a exibição soma +1.
+**Triggers:**
+- `nutrition_plans_archive_previous` — ao publicar, arquiva o publicado anterior da mesma (client, journey). Espelha `workout_plans_archive_previous`.
+- `update_updated_at_column` em todas as tabelas.
+- `validate_nutrition_material_tenant` — garante coerência tenant/plan.
 
-## 1. Server function unificada `getClientVideoDayState`
+**Função SECURITY DEFINER:**
+- `can_access_nutrition_material(_user uuid, _name text)` — espelha `can_access_workout_material`. Path: `{tenantId}/plans/{planId}/...` ou `{tenantId}/library/{materialId}/...`. Bloqueia exclusivos para clientes apenas se o plano dela for publicado.
 
-Novo arquivo `src/lib/thermofit-video-day.functions.ts` com `requireSupabaseAuth`. Retorna shape único consumido pelo App:
+**Bucket:**
+- `nutrition-materials` privado. Policies em `storage.objects` chamando `can_access_nutrition_material`.
 
-```ts
-{
-  journeyStatus, journeyDayNumber, programDurationDays,
-  todayVideos: [{ videoId, missionId, title, miles, completed, progressPct }],
-  pendingPriorVideos: number,
-  nextReleaseDay: number | null,
-  allPlannedCompleted: boolean,
-  state: "video_available" | "video_done" | "no_video_today"
-       | "prior_pending" | "all_completed" | "journey_finished"
-}
-```
+### 2. Server functions (`src/lib/thermofit-nutrition.functions.ts`)
 
-Resolve tenant/client/journey via `clients.auth_user_id`. Materializa idempotentemente vídeos do dia (chama `ensure_video_mission` apenas se faltarem) para cobrir vídeos cadastrados após o cron.
+Todas com `requireSupabaseAuth`. Espelham `thermofit-workout-plans.functions.ts`.
 
-## 2. App da Cliente — bloco Vídeo do Dia sempre visível
+- `listNutritionClientsOverview` — central admin: lista clientes com plano atual + status.
+- `getNutritionPlanForAdmin({clientId})` — retorna plano publicado/rascunho + histórico arquivado + materiais.
+- `upsertNutritionPlan` — cria/edita rascunho (title, guidance).
+- `publishNutritionPlan({planId})` — valida (PDF OU guidance OU 1 material), publica, arquiva anterior via trigger.
+- `archiveNutritionPlan({planId})`.
+- `duplicateNutritionPlanAsDraft({planId})`.
+- `uploadNutritionMainPdf({planId, base64, filename})` — valida MIME `application/pdf`, tamanho ≤15MB, grava em `{tenant}/plans/{planId}/main-{uuid}.pdf` via `supabaseAdmin` (dynamic import dentro do handler).
+- `removeNutritionMainPdf({planId})`.
+- `listNutritionLibrary({status?})`.
+- `upsertNutritionLibraryMaterial`.
+- `uploadNutritionLibraryFile({materialId, base64, filename})`.
+- `archiveNutritionLibraryMaterial` / `restoreNutritionLibraryMaterial`.
+- `attachLibraryMaterialToPlan({planId, libraryMaterialId, displayTitle?, note?, sortOrder?})`.
+- `attachExclusiveMaterialToPlan({planId, base64, filename, displayTitle, note?})`.
+- `updatePlanMaterial({planMaterialId, ...overrides})`.
+- `removePlanMaterial({planMaterialId})`.
+- `reorderPlanMaterials({planId, ids[]})`.
+- `getClientNutritionPlanForApp({clientId})` — usado pelo App; só plano publicado da própria cliente; valida `clientId === client_id_for_user(auth.uid())` OU staff do tenant (preview).
+- `fetchNutritionMaterial({kind:'plan-main'|'plan-material'|'library', id, planId?})` — autoriza por sessão, lê via `supabaseAdmin`, retorna `{base64, mime, filename}`. Espelha `fetchWorkoutMaterial`.
 
-`src/routes/app.missoes.tsx`: remover `videoMissions.length > 0 && (...)`. Novo componente `VideoDayBlock` renderiza conforme `state`:
+### 3. Frontend admin
 
-- `video_available` — cards atuais + player + Milhas previstas.
-- `video_done` — card verde, “Milhas conquistadas”, permite rever sem novo crédito.
-- `no_video_today` — card informativo (“Hoje não há um vídeo programado…” + “Seu próximo vídeo será liberado no dia X”).
-- `prior_pending` — card com contagem + botão “Ver vídeos pendentes” → `/app/videos`.
-- `all_completed` — card de celebração.
-- `journey_finished` — card “Seu Plano de Voo foi concluído…”.
+- `src/routes/nutricao.tsx` — central admin com abas `Planos das clientes` (default) e `Biblioteca de materiais`.
+- `src/routes/nutricao.cliente.$clientId.tsx` — editor do plano (rascunho, materiais, publicar, histórico).
+- Componente `src/components/nutrition-plan-pdf-viewer.tsx` — wrapper sobre `react-pdf` (reusar pdfjs worker já configurado em `workout-plan-pdf-viewer.tsx`).
+- `src/components/admin-client-nutrition-panel.tsx` — usado em `clientes.$id.tsx` para exibir status + botão `Gerenciar plano` (link para a rota acima).
+- Item de menu em `src/components/app-sidebar.tsx`: `{ to: "/nutricao", label: "Nutrição", icon: Apple }`.
 
-Nenhum estado informativo cria missão, botão de conclusão ou Milhas.
+### 4. App da Cliente
 
-## 3. Materialização
+- Reescrever `src/routes/app.nutricao.tsx`: consumir `getClientNutritionPlanForApp` com `useClientIdentity` e query key `["client-nutrition", tenantId, clientId, journeyId]`.
+- Estados: sem plano / publicado.
+- Botões `Ver plano` e `Ver material` abrem o `NutritionPlanPdfViewer` interno (fullscreen overlay mobile).
+- `Baixar PDF` usa `fetchNutritionMaterial` + blob + `download` attribute (sem nova aba).
+- Realtime: invalidar query em changes de `nutrition_plans` / `nutrition_plan_materials` filtrados pelo `client_id`.
 
-Ajustar `materialize_daily_missions_all` (migration) para idempotência reforçada e usar `journeyDayIndex` consistente. Adicionar `ensure_today_video_missions(client_id, journey_id)` chamada também por `getClientVideoDayState` para cobrir vídeos recém-cadastrados sem esperar cron. Sem alteração de Milhas, sem duplicidade (índices únicos atuais já protegem).
+### 5. Segurança
 
-## 4. Catálogo de Tarefas Pós-Vídeo (migration)
+- Nenhuma URL assinada ou pública é retornada ao cliente.
+- Validação MIME por header bytes (`%PDF-`) no servidor além da extensão.
+- `fetchNutritionMaterial` aplica headers `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` quando ler via server function (retornamos base64, headers aplicados ao response da rota de download — usaremos a server fn diretamente, mesma estratégia do módulo Treinos).
+- `journey_id` opcional; quando presente, valida pertencimento ao cliente/tenant.
 
-Nova tabela `public.video_post_tasks`:
+### 6. Não escopo
 
-- `id, tenant_id, video_id, journey_id (nullable), title, instruction, ordering, miles (default 10, CHECK 0..50), response_required bool, active bool, archived_at, archived_by, created_by, updated_by, created_at, updated_at`.
-- Trigger valida: `video.tenant_id = task.tenant_id`; se `video.journey_id` não nulo → `task.journey_id` deve coincidir; se `task.journey_id` não nulo → mesmo tenant.
-- Índice único parcial `(video_id, ordering, COALESCE(journey_id,'00000000-...'))` para evitar ordens duplicadas no mesmo escopo.
-- GRANTs `authenticated` + `service_role`; RLS: SELECT para membros do tenant ou cliente dono do vídeo elegível; INSERT/UPDATE/DELETE só `is_profile_manager`.
-- Estender `client_missions`: já existe `linked_video_id` e `task_ref`. `task_ref` passará a armazenar o `video_post_tasks.id`.
+- Sem alterações em `workout_plans`, `plan_exercises`, `exercises`, rotas `/exercicios`, `/treinos.cliente.*`, `app.treino.tsx` ou bucket `workout-materials`.
+- Sem Milhas/missões/seals/check-ins de nutrição.
+- Sem cálculo de dieta, prescrição automática ou cardápio padrão distribuído.
 
-## 5. Admin > Missões > Tarefas Pós-Vídeo
+### 7. Testes runtime
 
-Nova aba em `src/routes/missoes-admin.tsx` + componente `PostVideoTasksManager`:
-- Listar por vídeo, filtros (vídeo, jornada, status), CRUD, arquivar (não apaga), ordenar.
-- Escopo: “Catálogo da clínica” | “Exclusiva de jornada” com seletor de jornada.
-- No formulário de vídeo (`src/components/video-form.tsx`): contador “N tarefas vinculadas” + link “Gerenciar tarefas”.
-- Alerta admin para vídeos ativos sem tarefa: badge na listagem de vídeos.
+Executados via Playwright + psql na cliente técnica isolada após a entrega (não nos pacientes reais). Cobrem A (rascunho), B (publicação + arquivamento anterior), C (App + visualizador interno + download), D (isolamento entre clientes + bloqueio de fetch cross-client).
 
-Server functions em `src/lib/thermofit-post-video-tasks.functions.ts`: `listPostVideoTasks`, `savePostVideoTask`, `archivePostVideoTask`, `applyTaskToCompletedClients` (idempotente, sem Milhas).
+### Detalhes técnicos
 
-## 6. Materialização e execução de tarefas
-
-Em `saveVideoProgress` (já existe em `thermofit-client-app.functions.ts`):
-- Quando vídeo atinge `min_completion_pct` e conclui → buscar `video_post_tasks` ativas elegíveis (mesmo tenant + (journey nula ou = jornada da cliente)) → criar missões `post_video_task` via `ensure_post_video_task` passando `task_ref = task.id`.
-- Milhas da tarefa **não** são concedidas aqui.
-
-Nova função `completePostVideoTask({ missionId, response? })`:
-- Valida ownership (client/tenant/journey), busca tarefa via `task_ref`, exige resposta se `response_required`.
-- Insere `client_task_responses` (idempotente), conclui missão, chama `award_miles` com `miles` lidas da tarefa (nunca do payload), `idempotency_key = "post_video_task:" || mission_id`.
-
-## 7. App da Cliente — Tarefas Pós-Vídeo
-
-Em Missões, abaixo do `VideoDayBlock`, novo `PostVideoTasksList`:
-- Lista missões `post_video_task` do dia/jornada com `linked_video_id` válido e `task_ref` resolvendo para tarefa ativa.
-- Filtra tarefas legadas: missões com `task_ref IN ('daily', NULL)` ou `task_ref` que não bate com `video_post_tasks.id` ficam ocultas e excluídas dos contadores.
-- Render: nome do vídeo, título, instrução, Milhas, textarea (se obrigatório), botão “Concluir/Enviar”.
-- Tarefas concluídas continuam visíveis (estado verde).
-
-Componente atual `post-video-task-card.tsx` é genérico (sem `linked_video_id`) — será desativado e substituído pelo novo fluxo. Dados antigos permanecem em banco.
-
-## 8. Segurança
-
-Toda função respeita `tenant_id + client_id + journey_id + video_id + task_ref` simultaneamente. Trigger de integridade na tabela + validação em servidor. Sem leitura de `miles`/`client_id`/`journey_id` a partir do payload do cliente.
-
-## 9. Filtragem de tarefas legadas
-
-`listTodayMissions` e contadores do admin ignoram missões `post_video_task` com `task_ref` inválido (não-UUID ou sem match em `video_post_tasks`). Registros preservados para auditoria.
-
-## 10. Testes runtime
-
-Após deploy, executar via Playwright em cliente técnica isolada:
-1. Dia ativo com vídeo → conclui 1x, Milhas creditadas.
-2. Dia ativo sem vídeo → card informativo, sem missão/Milhas.
-3. Vídeo futuro não aparece antes; aparece no dia certo.
-4. Todos concluídos → card celebração.
-5. Jornada encerrada → estado final.
-6. Vídeo técnico + 2 tarefas → tarefas aparecem só após `min_completion_pct`.
-7. Conclui tarefa 1 → +10 Milhas, 2ª permanece pendente.
-8. Re-conclusão não duplica Milhas/resposta.
-9. Outra cliente não enxerga vídeo/tarefa técnica.
-
-E validação visual na Celestina:
-- Vídeo do Dia visível no dia 13 com mensagem correta.
-- Tarefas legadas não aparecem.
-
-## Arquivos previstos
-
-**Migrations:**
-- `video_post_tasks` (tabela + trigger + RLS + GRANTs + índice único)
-- ajuste `materialize_daily_missions_all` (idempotência reforçada)
-
-**Backend:**
-- `src/lib/journey-day.server.ts` (novo)
-- `src/lib/thermofit-video-day.functions.ts` (novo — `getClientVideoDayState`)
-- `src/lib/thermofit-post-video-tasks.functions.ts` (novo — CRUD + apply-to-completed)
-- `src/lib/thermofit-client-app.functions.ts` (estender `saveVideoProgress` + nova `completePostVideoTask`)
-
-**Frontend:**
-- `src/routes/app.missoes.tsx` (substituir bloco vídeo + integrar tarefas)
-- `src/components/video-day-block.tsx` (novo)
-- `src/components/post-video-tasks-list.tsx` (novo)
-- `src/routes/missoes-admin.tsx` (nova aba)
-- `src/components/post-video-tasks-manager.tsx` (novo)
-- `src/components/video-form.tsx` (contador + atalho)
-- `src/routes/videos.index.tsx` (badge “sem tarefa”)
-
-## Limitações conhecidas
-
-- `release_day` permanece base 0 internamente; exibição soma +1. Vídeos já cadastrados não se deslocam.
-- Tarefas legadas em `client_missions` com `task_ref` genérico não são apagadas — apenas ocultas.
-- `applyTaskToCompletedClients` é manual (botão admin), não automático, para evitar surpresas em massa.
-
-Aprova para implementar?
+- Server fns ficam em `src/lib/thermofit-nutrition.functions.ts` (client-safe; `supabaseAdmin` é importado dinamicamente dentro de cada handler).
+- `react-pdf` e `pdfjs-dist` já instalados (módulo Treinos).
+- Migration única com 3 CREATE TABLE + GRANTs + RLS + policies + função + trigger.
+- Bucket criado via `supabase--storage_create_bucket` separado da migration.
