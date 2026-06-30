@@ -48,7 +48,7 @@ import { Route as AppAjudaRouteImport } from './routes/app.ajuda'
 import { Route as AppAguaRouteImport } from './routes/app.agua'
 import { Route as AppVacuumIndexRouteImport } from './routes/app.vacuum.index'
 import { Route as TreinosClienteClientIdRouteImport } from './routes/treinos.cliente.$clientId'
-import { Route as NutricaoClienteClientIdRouteImport } from './routes/nutricao.cliente.$clientId'
+import { Route as NutricaoClienteClientIdRouteImport } from './routes/nutricao_.cliente.$clientId'
 import { Route as ClientesIdPremiosRouteImport } from './routes/clientes.$id.premios'
 import { Route as ClientesIdMissoesRouteImport } from './routes/clientes.$id.missoes'
 import { Route as ClientesIdConteudosRouteImport } from './routes/clientes.$id.conteudos'
@@ -251,9 +251,9 @@ const TreinosClienteClientIdRoute = TreinosClienteClientIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutricaoClienteClientIdRoute = NutricaoClienteClientIdRouteImport.update({
-  id: '/cliente/$clientId',
-  path: '/cliente/$clientId',
-  getParentRoute: () => NutricaoRoute,
+  id: '/nutricao_/cliente/$clientId',
+  path: '/nutricao/cliente/$clientId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesIdPremiosRoute = ClientesIdPremiosRouteImport.update({
   id: '/premios',
@@ -295,7 +295,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -341,7 +341,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -388,7 +388,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
+  '/nutricao': typeof NutricaoRoute
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -417,7 +417,7 @@ export interface FileRoutesById {
   '/clientes/$id/conteudos': typeof ClientesIdConteudosRoute
   '/clientes/$id/missoes': typeof ClientesIdMissoesRoute
   '/clientes/$id/premios': typeof ClientesIdPremiosRoute
-  '/nutricao/cliente/$clientId': typeof NutricaoClienteClientIdRoute
+  '/nutricao_/cliente/$clientId': typeof NutricaoClienteClientIdRoute
   '/treinos/cliente/$clientId': typeof TreinosClienteClientIdRoute
   '/app/vacuum/': typeof AppVacuumIndexRoute
   '/api/public/hooks/materialize-daily-missions': typeof ApiPublicHooksMaterializeDailyMissionsRoute
@@ -558,7 +558,7 @@ export interface FileRouteTypes {
     | '/clientes/$id/conteudos'
     | '/clientes/$id/missoes'
     | '/clientes/$id/premios'
-    | '/nutricao/cliente/$clientId'
+    | '/nutricao_/cliente/$clientId'
     | '/treinos/cliente/$clientId'
     | '/app/vacuum/'
     | '/api/public/hooks/materialize-daily-missions'
@@ -577,7 +577,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
   MissoesAdminRoute: typeof MissoesAdminRoute
-  NutricaoRoute: typeof NutricaoRouteWithChildren
+  NutricaoRoute: typeof NutricaoRoute
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -587,6 +587,7 @@ export interface RootRouteChildren {
   VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
+  NutricaoClienteClientIdRoute: typeof NutricaoClienteClientIdRoute
   TreinosClienteClientIdRoute: typeof TreinosClienteClientIdRoute
   ApiPublicHooksMaterializeDailyMissionsRoute: typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
@@ -866,12 +867,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TreinosClienteClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/nutricao/cliente/$clientId': {
-      id: '/nutricao/cliente/$clientId'
-      path: '/cliente/$clientId'
+    '/nutricao_/cliente/$clientId': {
+      id: '/nutricao_/cliente/$clientId'
+      path: '/nutricao/cliente/$clientId'
       fullPath: '/nutricao/cliente/$clientId'
       preLoaderRoute: typeof NutricaoClienteClientIdRouteImport
-      parentRoute: typeof NutricaoRoute
+      parentRoute: typeof rootRouteImport
     }
     '/clientes/$id/premios': {
       id: '/clientes/$id/premios'
@@ -963,18 +964,6 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface NutricaoRouteChildren {
-  NutricaoClienteClientIdRoute: typeof NutricaoClienteClientIdRoute
-}
-
-const NutricaoRouteChildren: NutricaoRouteChildren = {
-  NutricaoClienteClientIdRoute: NutricaoClienteClientIdRoute,
-}
-
-const NutricaoRouteWithChildren = NutricaoRoute._addFileChildren(
-  NutricaoRouteChildren,
-)
-
 interface ClientesIdRouteChildren {
   ClientesIdConteudosRoute: typeof ClientesIdConteudosRoute
   ClientesIdMissoesRoute: typeof ClientesIdMissoesRoute
@@ -1004,7 +993,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
   MissoesAdminRoute: MissoesAdminRoute,
-  NutricaoRoute: NutricaoRouteWithChildren,
+  NutricaoRoute: NutricaoRoute,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -1014,6 +1003,7 @@ const rootRouteChildren: RootRouteChildren = {
   VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
+  NutricaoClienteClientIdRoute: NutricaoClienteClientIdRoute,
   TreinosClienteClientIdRoute: TreinosClienteClientIdRoute,
   ApiPublicHooksMaterializeDailyMissionsRoute:
     ApiPublicHooksMaterializeDailyMissionsRoute,
@@ -1021,13 +1011,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
