@@ -225,6 +225,7 @@ export const saveVideo = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       await logAudit(context, tenantId, "video.update", "video", row.id, { journeyId: resolvedJourneyId });
+      await syncVideoMissionForEligibleJourneys(row);
       const sig = await signThumb(context.supabase, row.thumbnail_storage_key);
       return { video: mapVideo(row, sig) };
     } else {
