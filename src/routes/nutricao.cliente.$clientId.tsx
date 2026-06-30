@@ -91,9 +91,9 @@ function Page() {
 
   const createMut = useMutation({
     mutationFn: useServerFn(createNutritionPlan),
-    onSuccess: (res) => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["nutrition-plans", clientId] });
-      setSelectedPlanId(res.plan.id);
+      setSelectedPlanId(res?.plan?.id ?? null);
     },
   });
 
