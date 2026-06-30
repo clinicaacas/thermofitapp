@@ -198,7 +198,7 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
   const removePdfMut = useMutation({ mutationFn: useServerFn(removePlanPdf), onSuccess: invalidatePlan });
 
   const uploadPdf = useServerFn(uploadPlanPdf);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
+  const fetchPdfBytes = useServerFn(fetchWorkoutMaterial);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -216,8 +216,21 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
     } finally { setPdfBusy(false); }
   }
 
-  function onViewPdf(path: string) {
-    setViewer({ path, title: plan?.title || "Material" });
+  async function onDownloadPdf(path: string, fallbackName = "material.pdf") {
+    try {
+      const res: any = await fetchPdfBytes({ data: { path } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename || fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao baixar PDF.");
+    }
   }
 
   if (isLoading || !plan) return <p className="text-sm text-muted-foreground">Carregando plano…</p>;
