@@ -269,7 +269,7 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
         const v: any = videoMap.get(p.videoId);
         if (!t || !v || !t.active || t.archived_at) return null;
         const completed = !!(p.missionId && completionMap.has(p.missionId));
-        const response = p.missionId ? responseMap.get(p.missionId) : null;
+        const response = (p.missionId ? responseMap.get(p.missionId) : null) as any;
         return {
           missionId: p.missionId,
           taskId: t.id,
