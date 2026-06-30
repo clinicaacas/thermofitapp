@@ -46,6 +46,7 @@ function Page() {
   const save = useServerFn(saveExercise);
   const remove = useServerFn(deleteExercise);
   const { data, isLoading } = useQuery({ queryKey: ["exercises"], queryFn: () => fetchAll() });
+  const [tab, setTab] = useState<"planos" | "biblioteca">("planos");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<E, "id">>(empty);
@@ -60,6 +61,16 @@ function Page() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    try {
+      await save({ data: { id: editingId ?? undefined, patch: form as any } });
+      await qc.invalidateQueries({ queryKey: ["exercises"] });
+      close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
     try {
       await save({ data: { id: editingId ?? undefined, patch: form as any } });
       await qc.invalidateQueries({ queryKey: ["exercises"] });
