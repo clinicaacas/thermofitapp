@@ -1,8 +1,8 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
-import { Apple, FileText, Download, Loader2, AlertCircle } from "lucide-react";
+import { useEffect } from "react";
+import { Apple, Download, Loader2, AlertCircle } from "lucide-react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import { useClientIdentity } from "@/hooks/use-client-identity";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import {
   getClientNutritionPlanForApp,
   fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
+
 
 export const Route = createFileRoute("/app/nutricao")({
   validateSearch: (s: Record<string, unknown>) => ({ clientId: (s.clientId as string) || "" }),
@@ -81,7 +81,7 @@ function Page() {
     };
   }, [clientId, qc]);
 
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
+  
 
   async function downloadPath(path: string, fallbackName: string) {
     const res = await fetchMaterial({ data: { path } });
@@ -162,17 +162,8 @@ function Page() {
             {plan.mainPdfPath && (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <button
-                  onClick={() =>
-                    setViewer({ path: plan.mainPdfPath!, title: plan.title })
-                  }
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1F2933] px-3 py-2 text-xs font-semibold text-white"
-                >
-                  <FileText className="h-3.5 w-3.5" /> Ver plano
-                </button>
-                <button
                   onClick={() => downloadPath(plan.mainPdfPath!, "plano-alimentar.pdf")}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-3 py-2 text-xs font-semibold"
-                  style={{ color: "#1F2933" }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1F2933] px-3 py-2 text-xs font-semibold text-white"
                 >
                   <Download className="h-3.5 w-3.5" /> Baixar PDF
                 </button>
@@ -227,17 +218,10 @@ function Page() {
                     {path ? (
                       <div className="mt-2 flex gap-2">
                         <button
-                          onClick={() => setViewer({ path, title })}
+                          onClick={() => downloadPath(path, `${title}.pdf`)}
                           className="inline-flex items-center gap-1.5 rounded-md bg-[#1F2933] px-2.5 py-1.5 text-[11px] font-semibold text-white"
                         >
-                          <FileText className="h-3 w-3" /> Ver material
-                        </button>
-                        <button
-                          onClick={() => downloadPath(path, `${title}.pdf`)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E0D8] bg-white px-2.5 py-1.5 text-[11px] font-semibold"
-                          style={{ color: "#1F2933" }}
-                        >
-                          <Download className="h-3 w-3" /> Baixar
+                          <Download className="h-3 w-3" /> Baixar PDF
                         </button>
                       </div>
                     ) : (
@@ -252,13 +236,7 @@ function Page() {
           </section>
         </>
       )}
-
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? "Plano alimentar"}
-        onClose={() => setViewer(null)}
-      />
     </ClientAppShell>
+
   );
 }

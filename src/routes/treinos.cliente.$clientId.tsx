@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft, Plus, Trash2, FileText, Upload, Eye, ArrowUp, ArrowDown, Save, Send,
+  ArrowLeft, Plus, Trash2, FileText, Upload, Download, ArrowUp, ArrowDown, Save, Send,
   Archive, Copy, X, Dumbbell, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { listExercises } from "@/lib/thermofit-content.functions";
@@ -14,8 +14,8 @@ import {
   getClientPlans, getPlan, createPlan, updatePlan, publishPlan, archivePlan, duplicatePlanAsDraft,
   addPlanExercise, updatePlanExercise, removePlanExercise, reorderPlanExercises,
   uploadPlanPdf, removePlanPdf, uploadPlanExercisePdf, removePlanExercisePdf,
+  fetchWorkoutMaterial,
 } from "@/lib/thermofit-workout-plans.functions";
-import { WorkoutPlanPdfViewer } from "@/components/workout-plan-pdf-viewer";
 
 export const Route = createFileRoute("/treinos/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Plano de treino — ThermoFit" }] }),
@@ -198,7 +198,7 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
   const removePdfMut = useMutation({ mutationFn: useServerFn(removePlanPdf), onSuccess: invalidatePlan });
 
   const uploadPdf = useServerFn(uploadPlanPdf);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
+  const fetchPdfBytes = useServerFn(fetchWorkoutMaterial);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -216,8 +216,21 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
     } finally { setPdfBusy(false); }
   }
 
-  function onViewPdf(path: string) {
-    setViewer({ path, title: plan?.title || "Material" });
+  async function onDownloadPdf(path: string, fallbackName = "material.pdf") {
+    try {
+      const res: any = await fetchPdfBytes({ data: { path } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename || fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao baixar PDF.");
+    }
   }
 
   if (isLoading || !plan) return <p className="text-sm text-muted-foreground">Carregando plano…</p>;
@@ -299,8 +312,8 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
           {plan.pdfPath ? (
             <div className="mt-2 flex items-center gap-2">
               <span className="truncate text-xs text-muted-foreground">{plan.pdfPath.split("/").pop()}</span>
-              <button onClick={() => onViewPdf(plan.pdfPath!)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
-                <Eye className="h-3 w-3" /> Visualizar
+              <button onClick={() => onDownloadPdf(plan.pdfPath!, `${plan.title || "plano"}.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
+                <Download className="h-3 w-3" /> Baixar PDF
               </button>
               {canEdit && (
                 <button onClick={() => { if (confirm("Remover PDF do plano?")) removePdfMut.mutate({ data: { planId } }); }} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
@@ -334,22 +347,17 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
         </div>
       </div>
 
-      <PlanExercisesSection planId={planId} items={items} tenantId={plan.tenantId} canEdit={canEdit} onChanged={invalidatePlan} onViewPdf={onViewPdf} />
-      <WorkoutPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? "Material"}
-        onClose={() => setViewer(null)}
-      />
+      <PlanExercisesSection planId={planId} items={items} tenantId={plan.tenantId} canEdit={canEdit} onChanged={invalidatePlan} onDownloadPdf={onDownloadPdf} />
     </div>
   );
 }
 
+
 function PlanExercisesSection({
-  planId, items, tenantId, canEdit, onChanged, onViewPdf,
+  planId, items, tenantId, canEdit, onChanged, onDownloadPdf,
 }: {
   planId: string; items: any[]; tenantId: string; canEdit: boolean;
-  onChanged: () => void; onViewPdf: (path: string) => void;
+  onChanged: () => void; onDownloadPdf: (path: string, fallbackName?: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const addMut = useMutation({ mutationFn: useServerFn(addPlanExercise), onSuccess: onChanged });
@@ -387,7 +395,7 @@ function PlanExercisesSection({
             onMove={(dir) => move(idx, dir)}
             onUpdate={(patch) => updMut.mutate({ data: { itemId: it.id, ...patch } })}
             onRemove={() => { if (confirm("Remover apenas deste plano?")) rmMut.mutate({ data: { itemId: it.id } }); }}
-            onViewPdf={onViewPdf}
+            onDownloadPdf={onDownloadPdf}
             onChanged={onChanged}
           />
         ))}
@@ -406,13 +414,13 @@ function PlanExercisesSection({
 }
 
 function PlanExerciseRow({
-  item, index, total, canEdit, onMove, onUpdate, onRemove, onViewPdf, onChanged,
+  item, index, total, canEdit, onMove, onUpdate, onRemove, onDownloadPdf, onChanged,
 }: {
   item: any; index: number; total: number; canEdit: boolean;
   onMove: (dir: -1 | 1) => void;
   onUpdate: (patch: { sets?: number | null; reps?: string | null; notes?: string | null }) => void;
   onRemove: () => void;
-  onViewPdf: (path: string) => void;
+  onDownloadPdf: (path: string, fallbackName?: string) => void;
   onChanged: () => void;
 }) {
   const ex = item.exercise;
@@ -514,12 +522,14 @@ function PlanExerciseRow({
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
         {ex?.videoUrl && <a href={ex.videoUrl} target="_blank" rel="noopener" className="rounded-md border border-input px-2 py-1 hover:bg-accent">Ver vídeo base</a>}
         {ex?.pdfPath && !item.pdfPath && (
-          <button onClick={() => onViewPdf(ex.pdfPath)} className="rounded-md border border-input px-2 py-1 hover:bg-accent">Ver PDF base</button>
+          <button onClick={() => onDownloadPdf(ex.pdfPath, `${ex?.title || "exercicio"}.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 hover:bg-accent">
+            <Download className="h-3 w-3" /> Baixar PDF base
+          </button>
         )}
         {item.pdfPath && (
           <>
-            <button onClick={() => onViewPdf(item.pdfPath)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
-              <FileText className="h-3 w-3" /> PDF exclusivo
+            <button onClick={() => onDownloadPdf(item.pdfPath, `${ex?.title || "exercicio"}-exclusivo.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">
+              <Download className="h-3 w-3" /> Baixar PDF exclusivo
             </button>
             {canEdit && (
               <button onClick={() => removeExPdf.mutate({ data: { itemId: item.id } })} className="rounded-md border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50">

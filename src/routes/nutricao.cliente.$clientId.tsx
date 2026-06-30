@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   Apple,
   FileText,
-  Eye,
+  Download,
   Plus,
   Trash2,
   Loader2,
@@ -35,8 +35,8 @@ import {
   attachExclusiveMaterialToPlan,
   removeNutritionPlanMaterial,
   updateNutritionPlanMaterial,
+  fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
 export const Route = createFileRoute("/nutricao/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Nutrição da cliente — ThermoFit" }] }),
@@ -287,8 +287,25 @@ function PlanEditor({
   }, [plan.id]);
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
   const [showLib, setShowLib] = useState(false);
+  const fetchPdf = useServerFn(fetchNutritionMaterial);
+
+  async function downloadPdf(path: string, fallbackName: string) {
+    try {
+      const res: any = await fetchPdf({ data: { path } });
+      const bin = atob(res.base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename || fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao baixar PDF.");
+    }
+  }
 
   const { data: libData } = useQuery({
     queryKey: ["nutrition-library", "ativo"],
@@ -427,9 +444,9 @@ function PlanEditor({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setViewer({ path: plan.mainPdfPath, title: plan.title })}
+              onClick={() => downloadPdf(plan.mainPdfPath!, `${plan.title || "plano"}.pdf`)}
             >
-              <Eye className="h-4 w-4" /> Visualizar
+              <Download className="h-4 w-4" /> Baixar PDF
             </Button>
             {!isReadOnly && (
               <>
@@ -578,8 +595,8 @@ function PlanEditor({
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {path && (
-                        <Button size="sm" variant="outline" onClick={() => setViewer({ path, title })}>
-                          <Eye className="h-3.5 w-3.5" />
+                        <Button size="sm" variant="outline" onClick={() => downloadPdf(path, `${title || "material"}.pdf`)}>
+                          <Download className="h-3.5 w-3.5" /> Baixar
                         </Button>
                       )}
                       {!isReadOnly && (
@@ -603,13 +620,6 @@ function PlanEditor({
           </ul>
         )}
       </div>
-
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? plan.title}
-        onClose={() => setViewer(null)}
-      />
     </div>
   );
 }

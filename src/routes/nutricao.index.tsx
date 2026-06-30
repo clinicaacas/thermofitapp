@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Apple, Search, FileText, Archive, RefreshCw, Plus, ExternalLink, Eye, Loader2 } from "lucide-react";
+import { Apple, Search, FileText, Archive, RefreshCw, Plus, ExternalLink, Download, Loader2 } from "lucide-react";
 import {
   listNutritionClientsOverview,
   listNutritionLibrary,
@@ -15,8 +15,8 @@ import {
   updateNutritionLibraryMaterial,
   archiveNutritionLibraryMaterial,
   uploadNutritionLibraryPdf,
+  fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
 export const Route = createFileRoute("/nutricao/")({
   head: () => ({ meta: [{ title: "Nutrição — ThermoFit" }] }),
@@ -171,8 +171,25 @@ function LibraryTab() {
   });
 
   const [editing, setEditing] = useState<any | null>(null);
-  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
   const [form, setForm] = useState({ title: "", category: "receitas", description: "" });
+  const fetchPdf = useServerFn(fetchNutritionMaterial);
+
+  async function downloadPdf(path: string, fallbackName: string) {
+    try {
+      const res: any = await fetchPdf({ data: { path } });
+      const bin = atob(res.base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: res.contentType || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename || fallbackName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao baixar PDF.");
+    }
+  }
 
   const createMut = useMutation({
     mutationFn: () => create({ data: form }),
@@ -242,9 +259,9 @@ function LibraryTab() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setViewer({ path: m.storagePath, title: m.title })}
+                        onClick={() => downloadPdf(m.storagePath, `${m.title || "material"}.pdf`)}
                       >
-                        <Eye className="h-3.5 w-3.5" /> Visualizar
+                        <Download className="h-3.5 w-3.5" /> Baixar PDF
                       </Button>
                     )}
                     <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 hover:bg-muted">
@@ -332,12 +349,6 @@ function LibraryTab() {
         </div>
       </aside>
 
-      <NutritionPlanPdfViewer
-        open={!!viewer}
-        path={viewer?.path ?? null}
-        title={viewer?.title ?? ""}
-        onClose={() => setViewer(null)}
-      />
     </div>
   );
 }
