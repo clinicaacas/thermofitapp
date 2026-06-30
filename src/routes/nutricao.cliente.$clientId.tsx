@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   Apple,
   FileText,
-  Eye,
+  Download,
   Plus,
   Trash2,
   Loader2,
@@ -35,8 +35,8 @@ import {
   attachExclusiveMaterialToPlan,
   removeNutritionPlanMaterial,
   updateNutritionPlanMaterial,
+  fetchNutritionMaterial,
 } from "@/lib/thermofit-nutrition.functions";
-import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
 export const Route = createFileRoute("/nutricao/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Nutrição da cliente — ThermoFit" }] }),
