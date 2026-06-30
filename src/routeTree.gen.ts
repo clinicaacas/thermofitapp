@@ -13,7 +13,6 @@ import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as PremiosRouteImport } from './routes/premios'
-import { Route as NutricaoRouteImport } from './routes/nutricao'
 import { Route as MissoesAdminRouteImport } from './routes/missoes-admin'
 import { Route as MensagensRouteImport } from './routes/mensagens'
 import { Route as LoginRouteImport } from './routes/login'
@@ -74,11 +73,6 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const PremiosRoute = PremiosRouteImport.update({
   id: '/premios',
   path: '/premios',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NutricaoRoute = NutricaoRouteImport.update({
-  id: '/nutricao',
-  path: '/nutricao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MissoesAdminRoute = MissoesAdminRouteImport.update({
@@ -147,9 +141,9 @@ const VideosIndexRoute = VideosIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutricaoIndexRoute = NutricaoIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => NutricaoRoute,
+  id: '/nutricao/',
+  path: '/nutricao/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
@@ -257,9 +251,9 @@ const TreinosClienteClientIdRoute = TreinosClienteClientIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutricaoClienteClientIdRoute = NutricaoClienteClientIdRouteImport.update({
-  id: '/cliente/$clientId',
-  path: '/cliente/$clientId',
-  getParentRoute: () => NutricaoRoute,
+  id: '/nutricao/cliente/$clientId',
+  path: '/nutricao/cliente/$clientId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesIdPremiosRoute = ClientesIdPremiosRouteImport.update({
   id: '/premios',
@@ -301,7 +295,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -395,7 +388,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mensagens': typeof MensagensRoute
   '/missoes-admin': typeof MissoesAdminRoute
-  '/nutricao': typeof NutricaoRouteWithChildren
   '/premios': typeof PremiosRoute
   '/relatorios': typeof RelatoriosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -445,7 +437,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
-    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -538,7 +529,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/mensagens'
     | '/missoes-admin'
-    | '/nutricao'
     | '/premios'
     | '/relatorios'
     | '/reset-password'
@@ -587,7 +577,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MensagensRoute: typeof MensagensRoute
   MissoesAdminRoute: typeof MissoesAdminRoute
-  NutricaoRoute: typeof NutricaoRouteWithChildren
   PremiosRoute: typeof PremiosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -596,7 +585,9 @@ export interface RootRouteChildren {
   ClientesNovaRoute: typeof ClientesNovaRoute
   VideosNovaRoute: typeof VideosNovaRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
+  NutricaoIndexRoute: typeof NutricaoIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
+  NutricaoClienteClientIdRoute: typeof NutricaoClienteClientIdRoute
   TreinosClienteClientIdRoute: typeof TreinosClienteClientIdRoute
   ApiPublicHooksMaterializeDailyMissionsRoute: typeof ApiPublicHooksMaterializeDailyMissionsRoute
 }
@@ -629,13 +620,6 @@ declare module '@tanstack/react-router' {
       path: '/premios'
       fullPath: '/premios'
       preLoaderRoute: typeof PremiosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/nutricao': {
-      id: '/nutricao'
-      path: '/nutricao'
-      fullPath: '/nutricao'
-      preLoaderRoute: typeof NutricaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/missoes-admin': {
@@ -731,10 +715,10 @@ declare module '@tanstack/react-router' {
     }
     '/nutricao/': {
       id: '/nutricao/'
-      path: '/'
+      path: '/nutricao'
       fullPath: '/nutricao/'
       preLoaderRoute: typeof NutricaoIndexRouteImport
-      parentRoute: typeof NutricaoRoute
+      parentRoute: typeof rootRouteImport
     }
     '/clientes/': {
       id: '/clientes/'
@@ -885,10 +869,10 @@ declare module '@tanstack/react-router' {
     }
     '/nutricao/cliente/$clientId': {
       id: '/nutricao/cliente/$clientId'
-      path: '/cliente/$clientId'
+      path: '/nutricao/cliente/$clientId'
       fullPath: '/nutricao/cliente/$clientId'
       preLoaderRoute: typeof NutricaoClienteClientIdRouteImport
-      parentRoute: typeof NutricaoRoute
+      parentRoute: typeof rootRouteImport
     }
     '/clientes/$id/premios': {
       id: '/clientes/$id/premios'
@@ -980,20 +964,6 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface NutricaoRouteChildren {
-  NutricaoIndexRoute: typeof NutricaoIndexRoute
-  NutricaoClienteClientIdRoute: typeof NutricaoClienteClientIdRoute
-}
-
-const NutricaoRouteChildren: NutricaoRouteChildren = {
-  NutricaoIndexRoute: NutricaoIndexRoute,
-  NutricaoClienteClientIdRoute: NutricaoClienteClientIdRoute,
-}
-
-const NutricaoRouteWithChildren = NutricaoRoute._addFileChildren(
-  NutricaoRouteChildren,
-)
-
 interface ClientesIdRouteChildren {
   ClientesIdConteudosRoute: typeof ClientesIdConteudosRoute
   ClientesIdMissoesRoute: typeof ClientesIdMissoesRoute
@@ -1023,7 +993,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MensagensRoute: MensagensRoute,
   MissoesAdminRoute: MissoesAdminRoute,
-  NutricaoRoute: NutricaoRouteWithChildren,
   PremiosRoute: PremiosRoute,
   RelatoriosRoute: RelatoriosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -1032,7 +1001,9 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesNovaRoute: ClientesNovaRoute,
   VideosNovaRoute: VideosNovaRoute,
   ClientesIndexRoute: ClientesIndexRoute,
+  NutricaoIndexRoute: NutricaoIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
+  NutricaoClienteClientIdRoute: NutricaoClienteClientIdRoute,
   TreinosClienteClientIdRoute: TreinosClienteClientIdRoute,
   ApiPublicHooksMaterializeDailyMissionsRoute:
     ApiPublicHooksMaterializeDailyMissionsRoute,
