@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
@@ -38,16 +38,55 @@ import {
 } from "@/lib/thermofit-nutrition.functions";
 import { NutritionPlanPdfViewer } from "@/components/nutrition-plan-pdf-viewer";
 
-export const Route = createFileRoute("/nutricao_/cliente/$clientId")({
+export const Route = createFileRoute("/nutricao/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Nutrição da cliente — ThermoFit" }] }),
   component: Page,
 });
 
 const STATUS_BG: Record<string, string> = {
+  sem_plano: "bg-slate-100 text-slate-600",
   rascunho: "bg-amber-100 text-amber-800",
   publicado: "bg-emerald-100 text-emerald-800",
   arquivado: "bg-zinc-200 text-zinc-700",
 };
+
+function classifyEditorError(error: unknown): "not-found" | "permission" | "technical" {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (message.includes("Cliente não encontrada")) return "not-found";
+  if (
+    message.includes("fora do seu tenant") ||
+    message.includes("sem permissão") ||
+    message.includes("sem acesso ativo")
+  ) {
+    return "permission";
+  }
+  return "technical";
+}
+
+function EditorErrorState({
+  kind,
+  onRetry,
+}: {
+  kind: "not-found" | "permission" | "technical";
+  onRetry?: () => void;
+}) {
+  const copy = {
+    "not-found": "Cliente não encontrada.",
+    permission: "Você não possui permissão para gerenciar o plano nutricional desta cliente.",
+    technical: "Não foi possível carregar o plano nutricional agora. Tente novamente.",
+  }[kind];
+
+  return (
+    <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+      <p>{copy}</p>
+      {kind === "technical" && onRetry ? (
+        <Button className="mt-4" variant="outline" size="sm" onClick={onRetry}>
+          Tentar novamente
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
 async function fileToBase64(file: File) {
   const buf = await file.arrayBuffer();
@@ -62,16 +101,29 @@ async function fileToBase64(file: File) {
 }
 
 function Page() {
-  const { clientId } = useParams({ from: "/nutricao/cliente/$clientId" });
+  const { clientId } = Route.useParams();
   const qc = useQueryClient();
   const getPlans = useServerFn(getNutritionPlansForClient);
   const getPlanFn = useServerFn(getNutritionPlan);
 
-  const { data: list, isLoading } = useQuery({
+  const {
+    data: list,
+    isLoading,
+    isError: isListError,
+    error: listError,
+    refetch: refetchList,
+  } = useQuery({
     queryKey: ["nutrition-plans", clientId],
     queryFn: () => getPlans({ data: { clientId } }),
     staleTime: 0,
+    retry: false,
   });
+
+  useEffect(() => {
+    if (isListError && import.meta.env.DEV) {
+      console.warn("Nutrition editor failed to load client plans", listError);
+    }
+  }, [isListError, listError]);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   useEffect(() => {
@@ -82,12 +134,24 @@ function Page() {
     setSelectedPlanId((published ?? draft ?? list.plans[0])?.id ?? null);
   }, [list, selectedPlanId]);
 
-  const { data: planData } = useQuery({
+  const {
+    data: planData,
+    isError: isPlanError,
+    error: planError,
+    refetch: refetchPlan,
+  } = useQuery({
     queryKey: ["nutrition-plan", selectedPlanId],
     queryFn: () => getPlanFn({ data: { planId: selectedPlanId! } }),
     enabled: !!selectedPlanId,
     staleTime: 0,
+    retry: false,
   });
+
+  useEffect(() => {
+    if (isPlanError && import.meta.env.DEV) {
+      console.warn("Nutrition editor failed to load selected plan", planError);
+    }
+  }, [isPlanError, planError]);
 
   const createMut = useMutation({
     mutationFn: useServerFn(createNutritionPlan),
@@ -114,6 +178,8 @@ function Page() {
 
       {isLoading ? (
         <Loader2 className="h-5 w-5 animate-spin" />
+      ) : isListError ? (
+        <EditorErrorState kind={classifyEditorError(listError)} onRetry={() => refetchList()} />
       ) : (
         <div className="grid gap-4 md:grid-cols-[260px_1fr]">
           <aside className="space-y-2">
@@ -127,6 +193,14 @@ function Page() {
             </Button>
             <p className="mt-2 text-[11px] uppercase tracking-wider text-muted-foreground">
               Histórico
+            </p>
+            {(!list?.plans || list.plans.length === 0) && (
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_BG.sem_plano}`}>
+                Sem plano
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Jornada ativa: {list?.client?.activeJourneyId ? "Configurada" : "Sem jornada ativa"}
             </p>
             <ul className="space-y-1">
               {(list?.plans ?? []).map((p: any) => (
@@ -156,7 +230,9 @@ function Page() {
             </ul>
           </aside>
 
-          {planData ? (
+          {isPlanError ? (
+            <EditorErrorState kind={classifyEditorError(planError)} onRetry={() => refetchPlan()} />
+          ) : planData ? (
             <PlanEditor
               clientId={clientId}
               planId={planData.plan.id}
