@@ -72,19 +72,12 @@ export const getClientVideoDayState = createServerFn({ method: "GET" })
     const priorVideos = all.filter((v: any) => Number(v.release_day) < todayIdx);
     const futureVideos = all.filter((v: any) => Number(v.release_day) > todayIdx);
 
-    // Garantir que as missões dos vídeos de hoje existam (idempotente)
-    for (const v of todayVideosRaw) {
-      try {
-        await admin.rpc("ensure_video_mission", {
-          _client_id: client.id,
-          _journey_id: journeyId,
-          _day: addDaysISO(startedOn, todayIdx),
-          _video_id: v.id,
-        });
-      } catch (err) {
-        console.error("ensure_video_mission failed", err);
-      }
-    }
+    // GETTER É READ-ONLY: não chama ensure_video_mission / award_miles / nenhum
+    // RPC de materialização. A criação da missão `video_complete` acontece em
+    // mutações explícitas: saveVideo (sincroniza para o dia atual) e o cron
+    // diário (materialize_daily_missions_all). Em casos legados, ainda existe
+    // a chance de não haver missão materializada; o app exibe o vídeo do dia
+    // mesmo assim, e a missão é criada na próxima execução autorizada.
 
     // Progresso da cliente em todos os vídeos relevantes
     const ids = all.map((v: any) => v.id);
