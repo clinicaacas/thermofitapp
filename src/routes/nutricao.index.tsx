@@ -259,9 +259,9 @@ function LibraryTab() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setViewer({ path: m.storagePath, title: m.title })}
+                        onClick={() => downloadPdf(m.storagePath, `${m.title || "material"}.pdf`)}
                       >
-                        <Eye className="h-3.5 w-3.5" /> Visualizar
+                        <Download className="h-3.5 w-3.5" /> Baixar PDF
                       </Button>
                     )}
                     <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 hover:bg-muted">
