@@ -213,6 +213,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       const rawP = localStorage.getItem(PLANS_STORAGE);
       if (rawP) setPlans(JSON.parse(rawP));
     } catch {}
+    // Não disparar getTenantSnapshot dentro do App da Cliente nem dentro da
+    // rota segura de Preview. Esses contextos não consomem dados do tenant
+    // administrativo e a chamada vazaria boot Admin para dentro do iframe.
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname;
+      if (p === "/app" || p.startsWith("/app/") || p.startsWith("/preview/app/")) {
+        setTenantLoading(false);
+        return;
+      }
+    }
     void refreshTenant();
   }, [refreshTenant]);
 

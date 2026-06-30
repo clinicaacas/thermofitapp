@@ -44,7 +44,11 @@ export function ClientAppPreviewTab() {
 
   const src = useMemo(() => {
     if (!clientId) return "";
-    return `${screen}?clientId=${clientId}`;
+    // Aponta para a rota administrativa SEGURA. O gate valida sessão admin e
+    // acesso à cliente server-side antes de qualquer render. O iframe HTML
+    // continua existindo apenas como contêiner visual temporário.
+    const screenPath = screen.replace(/^\/app\/?/, "");
+    return `/preview/app/cliente/${clientId}/${screenPath}`;
   }, [clientId, screen]);
 
   return (
