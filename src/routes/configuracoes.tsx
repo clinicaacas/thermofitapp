@@ -568,7 +568,7 @@ type NewUserDraft = {
 function UsersTab() {
   const {
     tenant, allTenants, callerIsSuperAdmin, teamCount: basicsTeamCount,
-    currentPlan, refreshTenant,
+    currentPlan,
     addUser: _addUser, updateUser: _updateUser,
     resetUserPassword: _resetUserPassword, removeUser: _removeUser,
     setMembership: _setMembership, removeMembership: _removeMembership,
