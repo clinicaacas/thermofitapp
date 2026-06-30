@@ -239,24 +239,36 @@ export function DailyRoutineCard({ clientId }: Props) {
       {/* Foto do treino — só libera após treino realizado */}
       {workoutDone && (
         <>
-          <div className="my-2 h-px" style={{ background: "#F3E8D2" }} />
-          <div className="py-2">
-            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              Envie uma foto do treino de hoje e ganhe mais 5 milhas
-            </p>
-            <p className="text-[11px]" style={{ color: "#6B7280" }}>
-              A foto fica privada · concedido 1x por dia
-            </p>
+          <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
+          <div className="py-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+                  Foto do treino
+                </p>
+                <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+                  Privada · +5 · 1x por dia
+                </p>
+              </div>
+              {photoSent && (
+                <span
+                  className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  style={{ background: "#E8F2E5", color: "#3F7A3A" }}
+                >
+                  <Check className="h-3 w-3" /> Enviada
+                </span>
+              )}
+            </div>
             {!photoSent && (
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value.slice(0, 500))}
                 placeholder="Observação (opcional)"
-                className="mt-2 w-full rounded-lg px-3 py-1.5 text-xs"
+                className="mt-1.5 w-full rounded-lg px-3 py-1.5 text-xs"
                 style={{ border: "1px solid #E5D6BD", color: "#1F2933" }}
               />
             )}
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-1.5 flex items-center gap-2">
               <input
                 ref={fileRef}
                 type="file"
@@ -278,14 +290,6 @@ export function DailyRoutineCard({ clientId }: Props) {
                 <Camera className="h-3.5 w-3.5" />
                 {busy ? "Enviando…" : photoSent ? "Reenviar foto" : "Enviar foto"}
               </button>
-              {photoSent && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                  style={{ background: "#E8F2E5", color: "#3F7A3A" }}
-                >
-                  <Check className="h-3 w-3" /> Foto enviada
-                </span>
-              )}
             </div>
           </div>
         </>
