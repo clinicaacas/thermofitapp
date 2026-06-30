@@ -37,40 +37,40 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
   const { state, todayVideos, nextReleaseDay, pendingPriorVideos } = data as any;
 
   return (
-    <section className="mt-3">
+    <section className="mt-2">
       <Title plural={todayVideos.length > 1} />
       {(state === "video_available" || state === "video_done") && (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {todayVideos.map((v: any) => (
             <li key={v.videoId}>
               <button
                 onClick={() => onOpenVideo(v.videoId)}
-                className="flex w-full items-center gap-2.5 rounded-2xl bg-white p-2.5 text-left"
+                className="flex w-full items-center gap-2 rounded-xl bg-white p-2 text-left"
                 style={{ border: `1px solid ${v.completed ? "#BFD8B7" : "#E5D6BD"}`, background: v.completed ? "#F1F8EF" : "#FFFFFF" }}
               >
-                <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg" style={{ background: "#F3E8D2" }}>
+                <div className="h-10 w-14 shrink-0 overflow-hidden rounded-md" style={{ background: "#F3E8D2" }}>
                   {v.thumbnailUrl ? (
                     <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full w-full place-items-center">
-                      <Play className="h-4 w-4" style={{ color: "#8A6A3D" }} />
+                      <Play className="h-3.5 w-3.5" style={{ color: "#8A6A3D" }} />
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+                  <p className="truncate text-[13px] font-semibold leading-tight" style={{ color: "#1F2933" }}>
                     {v.title}
                   </p>
-                  <p className="truncate text-[11px] capitalize leading-tight mt-0.5" style={{ color: "#6B7280" }}>
+                  <p className="truncate text-[10px] capitalize leading-tight mt-0.5" style={{ color: "#6B7280" }}>
                     {v.category || "geral"} · {v.minCompletionPct}%
                   </p>
                 </div>
                 {v.completed ? (
-                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#E8F2E5", color: "#3F7A3A" }}>
+                  <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "#E8F2E5", color: "#3F7A3A" }}>
                     <Check className="h-3 w-3" /> {v.miles > 0 ? `+${v.miles}` : "Ok"}
                   </span>
                 ) : v.miles > 0 ? (
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
+                  <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "#F3E8D2", color: "#8A6A3D" }}>
                     +{v.miles}
                   </span>
                 ) : null}
@@ -79,6 +79,7 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
           ))}
         </ul>
       )}
+
 
       {state === "no_video_today" && (
         <InfoCard icon={<Info className="h-4 w-4" style={{ color: "#8A6A3D" }} />}>
@@ -128,11 +129,12 @@ export function VideoDayBlock({ clientId, identityKey, onOpenVideo }: Props) {
 
 function Title({ plural }: { plural?: boolean } = {}) {
   return (
-    <h3 className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
+    <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A6A3D" }}>
       {plural ? "Vídeos do dia" : "Vídeo do dia"}
     </h3>
   );
 }
+
 
 function InfoCard({
   icon,
