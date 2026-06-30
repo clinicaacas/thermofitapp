@@ -123,24 +123,24 @@ export function DailyRoutineCard({ clientId }: Props) {
 
   return (
     <section
-      className="mt-4 rounded-2xl bg-white p-3"
+      className="mt-3 rounded-2xl bg-white p-3"
       style={{ border: "1px solid #E5D6BD" }}
     >
       <h3
-        className="mb-2 text-xs font-bold uppercase tracking-wider"
+        className="mb-1.5 text-xs font-bold uppercase tracking-wider"
         style={{ color: "#8A6A3D" }}
       >
         Rotina de hoje
       </h3>
 
       {/* Check-in */}
-      <div className="flex items-center justify-between gap-3 py-2">
+      <div className="flex items-center justify-between gap-3 py-1.5">
         <div className="min-w-0">
-          <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
+          <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
             Me conta sua jornada
           </p>
-          <p className="text-[11px]" style={{ color: "#6B7280" }}>
-            Check-in diário · +5 milhas
+          <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+            Check-in diário · +5
           </p>
         </div>
         {checkinDone ? (
@@ -148,7 +148,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
-            <Check className="h-3 w-3" /> Check-in concluído · +5 milhas
+            <Check className="h-3 w-3" /> +5
           </span>
         ) : (
           <button
@@ -163,17 +163,17 @@ export function DailyRoutineCard({ clientId }: Props) {
         )}
       </div>
 
-      <div className="my-2 h-px" style={{ background: "#F3E8D2" }} />
+      <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
 
       {/* Alimentação */}
-      <div className="py-2">
+      <div className="py-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              Como foi sua alimentação hoje?
+            <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+              Como foi sua alimentação?
             </p>
-            <p className="text-[11px]" style={{ color: "#6B7280" }}>
-              +5 milhas · pode editar no mesmo dia
+            <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
+              +5 · pode editar hoje
             </p>
           </div>
           {mealChoice && (
@@ -181,11 +181,11 @@ export function DailyRoutineCard({ clientId }: Props) {
               className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
               style={{ background: "#E8F2E5", color: "#3F7A3A" }}
             >
-              <Check className="h-3 w-3" /> +5 milhas
+              <Check className="h-3 w-3" /> +5
             </span>
           )}
         </div>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {MEALS.map((m) => (
             <Pill
               key={m.value}
@@ -199,16 +199,16 @@ export function DailyRoutineCard({ clientId }: Props) {
         </div>
       </div>
 
-      <div className="my-2 h-px" style={{ background: "#F3E8D2" }} />
+      <div className="my-1.5 h-px" style={{ background: "#F3E8D2" }} />
 
       {/* Treino */}
-      <div className="py-2">
+      <div className="py-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold" style={{ color: "#1F2933" }}>
-              Como foi seu treino hoje?
+            <p className="text-sm font-semibold leading-tight" style={{ color: "#1F2933" }}>
+              Como foi seu treino?
             </p>
-            <p className="text-[11px]" style={{ color: "#6B7280" }}>
+            <p className="text-[11px] leading-tight" style={{ color: "#6B7280" }}>
               Realizado +10 · descanso sem pontuação
             </p>
           </div>
@@ -218,11 +218,11 @@ export function DailyRoutineCard({ clientId }: Props) {
               style={{ background: "#E8F2E5", color: "#3F7A3A" }}
             >
               <Check className="h-3 w-3" />
-              {workoutDone ? "+10 milhas" : "Registrado"}
+              {workoutDone ? "+10" : "Ok"}
             </span>
           )}
         </div>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {WORKOUTS.map((w) => (
             <Pill
               key={w.value}
