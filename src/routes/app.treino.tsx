@@ -72,6 +72,7 @@ function Page() {
 
 
   return (
+    <>
     <ClientAppShell title="Treino" subtitle="Seu plano personalizado">
       {isLoading || !identity ? (
         <p className="text-sm" style={{ color: "#6B7280" }}>Carregando…</p>
