@@ -14,8 +14,8 @@ import {
   getClientPlans, getPlan, createPlan, updatePlan, publishPlan, archivePlan, duplicatePlanAsDraft,
   addPlanExercise, updatePlanExercise, removePlanExercise, reorderPlanExercises,
   uploadPlanPdf, removePlanPdf, uploadPlanExercisePdf, removePlanExercisePdf,
-  mintWorkoutMaterialToken,
 } from "@/lib/thermofit-workout-plans.functions";
+import { WorkoutPlanPdfViewer } from "@/components/workout-plan-pdf-viewer";
 
 export const Route = createFileRoute("/treinos/cliente/$clientId")({
   head: () => ({ meta: [{ title: "Plano de treino — ThermoFit" }] }),
@@ -198,7 +198,7 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
   const removePdfMut = useMutation({ mutationFn: useServerFn(removePlanPdf), onSuccess: invalidatePlan });
 
   const uploadPdf = useServerFn(uploadPlanPdf);
-  const mintToken = useServerFn(mintWorkoutMaterialToken);
+  const [viewer, setViewer] = useState<{ path: string; title: string } | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -216,14 +216,8 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
     } finally { setPdfBusy(false); }
   }
 
-  async function onViewPdf(path: string) {
-    try {
-      const { token } = await mintToken({ data: { path } });
-      // Same-origin streamer — evita ERR_BLOCKED_BY_CLIENT em URLs *.supabase.co.
-      window.open(`/api/public/materiais/treino?t=${encodeURIComponent(token)}`, "_blank", "noopener");
-    } catch (e: any) {
-      alert(e.message || "Falha ao abrir PDF.");
-    }
+  function onViewPdf(path: string) {
+    setViewer({ path, title: plan?.title || "Material" });
   }
 
   if (isLoading || !plan) return <p className="text-sm text-muted-foreground">Carregando plano…</p>;
