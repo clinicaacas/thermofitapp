@@ -160,6 +160,7 @@ function Page() {
             </div>
           ))}
         </div>
+        </>}
       </div>
 
       {open && (
