@@ -879,18 +879,29 @@ function UsersTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenantLoading ? (
+              {teamLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 7 }).map((__, j) => (
+                      <TableCell key={j} className="py-3">
+                        <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : teamErrorMsg ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    Carregando usuários...
+                  <TableCell colSpan={7} className="py-8 text-center text-sm">
+                    <div className="text-muted-foreground">{teamErrorMsg}</div>
+                    <Button size="sm" variant="outline" className="mt-3" onClick={() => teamQuery.refetch()}>
+                      Tentar novamente
+                    </Button>
                   </TableCell>
                 </TableRow>
               ) : visibleUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    {tenantError
-                      ? "Não foi possível carregar a lista completa. Tente novamente."
-                      : "Nenhum usuário encontrado para o filtro selecionado."}
+                    Nenhum usuário encontrado para o filtro selecionado.
                   </TableCell>
                 </TableRow>
               ) : visibleUsers.map((u) => {
