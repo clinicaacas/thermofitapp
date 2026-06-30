@@ -312,8 +312,8 @@ function PlanEditor({ planId, clientId }: { planId: string; clientId: string }) 
           {plan.pdfPath ? (
             <div className="mt-2 flex items-center gap-2">
               <span className="truncate text-xs text-muted-foreground">{plan.pdfPath.split("/").pop()}</span>
-              <button onClick={() => onViewPdf(plan.pdfPath!)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
-                <Eye className="h-3 w-3" /> Visualizar
+              <button onClick={() => onDownloadPdf(plan.pdfPath!, `${plan.title || "plano"}.pdf`)} className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent">
+                <Download className="h-3 w-3" /> Baixar PDF
               </button>
               {canEdit && (
                 <button onClick={() => { if (confirm("Remover PDF do plano?")) removePdfMut.mutate({ data: { planId } }); }} className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">
