@@ -1217,7 +1217,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function AccountTab() {
-  const { tenant, currentPlan } = useTenant();
+  const { tenant, currentPlan, teamCount } = useTenant();
   const isInternal = tenant.planId === "interno";
   const planName = isInternal ? "Interno / Master" : currentPlan?.name ?? "—";
   const userLimit = isInternal
