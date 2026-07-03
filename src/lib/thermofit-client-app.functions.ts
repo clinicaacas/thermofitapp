@@ -76,7 +76,9 @@ export const listClientVideos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
-    const journeyDay = getClientJourneyDay(client.start_date);
+    // Convenção oficial: `release_day` é 1-indexado (Dia 1 = release_day 1).
+    // release_day = 0 é conteúdo inicial (sempre liberado a partir do Dia 1).
+    const journeyDay = getClientJourneyDay(client.start_date) + 1; // 1..N
     const journeyId = (client as any).active_journey_id as string | null;
     const admin = await getAdmin();
     let query = admin
@@ -95,7 +97,7 @@ export const listClientVideos = createServerFn({ method: "GET" })
       .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
-    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como dia 0)
+    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como inicial).
     const list = (rows ?? []).filter((r: any) => {
       const rd = r.release_day == null ? 0 : Number(r.release_day);
       return rd <= journeyDay;
