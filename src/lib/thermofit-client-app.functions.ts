@@ -133,7 +133,8 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
-    const journeyDay = getClientJourneyDay(client.start_date);
+    // Convenção 1-indexada: Dia 1 = release_day 1.
+    const journeyDay = getClientJourneyDay(client.start_date) + 1;
     const admin = await getAdmin();
     const journeyId = (client as any).active_journey_id as string | null;
     let q = admin
@@ -142,8 +143,13 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
         "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, miles_on_complete, min_completion_pct, release_day, journey_id",
       )
       .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
-      .eq("release_day", journeyDay);
+      .eq("status", "ativo");
+    // No primeiro dia (journeyDay=1), inclui também release_day=0 (conteúdo inicial).
+    if (journeyDay === 1) {
+      q = q.in("release_day", [0, 1]);
+    } else {
+      q = q.eq("release_day", journeyDay);
+    }
     q = journeyId
       ? q.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
       : q.is("journey_id", null);
