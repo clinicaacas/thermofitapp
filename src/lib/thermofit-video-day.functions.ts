@@ -135,7 +135,7 @@ export const getClientVideoDayState = createServerFn({ method: "GET" })
     });
 
     const pendingPriorVideos = priorVideos.filter((v: any) => !progMap.get(v.id)?.is_completed).length;
-    const nextReleaseDay = futureVideos.length ? Number(futureVideos[0].release_day) + 1 : null;
+    const nextReleaseDay = futureVideos.length ? Number(futureVideos[0].release_day) : null;
     const allPlannedCompleted =
       all.length > 0 && all.every((v: any) => progMap.get(v.id)?.is_completed) && futureVideos.length === 0;
 
