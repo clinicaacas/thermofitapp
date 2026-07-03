@@ -1243,7 +1243,7 @@ export type Database = {
           id: string
           last_access_at: string | null
           name: string
-          phone: string
+          phone: string | null
           plan: string
           start_date: string
           status: string
@@ -1267,7 +1267,7 @@ export type Database = {
           id?: string
           last_access_at?: string | null
           name: string
-          phone?: string
+          phone?: string | null
           plan?: string
           start_date?: string
           status?: string
@@ -1291,7 +1291,7 @@ export type Database = {
           id?: string
           last_access_at?: string | null
           name?: string
-          phone?: string
+          phone?: string | null
           plan?: string
           start_date?: string
           status?: string
