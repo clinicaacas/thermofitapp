@@ -67,9 +67,17 @@ export const getClientVideoDayState = createServerFn({ method: "GET" })
     if (vErr) throw vErr;
     const all = (videos ?? []).filter((v: any) => v.release_day != null);
 
-    const todayIdx = day.journeyDayIndex;
-    const todayVideosRaw = all.filter((v: any) => Number(v.release_day) === todayIdx);
-    const priorVideos = all.filter((v: any) => Number(v.release_day) < todayIdx);
+    // Convenção oficial: release_day é 1-indexado (Dia 1 = release_day 1).
+    // release_day = 0 é conteúdo inicial (fica sempre disponível a partir do Dia 1).
+    const todayIdx = day.journeyDayNumber; // 1..N
+    const todayVideosRaw = all.filter((v: any) => {
+      const rd = Number(v.release_day);
+      return rd === todayIdx || (todayIdx === 1 && rd === 0);
+    });
+    const priorVideos = all.filter((v: any) => {
+      const rd = Number(v.release_day);
+      return rd < todayIdx && !(todayIdx === 1 && rd === 0);
+    });
     const futureVideos = all.filter((v: any) => Number(v.release_day) > todayIdx);
 
     // GETTER É READ-ONLY: não chama ensure_video_mission / award_miles / nenhum
