@@ -76,7 +76,9 @@ export const listClientVideos = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
-    const journeyDay = getClientJourneyDay(client.start_date);
+    // Convenção oficial: `release_day` é 1-indexado (Dia 1 = release_day 1).
+    // release_day = 0 é conteúdo inicial (sempre liberado a partir do Dia 1).
+    const journeyDay = getClientJourneyDay(client.start_date) + 1; // 1..N
     const journeyId = (client as any).active_journey_id as string | null;
     const admin = await getAdmin();
     let query = admin
@@ -95,7 +97,7 @@ export const listClientVideos = createServerFn({ method: "GET" })
       .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
-    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como dia 0)
+    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como inicial).
     const list = (rows ?? []).filter((r: any) => {
       const rd = r.release_day == null ? 0 : Number(r.release_day);
       return rd <= journeyDay;
@@ -131,7 +133,8 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
-    const journeyDay = getClientJourneyDay(client.start_date);
+    // Convenção 1-indexada: Dia 1 = release_day 1.
+    const journeyDay = getClientJourneyDay(client.start_date) + 1;
     const admin = await getAdmin();
     const journeyId = (client as any).active_journey_id as string | null;
     let q = admin
@@ -140,8 +143,13 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
         "id, title, description, url, thumbnail_url, thumbnail_storage_key, duration_seconds, category, storage_key, video_type, miles_on_complete, min_completion_pct, release_day, journey_id",
       )
       .eq("tenant_id", client.tenant_id)
-      .eq("status", "ativo")
-      .eq("release_day", journeyDay);
+      .eq("status", "ativo");
+    // No primeiro dia (journeyDay=1), inclui também release_day=0 (conteúdo inicial).
+    if (journeyDay === 1) {
+      q = q.in("release_day", [0, 1]);
+    } else {
+      q = q.eq("release_day", journeyDay);
+    }
     q = journeyId
       ? q.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
       : q.is("journey_id", null);
@@ -274,7 +282,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
         ledgerConfirmed = true;
       }
 
-      const dueDate = addDaysISO(client.start_date, Number(video.release_day ?? 0));
+      const dueDate = addDaysISO(client.start_date, Math.max(0, Number(video.release_day ?? 1) - 1));
       const { data: missionId, error: ensureErr } = await admin.rpc("ensure_video_mission", {
         _client_id: client.id,
         _journey_id: journeyId,

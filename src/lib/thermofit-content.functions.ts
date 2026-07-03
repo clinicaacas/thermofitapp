@@ -271,7 +271,7 @@ async function syncVideoMissionForEligibleJourneys(video: any) {
       const start = new Date(`${startISO}T12:00:00-03:00`);
       const ref = new Date(`${todayISO}T12:00:00-03:00`);
       const diff = Math.floor((ref.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-      if (diff !== releaseDay) continue;
+      if (diff !== releaseDay - 1) continue;
       try {
         await supabaseAdmin.rpc("ensure_video_mission", {
           _client_id: (j as any).client_id,

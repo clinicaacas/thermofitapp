@@ -65,12 +65,12 @@ function detectSource(initial?: VideoFormInitial): SourceType {
   return "upload";
 }
 
-// Convenção oficial: `release_day` no banco é base 0 (Dia 1 humano = release_day 0).
-// O formulário expõe SEMPRE o dia humano (1..84). Conversão acontece aqui.
+// Convenção oficial: `release_day` no banco é o próprio número humano do dia (1..84).
+// 0 = conteúdo inicial (sempre disponível a partir do Dia 1).
 export const PROGRAM_DURATION_DAYS = 84;
 function releaseDayToHuman(rd: number | null | undefined): string {
   if (rd == null || Number.isNaN(Number(rd))) return "";
-  return String(Number(rd) + 1);
+  return String(Number(rd));
 }
 
 function buildInitialForm(initial?: VideoFormInitial): Form {
@@ -241,7 +241,7 @@ export function VideoForm({
             category: form.category || form.videoType,
             status: form.status,
             videoType: form.videoType,
-            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay) - 1,
+            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay),
             phase: form.phase,
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,

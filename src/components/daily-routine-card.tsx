@@ -140,7 +140,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             Me conta sua jornada
           </p>
           <p className="text-[10px] leading-tight" style={{ color: "#6B7280" }}>
-            Check-in diário · +5
+            Check-in diário
           </p>
         </div>
         {checkinDone ? (
@@ -148,7 +148,7 @@ export function DailyRoutineCard({ clientId }: Props) {
             className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
             style={{ background: "#E8F2E5", color: "#3F7A3A" }}
           >
-            <Check className="h-3 w-3" /> +5
+            <Check className="h-3 w-3" /> Ok
           </span>
         ) : (
           <button

@@ -1,6 +1,7 @@
-// Convenção oficial de dias da jornada (mantida compatível com o cálculo atual:
-// `release_day = 0` corresponde ao primeiro dia da jornada).
-// Apenas a exibição humana soma +1 (Dia 1, Dia 2 …).
+// Convenção oficial de dias da jornada.
+// `journeyDayIndex` = dias transcorridos desde o início (0 no primeiro dia).
+// `journeyDayNumber` = número humano do dia (1 no primeiro dia) — é o valor que casa
+// diretamente com `videos.release_day` (1-indexado). release_day = 0 é conteúdo inicial.
 
 import { getClientJourneyDay } from "./journey";
 

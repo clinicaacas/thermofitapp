@@ -155,7 +155,7 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
       .maybeSingle();
     if (!journey || (journey as any).status !== "active") return { tasks: [] };
 
-    // Calcula o dia atual da jornada (base 0).
+    // Calcula o dia atual da jornada (1-indexado — casa com videos.release_day).
     const startISO = String((journey as any).started_on).slice(0, 10);
     const start = new Date(`${startISO}T12:00:00-03:00`);
     const todayISO = new Date(
@@ -164,7 +164,7 @@ export const listClientPostVideoTasks = createServerFn({ method: "GET" })
       .toISOString()
       .slice(0, 10);
     const ref = new Date(`${todayISO}T12:00:00-03:00`);
-    const todayIdx = Math.max(0, Math.floor((ref.getTime() - start.getTime()) / 86400000));
+    const todayIdx = Math.max(1, Math.floor((ref.getTime() - start.getTime()) / 86400000) + 1);
 
     // Vídeos elegíveis do dia atual (catálogo OU exclusivos da jornada).
     const { data: todayVideos } = await admin
