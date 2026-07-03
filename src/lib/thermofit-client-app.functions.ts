@@ -282,7 +282,7 @@ export const saveVideoProgress = createServerFn({ method: "POST" })
         ledgerConfirmed = true;
       }
 
-      const dueDate = addDaysISO(client.start_date, Number(video.release_day ?? 0));
+      const dueDate = addDaysISO(client.start_date, Math.max(0, Number(video.release_day ?? 1) - 1));
       const { data: missionId, error: ensureErr } = await admin.rpc("ensure_video_mission", {
         _client_id: client.id,
         _journey_id: journeyId,
