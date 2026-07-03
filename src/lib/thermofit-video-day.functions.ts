@@ -100,7 +100,7 @@ export const getClientVideoDayState = createServerFn({ method: "GET" })
     }
 
     // Buscar missões de hoje para anexar missionId
-    const today = addDaysISO(startedOn, todayIdx);
+    const today = addDaysISO(startedOn, Math.max(0, todayIdx - 1));
     const { data: missions } = await admin
       .from("client_missions")
       .select("id, linked_video_id")
