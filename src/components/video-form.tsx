@@ -241,7 +241,7 @@ export function VideoForm({
             category: form.category || form.videoType,
             status: form.status,
             videoType: form.videoType,
-            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay) - 1,
+            releaseDay: form.releaseDay === "" ? null : Number(form.releaseDay),
             phase: form.phase,
             milesOnComplete: Number(form.milesOnComplete) || 0,
             minCompletionPct: Number(form.minCompletionPct) || 90,
