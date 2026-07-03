@@ -1006,28 +1006,56 @@ export const adminCreateClientAccess = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { tenantId, client } = await assertClientBelongsToCaller(context, data.clientId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const email = data.email.toLowerCase();
+    const email = data.email.trim().toLowerCase();
     const password = data.password && data.password.length >= 6 ? data.password : generateTempPassword(10);
 
-    // find or create auth user
+    // Bloquear e-mail já vinculado a outra cliente (qualquer tenant), sem expor dados.
+    const { data: conflict } = await supabaseAdmin
+      .from("clients")
+      .select("id")
+      .neq("id", client.id)
+      .or(`access_email.eq.${email},email.eq.${email}`)
+      .not("auth_user_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (conflict?.id) {
+      throw new Error("Este e-mail já está vinculado a outro acesso e não pode ser usado nesta cliente.");
+    }
+
+    // Lookup determinístico do usuário auth existente — sem listUsers.
+    async function findExistingAuthUserId(): Promise<string | null> {
+      // 1) profiles espelha o e-mail
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      if (prof?.id) return prof.id;
+      // 2) outra cliente do mesmo e-mail que já tenha auth_user_id
+      const { data: other } = await supabaseAdmin
+        .from("clients")
+        .select("auth_user_id")
+        .or(`access_email.eq.${email},email.eq.${email}`)
+        .not("auth_user_id", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (other?.auth_user_id) return other.auth_user_id as string;
+      return null;
+    }
+
     let authUserId = client.auth_user_id as string | null;
     if (!authUserId) {
-      // search existing auth user with this email
-      let found: any = null;
-      for (let page = 1; page <= 10 && !found; page += 1) {
-        const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
-        if (error) throw error;
-        found = list.users.find((u) => u.email?.toLowerCase() === email);
-        if (list.users.length < 1000) break;
-      }
-      if (found) {
-        authUserId = found.id;
-        const { error } = await supabaseAdmin.auth.admin.updateUserById(found.id, {
+      authUserId = await findExistingAuthUserId();
+      if (authUserId) {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
           password,
           email_confirm: true,
           user_metadata: { name: client.name, client_id: client.id, tenant_id: tenantId, kind: "cliente" },
         });
-        if (error) throw error;
+        if (error) {
+          console.error("[adminCreateClientAccess] updateUserById error", error);
+          throw new Error("Não foi possível criar o acesso agora. Nenhum dado da cliente foi perdido. Tente novamente.");
+        }
       } else {
         const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -1035,8 +1063,17 @@ export const adminCreateClientAccess = createServerFn({ method: "POST" })
           email_confirm: true,
           user_metadata: { name: client.name, client_id: client.id, tenant_id: tenantId, kind: "cliente" },
         });
-        if (error) throw error;
-        authUserId = created.user.id;
+        if (error || !created?.user) {
+          // Corrida: se outro caller criou nesse meio-tempo, recupera por profile.
+          const recovered = await findExistingAuthUserId();
+          if (!recovered) {
+            console.error("[adminCreateClientAccess] createUser error", error);
+            throw new Error("Não foi possível criar o acesso agora. Nenhum dado da cliente foi perdido. Tente novamente.");
+          }
+          authUserId = recovered;
+        } else {
+          authUserId = created.user.id;
+        }
       }
     } else {
       const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
@@ -1044,8 +1081,12 @@ export const adminCreateClientAccess = createServerFn({ method: "POST" })
         password,
         email_confirm: true,
       });
-      if (error) throw error;
+      if (error) {
+        console.error("[adminCreateClientAccess] updateUserById(existing) error", error);
+        throw new Error("Não foi possível atualizar o acesso agora. Nenhum dado da cliente foi perdido. Tente novamente.");
+      }
     }
+
 
     const { data: row, error: upErr } = await supabaseAdmin
       .from("clients")
