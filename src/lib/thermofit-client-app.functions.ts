@@ -890,23 +890,36 @@ export const getHydrationToday = createServerFn({ method: "GET" })
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
     const day = todayISO();
-    const { data: rows, error } = await admin
-      .from("client_hydration_logs")
-      .select("id, ml, created_at")
-      .eq("client_id", client.id)
-      .eq("log_date", day)
-      .order("created_at", { ascending: false });
+    const journeyId = (client as any).active_journey_id as string | null;
+    const [{ data: rows, error }, ledgerRes] = await Promise.all([
+      admin
+        .from("client_hydration_logs")
+        .select("id, ml, created_at")
+        .eq("client_id", client.id)
+        .eq("log_date", day)
+        .order("created_at", { ascending: false }),
+      journeyId
+        ? admin
+            .from("miles_ledger")
+            .select("miles, awarded_at")
+            .eq("client_id", client.id)
+            .eq("journey_id", journeyId)
+            .eq("source_kind", "hydration_goal")
+            .eq("idempotency_key", `hydration_goal:${day}`)
+            .maybeSingle()
+        : Promise.resolve({ data: null } as any),
+    ]);
     if (error) throw error;
     const total = (rows ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     const goal = client.hydration_goal_ml ?? 2000;
-    const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
+    const ledger = (ledgerRes as any)?.data ?? null;
     return {
       day,
       total,
       goal,
       creditedToday: !!ledger,
-      creditedMiles: Number((ledger as any)?.miles ?? 0),
-      creditedAt: (ledger as any)?.awarded_at ?? null,
+      creditedMiles: Number(ledger?.miles ?? 0),
+      creditedAt: ledger?.awarded_at ?? null,
       logs: rows ?? [],
     };
   });
@@ -926,8 +939,6 @@ export const addHydration = createServerFn({ method: "POST" })
     });
     if (error) throw error;
 
-    // Se a meta diária foi batida agora, conceder milhas (idempotente por dia).
-    // Sem try/catch silencioso: falha de ledger propaga ao chamador.
     const day = todayISO();
     const { data: todays, error: todaysErr } = await admin
       .from("client_hydration_logs")
@@ -952,12 +963,13 @@ export const addHydration = createServerFn({ method: "POST" })
         });
         if (awardErr) throw awardErr;
       }
-      await syncHydrationMissionCompletion(admin, client, day, total, goal);
     }
 
+    // Sincronizar conclusão da missão de hidratação uma única vez após persistência.
     const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
     return { ok: true, total, goal, creditedToday: !!ledger, creditedMiles: Number((ledger as any)?.miles ?? 0) };
   });
+
 
 export const undoLastHydration = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ clientId: z.string().uuid() }).parse(i))
