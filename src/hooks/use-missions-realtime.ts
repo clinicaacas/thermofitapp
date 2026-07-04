@@ -2,20 +2,39 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-// Dedupe entre onSettled local e evento Realtime da própria mutation.
-// Quando o App registra hidratação, marca o timestamp; o handler Realtime
-// da mesma cliente ignora o evento se ocorreu dentro da janela (mutation
-// local já reconciliou via setQueryData/invalidação direcionada).
-const LOCAL_HYDRATION_MUTATION_WINDOW_MS = 1200;
-const localHydrationMutationAt = new Map<string, number>();
+// Deduplicação por ID exato do registro de hidratação criado/removido pela
+// mutation local. A janela temporal existe apenas para GC dos IDs; a decisão
+// de ignorar um evento Realtime é sempre por igualdade de ID.
+const LOCAL_HYDRATION_ID_TTL_MS = 30_000;
+const localHydrationLogIds = new Map<string, Map<string, number>>();
 
-export function markLocalHydrationMutation(clientId: string) {
-  localHydrationMutationAt.set(clientId, Date.now());
+function getSet(clientId: string) {
+  let m = localHydrationLogIds.get(clientId);
+  if (!m) {
+    m = new Map();
+    localHydrationLogIds.set(clientId, m);
+  }
+  return m;
 }
-function isRecentLocalHydrationMutation(clientId: string) {
-  const t = localHydrationMutationAt.get(clientId);
-  return !!t && Date.now() - t < LOCAL_HYDRATION_MUTATION_WINDOW_MS;
+function gc(clientId: string) {
+  const m = localHydrationLogIds.get(clientId);
+  if (!m) return;
+  const cutoff = Date.now() - LOCAL_HYDRATION_ID_TTL_MS;
+  for (const [id, t] of m) if (t < cutoff) m.delete(id);
 }
+export function markLocalHydrationLogId(clientId: string, hydrationLogId: string) {
+  if (!clientId || !hydrationLogId) return;
+  gc(clientId);
+  getSet(clientId).set(hydrationLogId, Date.now());
+}
+function consumeLocalHydrationLogId(clientId: string, hydrationLogId: string | null | undefined) {
+  if (!clientId || !hydrationLogId) return false;
+  const m = localHydrationLogIds.get(clientId);
+  if (!m || !m.has(hydrationLogId)) return false;
+  m.delete(hydrationLogId);
+  return true;
+}
+
 
 
 // Hook único de sincronização das Missões.
@@ -114,21 +133,21 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
           table,
           filter: `client_id=eq.${clientId}`,
         },
-        () => {
-          // Eventos de hidratação usam invalidação direcionada (Hidratação/Home/Missões/Milhas),
-          // sem tocar em Vídeos, Treino, Nutrição, Fotos etc.
+        (payload: any) => {
           if (table === "client_hydration_logs") {
-            // Dedupe: mutation local já reconciliou; ignora eco Realtime da mesma sessão.
-            if (isRecentLocalHydrationMutation(clientId)) return;
+            // Dedupe por ID exato: só ignora o eco do log criado/removido pela
+            // mutation local. Qualquer log de outra sessão/dispositivo processa.
+            const rowId: string | undefined = payload?.new?.id ?? payload?.old?.id;
+            if (rowId && consumeLocalHydrationLogId(clientId, rowId)) return;
             if (hydrationDebounce) clearTimeout(hydrationDebounce);
             hydrationDebounce = setTimeout(() => invalidateHydrationScope(qc, clientId), 250);
             return;
           }
-
           if (genericDebounce) clearTimeout(genericDebounce);
           genericDebounce = setTimeout(() => invalidateClientMissionData(qc, clientId), 250);
         },
       );
+
     }
     channel.subscribe();
     return () => {

@@ -8,7 +8,7 @@ import {
   addHydration,
   undoLastHydration,
 } from "@/lib/thermofit-client-app.functions";
-import { invalidateHydrationScope, markLocalHydrationMutation, useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { invalidateHydrationScope, markLocalHydrationLogId, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { Droplet, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/agua")({
@@ -47,7 +47,6 @@ function Page() {
   const addMut = useMutation({
     mutationFn: (ml: number) => addFn({ data: { clientId, ml } }),
     onMutate: async (ml: number) => {
-      markLocalHydrationMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev) {
@@ -67,19 +66,21 @@ function Page() {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
     },
     onSuccess: (resp) => {
-      // Reconcilia hidratação com resposta autoritativa do servidor — sem refetch adicional.
+      const r = resp as any;
+      // Registra o ID exato do log criado para dedupe do eco Realtime desta sessão.
+      if (r?.hydrationLogId) markLocalHydrationLogId(clientId, r.hydrationLogId);
+      // Reconcilia hidratação com resposta autoritativa — sem refetch adicional.
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
-      if (prev && resp) {
+      if (prev && r) {
         qc.setQueryData<HydrationSnapshot>(queryKey, {
           ...prev,
-          total: (resp as any).total ?? prev.total,
-          goal: (resp as any).goal ?? prev.goal,
-          creditedToday: (resp as any).creditedToday ?? prev.creditedToday,
-          creditedMiles: (resp as any).creditedMiles ?? prev.creditedMiles,
+          total: r.total ?? prev.total,
+          goal: r.goal ?? prev.goal,
+          creditedToday: r.creditedToday ?? prev.creditedToday,
+          creditedMiles: r.creditedMiles ?? prev.creditedMiles,
         });
       }
-      // Home/Missões/Milhas: invalidação direcionada. Realtime da própria sessão é deduplicado.
-      markLocalHydrationMutation(clientId);
+      // Home/Missões/Milhas: invalidação direcionada, uma única vez.
       invalidateHydrationScope(qc, clientId);
     },
   });
@@ -87,7 +88,6 @@ function Page() {
   const undoMut = useMutation({
     mutationFn: () => undoFn({ data: { clientId } }),
     onMutate: async () => {
-      markLocalHydrationMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev && prev.logs.length > 0) {
@@ -103,12 +103,13 @@ function Page() {
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
     },
-    onSuccess: () => {
-      // Undo não retorna totais; refetch direcionado uma única vez (Realtime deduplicado).
-      markLocalHydrationMutation(clientId);
+    onSuccess: (resp) => {
+      const r = resp as any;
+      if (r?.hydrationLogId) markLocalHydrationLogId(clientId, r.hydrationLogId);
       invalidateHydrationScope(qc, clientId);
     },
   });
+
 
 
   const handleAdd = (ml: number) => {
