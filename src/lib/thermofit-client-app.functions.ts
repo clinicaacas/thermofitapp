@@ -1009,6 +1009,7 @@ export const undoLastHydration = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
+    const journeyId = (client as any).active_journey_id as string | null;
     const day = todayISO();
     const { data: last, error: lErr } = await admin
       .from("client_hydration_logs")
@@ -1019,8 +1020,41 @@ export const undoLastHydration = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (lErr) throw lErr;
-    if (!last) return { ok: true, removed: false, hydrationLogId: null as string | null };
+    if (!last) {
+      return {
+        ok: true,
+        removed: false,
+        hydrationLogId: null as string | null,
+        ledgerId: null as string | null,
+        completionId: null as string | null,
+      };
+    }
     const removedId = (last as any).id as string;
+
+    // Captura IDs de ledger/completion existentes antes de sync (para dedupe de eco).
+    let ledgerId: string | null = null;
+    let completionId: string | null = null;
+    if (journeyId) {
+      const { data: lg } = await admin
+        .from("miles_ledger")
+        .select("id")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("source_kind", "hydration_goal")
+        .eq("source_ref", day)
+        .maybeSingle();
+      ledgerId = (lg as any)?.id ?? null;
+      const { data: cp } = await admin
+        .from("client_mission_completions")
+        .select("id")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("source_kind", "hydration_goal")
+        .eq("source_ref", day)
+        .maybeSingle();
+      completionId = (cp as any)?.id ?? null;
+    }
+
     const { error } = await admin.from("client_hydration_logs").delete().eq("id", removedId);
     if (error) throw error;
     const { data: todays } = await admin
@@ -1030,7 +1064,7 @@ export const undoLastHydration = createServerFn({ method: "POST" })
       .eq("log_date", day);
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     await syncHydrationMissionCompletion(admin, client, day, total, client.hydration_goal_ml ?? 2000);
-    return { ok: true, removed: true, hydrationLogId: removedId };
+    return { ok: true, removed: true, hydrationLogId: removedId, ledgerId, completionId };
   });
 
 

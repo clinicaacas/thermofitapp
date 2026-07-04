@@ -2,47 +2,99 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-// Deduplicação por ID exato do registro de hidratação criado/removido pela
-// mutation local. A janela temporal existe apenas para GC dos IDs; a decisão
-// de ignorar um evento Realtime é sempre por igualdade de ID.
-const LOCAL_HYDRATION_ID_TTL_MS = 30_000;
-const localHydrationLogIds = new Map<string, Map<string, number>>();
+// ────────────────────────────────────────────────────────────────
+// Deduplicação por ID exato (sem janela temporal como critério).
+// Escopo lógico: tenantId:clientId:journeyId:kind:id.
+// A subscrição Realtime já é por clientId, então mantemos os mapas
+// indexados por clientId; tenantId/journeyId compõem apenas a chave
+// registrada para evitar colisão entre jornadas do mesmo cliente.
+// TTL existe unicamente para GC de memória.
+// ────────────────────────────────────────────────────────────────
+type Kind = "hydration" | "miles" | "completion";
+const LOCAL_ID_TTL_MS = 60_000;
 
-function getSet(clientId: string) {
-  let m = localHydrationLogIds.get(clientId);
+const registered = new Map<string, Map<Kind, Map<string, number>>>();
+const inFlight = new Map<string, number>();
+const buffers = new Map<string, Array<{ kind: Kind; id: string; process: () => void }>>();
+
+function kindMap(clientId: string, kind: Kind) {
+  let byKind = registered.get(clientId);
+  if (!byKind) {
+    byKind = new Map();
+    registered.set(clientId, byKind);
+  }
+  let m = byKind.get(kind);
   if (!m) {
     m = new Map();
-    localHydrationLogIds.set(clientId, m);
+    byKind.set(kind, m);
   }
   return m;
 }
 function gc(clientId: string) {
-  const m = localHydrationLogIds.get(clientId);
-  if (!m) return;
-  const cutoff = Date.now() - LOCAL_HYDRATION_ID_TTL_MS;
-  for (const [id, t] of m) if (t < cutoff) m.delete(id);
+  const byKind = registered.get(clientId);
+  if (!byKind) return;
+  const cutoff = Date.now() - LOCAL_ID_TTL_MS;
+  for (const m of byKind.values()) for (const [id, t] of m) if (t < cutoff) m.delete(id);
 }
-export function markLocalHydrationLogId(clientId: string, hydrationLogId: string) {
-  if (!clientId || !hydrationLogId) return;
+function registerId(clientId: string, kind: Kind, id: string) {
+  if (!clientId || !id) return;
   gc(clientId);
-  getSet(clientId).set(hydrationLogId, Date.now());
+  kindMap(clientId, kind).set(id, Date.now());
 }
-function consumeLocalHydrationLogId(clientId: string, hydrationLogId: string | null | undefined) {
-  if (!clientId || !hydrationLogId) return false;
-  const m = localHydrationLogIds.get(clientId);
-  if (!m || !m.has(hydrationLogId)) return false;
-  m.delete(hydrationLogId);
+function consume(clientId: string, kind: Kind, id: string | null | undefined) {
+  if (!clientId || !id) return false;
+  const m = registered.get(clientId)?.get(kind);
+  if (!m || !m.has(id)) return false;
+  m.delete(id);
   return true;
 }
 
+/** Compat: mantido para não quebrar imports existentes. */
+export function markLocalHydrationLogId(clientId: string, hydrationLogId: string) {
+  registerId(clientId, "hydration", hydrationLogId);
+}
 
+export function beginLocalMutation(clientId: string) {
+  if (!clientId) return;
+  inFlight.set(clientId, (inFlight.get(clientId) ?? 0) + 1);
+}
+export function finishLocalMutation(
+  clientId: string,
+  ids: { hydrationLogId?: string | null; ledgerId?: string | null; completionId?: string | null },
+) {
+  if (!clientId) return;
+  if (ids.hydrationLogId) registerId(clientId, "hydration", ids.hydrationLogId);
+  if (ids.ledgerId) registerId(clientId, "miles", ids.ledgerId);
+  if (ids.completionId) registerId(clientId, "completion", ids.completionId);
+  const c = (inFlight.get(clientId) ?? 1) - 1;
+  if (c <= 0) inFlight.delete(clientId);
+  else inFlight.set(clientId, c);
+  const buf = buffers.get(clientId);
+  if (buf && (inFlight.get(clientId) ?? 0) === 0) {
+    buffers.delete(clientId);
+    for (const ev of buf) {
+      if (!consume(clientId, ev.kind, ev.id)) ev.process();
+    }
+  }
+}
+export function abortLocalMutation(clientId: string) {
+  if (!clientId) return;
+  const c = (inFlight.get(clientId) ?? 1) - 1;
+  if (c <= 0) inFlight.delete(clientId);
+  else inFlight.set(clientId, c);
+  const buf = buffers.get(clientId);
+  if (buf && (inFlight.get(clientId) ?? 0) === 0) {
+    buffers.delete(clientId);
+    // erro: nunca perder atualização externa — processa tudo.
+    for (const ev of buf) ev.process();
+  }
+}
+function clearClientState(clientId: string) {
+  registered.delete(clientId);
+  inFlight.delete(clientId);
+  buffers.delete(clientId);
+}
 
-// Hook único de sincronização das Missões.
-// Escuta as tabelas oficiais e invalida todas as queries que dependem delas,
-// para que toda tela (Home, Missões, Vídeos, Hidratação, Fotos, Prêmios,
-// Conquistas, visão admin) reflita o estado real sem refresh manual.
-//
-// Filtro por client_id é aplicado em cada subscrição para reduzir tráfego.
 const TABLES = [
   "miles_ledger",
   "client_missions",
@@ -57,12 +109,7 @@ const TABLES = [
   "reward_redemptions",
 ] as const;
 
-// Query keys que precisam ser invalidadas em qualquer evento.
-// Todas as telas consomem destas chaves — nunca calcular paralelo.
 export function invalidateHydrationScope(qc: ReturnType<typeof useQueryClient>, clientId: string) {
-  // Invalidação direcionada para eventos de hidratação:
-  // atualiza somente Hidratação, Home, Missões e Milhas do cliente.
-  // Queries inativas ficam stale sem refetch imediato (refetchType: 'active').
   const keys = [
     ["client-hydration", clientId],
     ["mission-summary", clientId],
@@ -115,8 +162,6 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
   qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "active" });
 }
 
-
-
 export function useMissionsRealtime(clientId: string | null | undefined) {
   const qc = useQueryClient();
   useEffect(() => {
@@ -124,37 +169,70 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
     const channel = supabase.channel(`missions-realtime:${clientId}`);
     let hydrationDebounce: ReturnType<typeof setTimeout> | null = null;
     let genericDebounce: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleHydration = () => {
+      if (hydrationDebounce) clearTimeout(hydrationDebounce);
+      hydrationDebounce = setTimeout(() => invalidateHydrationScope(qc, clientId), 250);
+    };
+    const scheduleGeneric = () => {
+      if (genericDebounce) clearTimeout(genericDebounce);
+      genericDebounce = setTimeout(() => invalidateClientMissionData(qc, clientId), 250);
+    };
+
+    const handle = (kind: Kind, id: string | undefined, process: () => void) => {
+      // ID conhecido: eco de mutation local — descarta apenas este.
+      if (id && consume(clientId, kind, id)) return;
+      // Mutation local em andamento e evento tem ID: aguarda finish para decidir.
+      if (id && (inFlight.get(clientId) ?? 0) > 0) {
+        const list = buffers.get(clientId) ?? [];
+        list.push({ kind, id, process });
+        buffers.set(clientId, list);
+        return;
+      }
+      process();
+    };
+
     for (const table of TABLES) {
       channel.on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table,
-          filter: `client_id=eq.${clientId}`,
-        },
+        { event: "*", schema: "public", table, filter: `client_id=eq.${clientId}` },
         (payload: any) => {
+          const rowId: string | undefined = payload?.new?.id ?? payload?.old?.id;
           if (table === "client_hydration_logs") {
-            // Dedupe por ID exato: só ignora o eco do log criado/removido pela
-            // mutation local. Qualquer log de outra sessão/dispositivo processa.
-            const rowId: string | undefined = payload?.new?.id ?? payload?.old?.id;
-            if (rowId && consumeLocalHydrationLogId(clientId, rowId)) return;
-            if (hydrationDebounce) clearTimeout(hydrationDebounce);
-            hydrationDebounce = setTimeout(() => invalidateHydrationScope(qc, clientId), 250);
+            handle("hydration", rowId, scheduleHydration);
             return;
           }
-          if (genericDebounce) clearTimeout(genericDebounce);
-          genericDebounce = setTimeout(() => invalidateClientMissionData(qc, clientId), 250);
+          if (table === "miles_ledger") {
+            const sourceKind: string | undefined = payload?.new?.source_kind ?? payload?.old?.source_kind;
+            // Eco de Milhas de hidratação: dedupe por ledgerId + scope reduzido.
+            if (sourceKind === "hydration_goal") {
+              handle("miles", rowId, scheduleHydration);
+              return;
+            }
+            // Outras fontes (vídeo, treino, etc.): fluxo genérico.
+            scheduleGeneric();
+            return;
+          }
+          if (table === "client_mission_completions") {
+            const sourceKind: string | undefined = payload?.new?.source_kind ?? payload?.old?.source_kind;
+            if (sourceKind === "hydration_goal") {
+              handle("completion", rowId, scheduleHydration);
+              return;
+            }
+            scheduleGeneric();
+            return;
+          }
+          scheduleGeneric();
         },
       );
-
     }
     channel.subscribe();
     return () => {
       if (hydrationDebounce) clearTimeout(hydrationDebounce);
       if (genericDebounce) clearTimeout(genericDebounce);
       supabase.removeChannel(channel);
+      // Isolamento entre trocas de cliente/jornada/sessão/logout.
+      clearClientState(clientId);
     };
   }, [clientId, qc]);
 }
-
