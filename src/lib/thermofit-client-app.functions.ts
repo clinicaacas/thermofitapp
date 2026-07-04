@@ -1027,6 +1027,9 @@ export const undoLastHydration = createServerFn({ method: "POST" })
         hydrationLogId: null as string | null,
         ledgerId: null as string | null,
         completionId: null as string | null,
+        tenantId: client.tenant_id,
+        clientId: client.id,
+        journeyId,
       };
     }
     const removedId = (last as any).id as string;
@@ -1064,7 +1067,16 @@ export const undoLastHydration = createServerFn({ method: "POST" })
       .eq("log_date", day);
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     await syncHydrationMissionCompletion(admin, client, day, total, client.hydration_goal_ml ?? 2000);
-    return { ok: true, removed: true, hydrationLogId: removedId, ledgerId, completionId };
+    return {
+      ok: true,
+      removed: true,
+      hydrationLogId: removedId,
+      ledgerId,
+      completionId,
+      tenantId: client.tenant_id,
+      clientId: client.id,
+      journeyId,
+    };
   });
 
 

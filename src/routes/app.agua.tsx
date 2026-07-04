@@ -86,12 +86,17 @@ function Page() {
           creditedMiles: r.creditedMiles ?? prev.creditedMiles,
         });
       }
-      // Registra IDs exatos (hidratação, ledger, completion) e libera buffer Realtime.
-      finishLocalMutation(clientId, {
-        hydrationLogId: r?.hydrationLogId ?? null,
-        ledgerId: r?.ledgerId ?? null,
-        completionId: r?.completionId ?? null,
-      });
+      // Registra IDs exatos (hidratação, ledger, completion) sob a chave composta
+      // tenantId:clientId:journeyId:kind e libera buffer Realtime.
+      finishLocalMutation(
+        clientId,
+        { tenantId: r?.tenantId ?? null, journeyId: r?.journeyId ?? null },
+        {
+          hydrationLogId: r?.hydrationLogId ?? null,
+          ledgerId: r?.ledgerId ?? null,
+          completionId: r?.completionId ?? null,
+        },
+      );
       // Home/Missões/Milhas: invalidação direcionada, uma única vez.
       invalidateHydrationScope(qc, clientId);
     },
@@ -119,11 +124,15 @@ function Page() {
     },
     onSuccess: (resp) => {
       const r = resp as any;
-      finishLocalMutation(clientId, {
-        hydrationLogId: r?.hydrationLogId ?? null,
-        ledgerId: r?.ledgerId ?? null,
-        completionId: r?.completionId ?? null,
-      });
+      finishLocalMutation(
+        clientId,
+        { tenantId: r?.tenantId ?? null, journeyId: r?.journeyId ?? null },
+        {
+          hydrationLogId: r?.hydrationLogId ?? null,
+          ledgerId: r?.ledgerId ?? null,
+          completionId: r?.completionId ?? null,
+        },
+      );
       invalidateHydrationScope(qc, clientId);
     },
   });
