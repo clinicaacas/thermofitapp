@@ -143,7 +143,7 @@ function Page() {
   return (
     <ClientAppShell
       title="Missões de hoje"
-      subtitle={`Dia ${String((journeyDay ?? 0) + 1).padStart(2, "0")} · ${done} de ${total} concluídas`}
+      subtitle={`Dia ${journeyDay ?? 0} · ${done} de ${total} concluídas`}
     >
       <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full" style={{ background: allDone ? "#BFD8B7" : "#F3E8D2" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: allDone ? "#3F7A3A" : "#C9A24A" }} />
