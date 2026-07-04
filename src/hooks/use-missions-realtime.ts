@@ -87,6 +87,8 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
   useEffect(() => {
     if (!clientId) return;
     const channel = supabase.channel(`missions-realtime:${clientId}`);
+    let hydrationDebounce: ReturnType<typeof setTimeout> | null = null;
+    let genericDebounce: ReturnType<typeof setTimeout> | null = null;
     for (const table of TABLES) {
       channel.on(
         "postgres_changes",
@@ -96,12 +98,25 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
           table,
           filter: `client_id=eq.${clientId}`,
         },
-        () => invalidateClientMissionData(qc, clientId),
+        () => {
+          // Eventos de hidratação usam invalidação direcionada (Hidratação/Home/Missões/Milhas),
+          // sem tocar em Vídeos, Treino, Nutrição, Fotos etc.
+          if (table === "client_hydration_logs") {
+            if (hydrationDebounce) clearTimeout(hydrationDebounce);
+            hydrationDebounce = setTimeout(() => invalidateHydrationScope(qc, clientId), 250);
+            return;
+          }
+          if (genericDebounce) clearTimeout(genericDebounce);
+          genericDebounce = setTimeout(() => invalidateClientMissionData(qc, clientId), 250);
+        },
       );
     }
     channel.subscribe();
     return () => {
+      if (hydrationDebounce) clearTimeout(hydrationDebounce);
+      if (genericDebounce) clearTimeout(genericDebounce);
       supabase.removeChannel(channel);
     };
   }, [clientId, qc]);
 }
+
