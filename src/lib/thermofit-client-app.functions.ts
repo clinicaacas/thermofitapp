@@ -152,12 +152,8 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
       )
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo");
-    // No primeiro dia (journeyDay=1), inclui também release_day=0 (conteúdo inicial).
-    if (journeyDay === 1) {
-      q = q.in("release_day", [0, 1]);
-    } else {
-      q = q.eq("release_day", journeyDay);
-    }
+    // REGRA OFICIAL — Missões de Hoje: apenas vídeos do dia atual (sem misturar dias).
+    q = q.eq("release_day", journeyDay);
     q = journeyId
       ? q.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
       : q.is("journey_id", null);
