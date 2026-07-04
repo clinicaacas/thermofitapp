@@ -443,3 +443,109 @@ export const applyTaskToCompletedClients = createServerFn({ method: "POST" })
     }
     return { ok: true, processed: created };
   });
+
+// =====================================================================
+// ADMIN — READ-ONLY: post-video task submissions for a client
+// =====================================================================
+export const getClientPostVideoTaskSubmissions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        limit: z.number().int().min(1).max(200).optional().default(100),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await getAdmin();
+    // Resolve tenant from client
+    const { data: client, error: cErr } = await admin
+      .from("clients")
+      .select("id, tenant_id")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (cErr) throw cErr;
+    if (!client) throw new Error("Cliente não encontrada.");
+
+    // Authorize: super admin OR active membership (dono/admin/equipe) in tenant
+    const { data: isSuper } = await context.supabase.rpc("is_super_admin", {
+      _user_id: context.userId,
+    });
+    if (!isSuper) {
+      const { data: allowed, error: aErr } = await context.supabase.rpc("has_tenant_access", {
+        _user_id: context.userId,
+        _tenant_id: client.tenant_id,
+        _roles: ["dono", "admin", "equipe"],
+      });
+      if (aErr) throw aErr;
+      if (!allowed) throw new Error("Sem permissão para visualizar esta cliente.");
+    }
+
+    const { data: responses, error: rErr } = await admin
+      .from("client_task_responses")
+      .select(
+        "id, client_id, tenant_id, journey_id, mission_id, linked_video_id, task_ref, response, completed_at, due_date, created_at",
+      )
+      .eq("client_id", data.clientId)
+      .eq("tenant_id", client.tenant_id)
+      .order("completed_at", { ascending: false })
+      .limit(data.limit);
+    if (rErr) throw rErr;
+
+    const rows = responses ?? [];
+    if (rows.length === 0) return { items: [] as any[] };
+
+    const videoIds = Array.from(
+      new Set(rows.map((r: any) => r.linked_video_id).filter(Boolean)),
+    ) as string[];
+    const taskIds = Array.from(
+      new Set(rows.map((r: any) => r.task_ref).filter((t: any) => t && UUID_RE.test(t))),
+    ) as string[];
+    const missionIds = Array.from(new Set(rows.map((r: any) => r.mission_id).filter(Boolean))) as string[];
+
+    const [videosRes, tasksRes, missionsRes] = await Promise.all([
+      videoIds.length
+        ? admin.from("videos").select("id, title, release_day").in("id", videoIds)
+        : Promise.resolve({ data: [] as any[] } as any),
+      taskIds.length
+        ? admin
+            .from("video_post_tasks")
+            .select("id, title, instruction, miles")
+            .in("id", taskIds)
+        : Promise.resolve({ data: [] as any[] } as any),
+      missionIds.length
+        ? admin
+            .from("client_missions")
+            .select("id, active, title, miles")
+            .in("id", missionIds)
+        : Promise.resolve({ data: [] as any[] } as any),
+    ]);
+
+    const vMap = new Map<string, any>((videosRes.data ?? []).map((v: any) => [v.id, v]));
+    const tMap = new Map<string, any>((tasksRes.data ?? []).map((t: any) => [t.id, t]));
+    const mMap = new Map<string, any>((missionsRes.data ?? []).map((m: any) => [m.id, m]));
+
+    const items = rows.map((r: any) => {
+      const v = r.linked_video_id ? vMap.get(r.linked_video_id) : null;
+      const t = r.task_ref && UUID_RE.test(r.task_ref) ? tMap.get(r.task_ref) : null;
+      const m = mMap.get(r.mission_id) ?? null;
+      const responseText = (r.response ?? "").trim();
+      return {
+        id: r.id,
+        videoTitle: v?.title ?? null,
+        releaseDay: v?.release_day ?? null,
+        taskTitle: t?.title ?? m?.title ?? "Tarefa pós-vídeo",
+        taskInstruction: t?.instruction ?? null,
+        response: responseText.length > 0 ? r.response : null,
+        responsePlaceholder: responseText.length > 0 ? null : "Concluída sem resposta escrita.",
+        submittedAt: r.completed_at ?? r.created_at,
+        dueDate: r.due_date,
+        missionActive: m?.active ?? null,
+        miles: t?.miles ?? m?.miles ?? null,
+      };
+    });
+
+    return { items };
+  });
+
