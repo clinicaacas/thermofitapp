@@ -213,7 +213,7 @@ function Page() {
           <Stat label="Missões hoje" value={`${stats?.missionsDoneToday ?? 0}/${stats?.missionsToday ?? 0}`} />
         </div>
 
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-7">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
           <ActionLink to="/clientes/$id/missoes" params={{ id }} icon={<Target className="h-3.5 w-3.5" />} label="Missões" />
           <ActionLink to="/clientes/$id/premios" params={{ id }} icon={<Trophy className="h-3.5 w-3.5" />} label="Prêmios" />
 
@@ -227,6 +227,12 @@ function Page() {
           <ActionLink to="/treinos/cliente/$clientId" params={{ clientId: id }} icon={<Dumbbell className="h-3.5 w-3.5" />} label="Treino" />
           <ActionLink to="/clientes/$id/conteudos" params={{ id }} icon={<Mail className="h-3.5 w-3.5" />} label="Cartas" />
           <a
+            href="#tarefas-pos-video"
+            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
+          >
+            <ClipboardList className="h-3.5 w-3.5" /> Tarefas pós-vídeo
+          </a>
+          <a
             href="#suporte"
             className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-xs hover:bg-accent"
           >
@@ -238,6 +244,8 @@ function Page() {
         <div id="fotos-evolucao">
           <AdminClientPhotosPanel clientId={id} />
         </div>
+
+        <AdminClientPostVideoTasksPanel clientId={id} />
 
         <ClientSupportPanel clientId={id} />
 
