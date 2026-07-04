@@ -1,13 +1,14 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useRef } from "react";
 import { ClientAppShell } from "@/components/client-app-shell";
 import {
   getHydrationToday,
   addHydration,
   undoLastHydration,
 } from "@/lib/thermofit-client-app.functions";
-import { invalidateClientMissionData, useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { invalidateHydrationScope, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { Droplet, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/agua")({
@@ -17,6 +18,16 @@ export const Route = createFileRoute("/app/agua")({
 
 const QUICK_MLS = [100, 200, 300, 500];
 
+type HydrationSnapshot = {
+  day: string;
+  total: number;
+  goal: number;
+  creditedToday: boolean;
+  creditedMiles: number;
+  creditedAt: string | null;
+  logs: Array<{ id: string; ml: number; created_at: string }>;
+};
+
 function Page() {
   const { clientId } = useSearch({ from: "/app/agua" });
   const qc = useQueryClient();
@@ -24,26 +35,72 @@ function Page() {
   const addFn = useServerFn(addHydration);
   const undoFn = useServerFn(undoLastHydration);
   useMissionsRealtime(clientId || null);
+  const lastClickRef = useRef(0);
 
+  const queryKey = ["client-hydration", clientId] as const;
   const { data, isLoading } = useQuery({
-    queryKey: ["client-hydration", clientId],
+    queryKey,
     queryFn: () => fetchToday({ data: { clientId } }),
     enabled: !!clientId,
   });
 
   const addMut = useMutation({
     mutationFn: (ml: number) => addFn({ data: { clientId, ml } }),
-    onSuccess: () => {
-      invalidateClientMissionData(qc, clientId);
+    onMutate: async (ml: number) => {
+      await qc.cancelQueries({ queryKey });
+      const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
+      if (prev) {
+        const optimistic: HydrationSnapshot = {
+          ...prev,
+          total: prev.total + ml,
+          logs: [
+            { id: `optimistic-${Date.now()}`, ml, created_at: new Date().toISOString() },
+            ...prev.logs,
+          ],
+        };
+        qc.setQueryData(queryKey, optimistic);
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
+    },
+    onSettled: () => {
+      invalidateHydrationScope(qc, clientId);
     },
   });
 
   const undoMut = useMutation({
     mutationFn: () => undoFn({ data: { clientId } }),
-    onSuccess: () => {
-      invalidateClientMissionData(qc, clientId);
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey });
+      const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
+      if (prev && prev.logs.length > 0) {
+        const [removed, ...rest] = prev.logs;
+        qc.setQueryData<HydrationSnapshot>(queryKey, {
+          ...prev,
+          total: Math.max(0, prev.total - (removed?.ml ?? 0)),
+          logs: rest,
+        });
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
+    },
+    onSettled: () => {
+      invalidateHydrationScope(qc, clientId);
     },
   });
+
+  const handleAdd = (ml: number) => {
+    const now = Date.now();
+    if (now - lastClickRef.current < 350) return; // debounce ~350ms
+    if (addMut.isPending) return;
+    lastClickRef.current = now;
+    addMut.mutate(ml);
+  };
+
 
   const total = data?.total ?? 0;
   const goal = data?.goal ?? 2000;
@@ -79,9 +136,10 @@ function Page() {
             {QUICK_MLS.map((q) => (
               <button
                 key={q}
-                disabled={busy}
-                onClick={() => addMut.mutate(q)}
+                disabled={isLoading}
+                onClick={() => handleAdd(q)}
                 className="rounded-xl border border-[#E5D6BD] bg-[#F8F1E6] px-2 py-3 text-sm font-semibold text-[#5C4528] transition hover:border-[#8A6A3D] disabled:opacity-50"
+
               >
                 +{q}
               </button>
