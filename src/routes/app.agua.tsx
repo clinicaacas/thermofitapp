@@ -124,11 +124,15 @@ function Page() {
     },
     onSuccess: (resp) => {
       const r = resp as any;
-      finishLocalMutation(clientId, {
-        hydrationLogId: r?.hydrationLogId ?? null,
-        ledgerId: r?.ledgerId ?? null,
-        completionId: r?.completionId ?? null,
-      });
+      finishLocalMutation(
+        clientId,
+        { tenantId: r?.tenantId ?? null, journeyId: r?.journeyId ?? null },
+        {
+          hydrationLogId: r?.hydrationLogId ?? null,
+          ledgerId: r?.ledgerId ?? null,
+          completionId: r?.completionId ?? null,
+        },
+      );
       invalidateHydrationScope(qc, clientId);
     },
   });
