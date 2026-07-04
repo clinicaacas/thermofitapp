@@ -931,13 +931,19 @@ export const addHydration = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = await loadClient(data.clientId);
     const admin = await getAdmin();
-    const { error } = await admin.from("client_hydration_logs").insert({
-      tenant_id: client.tenant_id,
-      client_id: client.id,
-      journey_id: (client as any).active_journey_id,
-      ml: data.ml,
-    });
+    const journeyId = (client as any).active_journey_id as string | null;
+    const { data: inserted, error } = await admin
+      .from("client_hydration_logs")
+      .insert({
+        tenant_id: client.tenant_id,
+        client_id: client.id,
+        journey_id: journeyId,
+        ml: data.ml,
+      })
+      .select("id")
+      .single();
     if (error) throw error;
+    const hydrationLogId = (inserted as any)?.id as string;
 
     const day = todayISO();
     const { data: todays, error: todaysErr } = await admin
@@ -948,6 +954,7 @@ export const addHydration = createServerFn({ method: "POST" })
     if (todaysErr) throw todaysErr;
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     const goal = client.hydration_goal_ml ?? 2000;
+    let ledgerId: string | null = null;
     if (total >= goal) {
       const miles = await missionMiles(admin, client.tenant_id, "hydration_goal", 10);
       if (miles > 0) {
@@ -965,9 +972,34 @@ export const addHydration = createServerFn({ method: "POST" })
       }
     }
 
-    // Sincronizar conclusão da missão de hidratação uma única vez após persistência.
     const ledger = await syncHydrationMissionCompletion(admin, client, day, total, goal);
-    return { ok: true, total, goal, creditedToday: !!ledger, creditedMiles: Number((ledger as any)?.miles ?? 0) };
+    ledgerId = (ledger as any)?.id ?? null;
+    // completionId opcional para dedupe de eco em client_mission_completions.
+    let completionId: string | null = null;
+    if (journeyId) {
+      const { data: comp } = await admin
+        .from("client_mission_completions")
+        .select("id, mission_id")
+        .eq("client_id", client.id)
+        .eq("journey_id", journeyId)
+        .eq("source_kind", "hydration_goal")
+        .eq("source_ref", day)
+        .maybeSingle();
+      completionId = (comp as any)?.id ?? null;
+    }
+    return {
+      ok: true,
+      total,
+      goal,
+      creditedToday: !!ledger,
+      creditedMiles: Number((ledger as any)?.miles ?? 0),
+      hydrationLogId,
+      tenantId: client.tenant_id,
+      clientId: client.id,
+      journeyId,
+      ledgerId,
+      completionId,
+    };
   });
 
 
@@ -986,8 +1018,9 @@ export const undoLastHydration = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (lErr) throw lErr;
-    if (!last) return { ok: true, removed: false };
-    const { error } = await admin.from("client_hydration_logs").delete().eq("id", last.id);
+    if (!last) return { ok: true, removed: false, hydrationLogId: null as string | null };
+    const removedId = (last as any).id as string;
+    const { error } = await admin.from("client_hydration_logs").delete().eq("id", removedId);
     if (error) throw error;
     const { data: todays } = await admin
       .from("client_hydration_logs")
@@ -996,8 +1029,9 @@ export const undoLastHydration = createServerFn({ method: "POST" })
       .eq("log_date", day);
     const total = (todays ?? []).reduce((s: number, r: any) => s + (r.ml ?? 0), 0);
     await syncHydrationMissionCompletion(admin, client, day, total, client.hydration_goal_ml ?? 2000);
-    return { ok: true, removed: true };
+    return { ok: true, removed: true, hydrationLogId: removedId };
   });
+
 
 // ============ MILHAS / PRÊMIOS ============
 
