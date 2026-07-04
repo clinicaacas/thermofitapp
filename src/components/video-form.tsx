@@ -163,8 +163,8 @@ export function VideoForm({
       e.minCompletionPct = "Use um valor entre 1 e 100.";
     if (form.releaseDay !== "") {
       const human = Number(form.releaseDay);
-      if (!Number.isInteger(human) || human < 1 || human > PROGRAM_DURATION_DAYS) {
-        e.releaseDay = `Use um dia entre 1 e ${PROGRAM_DURATION_DAYS}.`;
+      if (!Number.isInteger(human) || human < 0 || human > PROGRAM_DURATION_DAYS) {
+        e.releaseDay = `Use um dia entre 0 e ${PROGRAM_DURATION_DAYS}.`;
       }
     }
     if (form.sourceType === "upload") {
