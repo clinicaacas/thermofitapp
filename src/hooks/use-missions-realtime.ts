@@ -24,6 +24,22 @@ const TABLES = [
 
 // Query keys que precisam ser invalidadas em qualquer evento.
 // Todas as telas consomem destas chaves — nunca calcular paralelo.
+export function invalidateHydrationScope(qc: ReturnType<typeof useQueryClient>, clientId: string) {
+  // Invalidação direcionada para eventos de hidratação:
+  // atualiza somente Hidratação, Home, Missões e Milhas do cliente.
+  // Queries inativas ficam stale sem refetch imediato (refetchType: 'active').
+  const keys = [
+    ["client-hydration", clientId],
+    ["mission-summary", clientId],
+    ["client-home", clientId],
+    ["client-missions", clientId],
+    ["client-missions-today", clientId],
+    ["client-miles", clientId],
+    ["journey-progress", clientId],
+  ];
+  for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "active" });
+}
+
 export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient>, clientId: string) {
   const keys = [
     ["client-identity", clientId],
@@ -48,10 +64,7 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
     ["client-stats", clientId],
     ["admin-client-photos", clientId],
   ];
-  for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "all" });
-  // Chaves de vídeo são escopadas por (tenantId, clientId, journeyId).
-  // Invalida por predicate para alcançar a chave exata da identidade ativa
-  // sem reativar caches de jornadas anteriores.
+  for (const k of keys) qc.invalidateQueries({ queryKey: k, refetchType: "active" });
   qc.invalidateQueries({
     predicate: (q) => {
       const k = q.queryKey as unknown[];
@@ -61,11 +74,12 @@ export function invalidateClientMissionData(qc: ReturnType<typeof useQueryClient
       }
       return k.includes(clientId);
     },
-    refetchType: "all",
+    refetchType: "active",
   });
-  qc.invalidateQueries({ queryKey: ["missions-central"], refetchType: "all" });
-  qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["missions-central"], refetchType: "active" });
+  qc.invalidateQueries({ queryKey: ["missions-overview"], refetchType: "active" });
 }
+
 
 
 export function useMissionsRealtime(clientId: string | null | undefined) {
