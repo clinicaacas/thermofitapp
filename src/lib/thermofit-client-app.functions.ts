@@ -937,7 +937,8 @@ export const addHydration = createServerFn({ method: "POST" })
       .insert({
         tenant_id: client.tenant_id,
         client_id: client.id,
-        journey_id: journeyId,
+        journey_id: journeyId as any,
+
         ml: data.ml,
       })
       .select("id")
