@@ -97,17 +97,25 @@ export const listClientVideos = createServerFn({ method: "GET" })
       .order("release_day", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
-    // Apenas vídeos liberados: release_day <= dia atual (NULL trata como inicial).
-    const list = (rows ?? []).filter((r: any) => {
-      const rd = r.release_day == null ? 0 : Number(r.release_day);
-      return rd <= journeyDay;
-    });
-    // Progresso da cliente
+    // Progresso da cliente (necessário para a regra de inclusão do vídeo de hoje)
     const { data: progressRows } = await admin
       .from("client_video_progress")
       .select("video_id, progress_percent, is_completed, completed_at")
       .eq("client_id", client.id);
     const progMap = new Map((progressRows ?? []).map((p: any) => [p.video_id, p]));
+    // REGRA OFICIAL — Aba Vídeos:
+    // • release_day < journeyDay: sempre visível (biblioteca acumulada)
+    // • release_day = journeyDay: visível apenas após progresso >= 90% (ou concluído)
+    // • release_day > journeyDay: oculto
+    const list = (rows ?? []).filter((r: any) => {
+      const rd = r.release_day == null ? 0 : Number(r.release_day);
+      if (rd < journeyDay) return true;
+      if (rd === journeyDay) {
+        const p: any = progMap.get(r.id);
+        return !!p && (p.is_completed || Number(p.progress_percent ?? 0) >= 90);
+      }
+      return false;
+    });
     const signed = await Promise.all(
       list.map(async (r: any) => {
         if (!r.thumbnail_storage_key) return r.thumbnail_url ?? "";
@@ -144,12 +152,8 @@ export const listTodayVideoMissions = createServerFn({ method: "GET" })
       )
       .eq("tenant_id", client.tenant_id)
       .eq("status", "ativo");
-    // No primeiro dia (journeyDay=1), inclui também release_day=0 (conteúdo inicial).
-    if (journeyDay === 1) {
-      q = q.in("release_day", [0, 1]);
-    } else {
-      q = q.eq("release_day", journeyDay);
-    }
+    // REGRA OFICIAL — Missões de Hoje: apenas vídeos do dia atual (sem misturar dias).
+    q = q.eq("release_day", journeyDay);
     q = journeyId
       ? q.or(`journey_id.is.null,journey_id.eq.${journeyId}`)
       : q.is("journey_id", null);
