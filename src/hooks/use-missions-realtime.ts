@@ -2,6 +2,22 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Dedupe entre onSettled local e evento Realtime da própria mutation.
+// Quando o App registra hidratação, marca o timestamp; o handler Realtime
+// da mesma cliente ignora o evento se ocorreu dentro da janela (mutation
+// local já reconciliou via setQueryData/invalidação direcionada).
+const LOCAL_HYDRATION_MUTATION_WINDOW_MS = 1200;
+const localHydrationMutationAt = new Map<string, number>();
+
+export function markLocalHydrationMutation(clientId: string) {
+  localHydrationMutationAt.set(clientId, Date.now());
+}
+function isRecentLocalHydrationMutation(clientId: string) {
+  const t = localHydrationMutationAt.get(clientId);
+  return !!t && Date.now() - t < LOCAL_HYDRATION_MUTATION_WINDOW_MS;
+}
+
+
 // Hook único de sincronização das Missões.
 // Escuta as tabelas oficiais e invalida todas as queries que dependem delas,
 // para que toda tela (Home, Missões, Vídeos, Hidratação, Fotos, Prêmios,
