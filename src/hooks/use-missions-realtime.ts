@@ -133,21 +133,21 @@ export function useMissionsRealtime(clientId: string | null | undefined) {
           table,
           filter: `client_id=eq.${clientId}`,
         },
-        () => {
-          // Eventos de hidratação usam invalidação direcionada (Hidratação/Home/Missões/Milhas),
-          // sem tocar em Vídeos, Treino, Nutrição, Fotos etc.
+        (payload: any) => {
           if (table === "client_hydration_logs") {
-            // Dedupe: mutation local já reconciliou; ignora eco Realtime da mesma sessão.
-            if (isRecentLocalHydrationMutation(clientId)) return;
+            // Dedupe por ID exato: só ignora o eco do log criado/removido pela
+            // mutation local. Qualquer log de outra sessão/dispositivo processa.
+            const rowId: string | undefined = payload?.new?.id ?? payload?.old?.id;
+            if (rowId && consumeLocalHydrationLogId(clientId, rowId)) return;
             if (hydrationDebounce) clearTimeout(hydrationDebounce);
             hydrationDebounce = setTimeout(() => invalidateHydrationScope(qc, clientId), 250);
             return;
           }
-
           if (genericDebounce) clearTimeout(genericDebounce);
           genericDebounce = setTimeout(() => invalidateClientMissionData(qc, clientId), 250);
         },
       );
+
     }
     channel.subscribe();
     return () => {
