@@ -8,7 +8,7 @@ import {
   addHydration,
   undoLastHydration,
 } from "@/lib/thermofit-client-app.functions";
-import { invalidateHydrationScope, markLocalHydrationMutation, useMissionsRealtime } from "@/hooks/use-missions-realtime";
+import { invalidateHydrationScope, markLocalHydrationLogId, useMissionsRealtime } from "@/hooks/use-missions-realtime";
 import { Droplet, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/agua")({
