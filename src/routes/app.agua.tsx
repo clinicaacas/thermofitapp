@@ -53,6 +53,7 @@ function Page() {
   const addMut = useMutation({
     mutationFn: (ml: number) => addFn({ data: { clientId, ml } }),
     onMutate: async (ml: number) => {
+      beginLocalMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev) {
@@ -70,11 +71,10 @@ function Page() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
+      abortLocalMutation(clientId);
     },
     onSuccess: (resp) => {
       const r = resp as any;
-      // Registra o ID exato do log criado para dedupe do eco Realtime desta sessão.
-      if (r?.hydrationLogId) markLocalHydrationLogId(clientId, r.hydrationLogId);
       // Reconcilia hidratação com resposta autoritativa — sem refetch adicional.
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev && r) {
@@ -86,6 +86,12 @@ function Page() {
           creditedMiles: r.creditedMiles ?? prev.creditedMiles,
         });
       }
+      // Registra IDs exatos (hidratação, ledger, completion) e libera buffer Realtime.
+      finishLocalMutation(clientId, {
+        hydrationLogId: r?.hydrationLogId ?? null,
+        ledgerId: r?.ledgerId ?? null,
+        completionId: r?.completionId ?? null,
+      });
       // Home/Missões/Milhas: invalidação direcionada, uma única vez.
       invalidateHydrationScope(qc, clientId);
     },
@@ -94,6 +100,7 @@ function Page() {
   const undoMut = useMutation({
     mutationFn: () => undoFn({ data: { clientId } }),
     onMutate: async () => {
+      beginLocalMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev && prev.logs.length > 0) {
@@ -108,10 +115,15 @@ function Page() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
+      abortLocalMutation(clientId);
     },
     onSuccess: (resp) => {
       const r = resp as any;
-      if (r?.hydrationLogId) markLocalHydrationLogId(clientId, r.hydrationLogId);
+      finishLocalMutation(clientId, {
+        hydrationLogId: r?.hydrationLogId ?? null,
+        ledgerId: r?.ledgerId ?? null,
+        completionId: r?.completionId ?? null,
+      });
       invalidateHydrationScope(qc, clientId);
     },
   });
