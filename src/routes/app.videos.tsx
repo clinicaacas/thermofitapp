@@ -99,9 +99,18 @@ function Page() {
 
         {grouped.map(([day, list]) => (
           <section key={day}>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#8A6A3D]">
-              Dia {String(day).padStart(2, "0")}
-            </h3>
+            {day === 0 ? (
+              <div className="mb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#8A6A3D]">
+                  Comece aqui
+                </h3>
+                <p className="text-[11px] text-[#7A6A52]">Dia 0 • Início da jornada</p>
+              </div>
+            ) : (
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#8A6A3D]">
+                Dia {String(day).padStart(2, "0")}
+              </h3>
+            )}
             <ul className="space-y-2">
               {list.map((v) => {
                 const thumb = v.thumbnail_url || (v.url ? youtubeThumb(v.url) : null) || null;
