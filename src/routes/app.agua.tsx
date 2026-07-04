@@ -136,9 +136,10 @@ function Page() {
             {QUICK_MLS.map((q) => (
               <button
                 key={q}
-                disabled={busy}
-                onClick={() => addMut.mutate(q)}
+                disabled={isLoading}
+                onClick={() => handleAdd(q)}
                 className="rounded-xl border border-[#E5D6BD] bg-[#F8F1E6] px-2 py-3 text-sm font-semibold text-[#5C4528] transition hover:border-[#8A6A3D] disabled:opacity-50"
+
               >
                 +{q}
               </button>
