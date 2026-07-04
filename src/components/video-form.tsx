@@ -310,16 +310,19 @@ export function VideoForm({
               <option value="motivacional">Motivacional</option>
             </select>
           </Field>
-          <Field label={`Liberar no dia da jornada (1 a ${PROGRAM_DURATION_DAYS})`} error={errors.releaseDay}>
+          <Field label={`Liberar no dia da jornada (0 a ${PROGRAM_DURATION_DAYS})`} error={errors.releaseDay}>
             <Input
               type="number"
-              min={1}
+              min={0}
               max={PROGRAM_DURATION_DAYS}
               inputMode="numeric"
               value={form.releaseDay}
               onChange={(e) => setForm({ ...form, releaseDay: e.target.value })}
-              placeholder="Ex: 1 = primeiro dia · 16 = décimo sexto dia"
+              placeholder="Ex: 0 = Comece Aqui · 1 = primeiro dia · 16 = décimo sexto dia"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Dia 0 = início da jornada / Comece Aqui (sempre disponível).
+            </p>
           </Field>
 
         </div>
