@@ -47,6 +47,7 @@ function Page() {
   const addMut = useMutation({
     mutationFn: (ml: number) => addFn({ data: { clientId, ml } }),
     onMutate: async (ml: number) => {
+      markLocalHydrationMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev) {
@@ -65,7 +66,20 @@ function Page() {
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
     },
-    onSettled: () => {
+    onSuccess: (resp) => {
+      // Reconcilia hidratação com resposta autoritativa do servidor — sem refetch adicional.
+      const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
+      if (prev && resp) {
+        qc.setQueryData<HydrationSnapshot>(queryKey, {
+          ...prev,
+          total: (resp as any).total ?? prev.total,
+          goal: (resp as any).goal ?? prev.goal,
+          creditedToday: (resp as any).creditedToday ?? prev.creditedToday,
+          creditedMiles: (resp as any).creditedMiles ?? prev.creditedMiles,
+        });
+      }
+      // Home/Missões/Milhas: invalidação direcionada. Realtime da própria sessão é deduplicado.
+      markLocalHydrationMutation(clientId);
       invalidateHydrationScope(qc, clientId);
     },
   });
@@ -73,6 +87,7 @@ function Page() {
   const undoMut = useMutation({
     mutationFn: () => undoFn({ data: { clientId } }),
     onMutate: async () => {
+      markLocalHydrationMutation(clientId);
       await qc.cancelQueries({ queryKey });
       const prev = qc.getQueryData<HydrationSnapshot>(queryKey);
       if (prev && prev.logs.length > 0) {
@@ -88,10 +103,13 @@ function Page() {
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
     },
-    onSettled: () => {
+    onSuccess: () => {
+      // Undo não retorna totais; refetch direcionado uma única vez (Realtime deduplicado).
+      markLocalHydrationMutation(clientId);
       invalidateHydrationScope(qc, clientId);
     },
   });
+
 
   const handleAdd = (ml: number) => {
     const now = Date.now();
