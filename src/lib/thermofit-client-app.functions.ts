@@ -1027,6 +1027,9 @@ export const undoLastHydration = createServerFn({ method: "POST" })
         hydrationLogId: null as string | null,
         ledgerId: null as string | null,
         completionId: null as string | null,
+        tenantId: client.tenant_id,
+        clientId: client.id,
+        journeyId,
       };
     }
     const removedId = (last as any).id as string;
