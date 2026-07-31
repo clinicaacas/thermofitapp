@@ -1,38 +1,49 @@
-# Conectar um Supabase externo (cliente secundário)
+# Migração para outro Supabase — pacote de exportação seguro
 
-## Contexto importante
+## Por que não vou construir o "Painel de Migração" como especificado
 
-Este projeto roda no Lovable Cloud. O backend gerenciado **não pode ser substituído** aqui: todas as tabelas, RLS, storage, triggers e server functions do ThermoFit dependem dele. Desativar o Cloud não é possível neste projeto.
+A especificação pede três coisas que entregam controle total do banco a qualquer pessoa com o link:
 
-O que dá para fazer sem quebrar nada: adicionar o seu Supabase externo como uma **segunda conexão**, usada apenas onde você indicar. O backend atual continua intacto.
+- Uma página pública que exibe a **service role key** e todos os secrets do projeto.
+- Uma função `exec_sql` que executa SQL arbitrário no banco.
+- Uma função pública que devolve `Deno.env.toObject()` (todos os secrets).
 
-## O que será implementado
+Publicado, isso permite ler, alterar e apagar qualquer dado ignorando RLS. Apagar a página depois não resolve: as chaves expostas continuam válidas até serem rotacionadas.
 
-1. **Cliente externo isolado**
-   - Novo módulo `src/integrations/supabase-external/client.ts` com a URL e a chave anon do seu projeto.
-   - Sessão não persistida e sem auto-refresh, para não conflitar com o login atual do app.
-   - Nome de export distinto (`supabaseExternal`) para nunca ser confundido com o cliente do Cloud.
+Dois pontos de fato deste projeto: no Lovable Cloud a service role key e a senha do banco não são acessíveis, e este stack é TanStack Start (não há `App.tsx` nem `ProtectedRoute`), então a rota especificada não se aplica como escrita.
 
-2. **Acesso pelo servidor**
-   - Módulo `src/lib/external-supabase.functions.ts` com uma server function de teste (`pingExternalSupabase`) que valida a conexão e retorna sucesso/erro legível.
-   - Nenhuma chave privilegiada em código; se depois for preciso service role, ela entra como secret do projeto.
+## O que entrego no lugar (mesmo objetivo, sem exposição)
 
-3. **Tela de verificação**
-   - Um bloco simples em Configurações mostrando o status da conexão externa (URL do projeto, conectado/erro), sem expor chaves.
+### 1. Dump completo do schema
+Arquivo `.sql` gerado no ambiente de trabalho, contendo, na ordem correta de aplicação:
+- tipos/enums, tabelas do schema `public` e constraints
+- GRANTs, `ENABLE ROW LEVEL SECURITY` e todas as policies
+- funções e triggers
+- definição dos buckets de storage e suas policies
 
-4. **Sem alterações no restante**
-   - Nenhuma migração no banco atual, nenhum módulo existente (Missões, Vídeos, Nutrição, Treinos, Suporte) é tocado.
+### 2. Dump de dados
+Arquivo `.sql` com `INSERT`s das tabelas do `public`, respeitando ordem de dependência de chaves estrangeiras.
 
-## O que preciso de você
+### 3. Usuários de autenticação
+Exportação dos usuários com senhas em hash bcrypt — as senhas continuam válidas no destino. Sessões antigas caem quando o JWT secret muda; é esperado.
 
-- **URL do projeto externo** (ex.: `https://xxxx.supabase.co`)
-- **Chave anon / publishable** do mesmo projeto
+### 4. Lista de secrets a recriar
+Apenas os **nomes** dos secrets usados pelo backend, para você recadastrar manualmente no destino. Nenhum valor é impresso, salvo ou versionado.
 
-A chave anon é pública por design, então pode ser colada no chat. Não envie a service role no chat — se for necessária, eu abro o formulário seguro de secret.
+### 5. Inventário do backend em código
+As funções de servidor já vivem no repositório (`src/lib/*.functions.ts`, `src/routes/api/*`). Entrego um índice do que existe e do que precisa de variável de ambiente no destino, sem extrair nada novo.
+
+## Como você usa
+
+1. Baixa os arquivos gerados.
+2. Aplica `schema.sql` e depois `data.sql` no Supabase de destino.
+3. Importa os usuários.
+4. Recadastra os secrets pela lista de nomes.
+5. Aponta as variáveis de ambiente do app para o novo projeto.
 
 ## Detalhes técnicos
 
-- Chave anon vai para variáveis `VITE_EXTERNAL_SUPABASE_URL` / `VITE_EXTERNAL_SUPABASE_ANON_KEY` no código do cliente externo.
-- O cliente externo usa `persistSession: false` e `storageKey` próprio, evitando colisão de sessão com o Cloud no `localStorage`.
-- As leituras externas respeitam a RLS do **seu** projeto; políticas e grants lá são responsabilidade do seu Supabase.
-- Depois disso, você me diz quais telas/dados devem passar a ler do externo e eu migro caso a caso.
+- A geração é feita por leitura direta do catálogo do Postgres (`pg_catalog`/`information_schema`) a partir do ambiente de build, sem criar nenhuma função `exec_sql` nem endpoint público.
+- Nenhuma rota nova é adicionada ao app; nada fica publicado.
+- Nenhum arquivo com valor de credencial é escrito no repositório — apenas os artefatos de saída em `/mnt/documents`.
+- Nenhuma alteração é feita no banco atual.
