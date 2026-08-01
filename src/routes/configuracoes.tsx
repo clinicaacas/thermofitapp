@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ClientAppPreviewTab } from "@/components/client-app-preview";
 import { AppClientSettingsTab } from "@/components/app-client-settings";
+import { MigrationPanelTab } from "@/components/admin-migration-panel";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — ThermoFit" }] }),
@@ -79,6 +80,7 @@ const TABS = [
   { value: "preview", label: "Preview do App" },
   { value: "conta", label: "Conta e Assinatura" },
 ];
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
