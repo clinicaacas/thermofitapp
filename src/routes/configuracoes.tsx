@@ -34,6 +34,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTenant, type PlanId, type ProfileRole, type TeamUser, type UserStatus, type TenantRole, type Membership } from "@/lib/tenant-context";
+import { useAuth } from "@/lib/auth-context";
+
 import {
   Pencil,
   Trash2,
@@ -60,6 +62,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ClientAppPreviewTab } from "@/components/client-app-preview";
 import { AppClientSettingsTab } from "@/components/app-client-settings";
+import { MigrationPanelTab } from "@/components/admin-migration-panel";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — ThermoFit" }] }),
@@ -79,6 +82,7 @@ const TABS = [
   { value: "preview", label: "Preview do App" },
   { value: "conta", label: "Conta e Assinatura" },
 ];
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -100,6 +104,9 @@ function useSavedFlag() {
 }
 
 function Page() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.profile === "super_admin";
+  const tabs = isSuperAdmin ? [...TABS, { value: "migracao", label: "Painel Administrativo" }] : TABS;
   return (
     <AppShell>
       <div className="space-y-1">
@@ -112,7 +119,7 @@ function Page() {
       <div className="mt-6">
         <Tabs defaultValue="geral" className="w-full">
           <TabsList className="flex h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs">
                 {t.label}
               </TabsTrigger>
@@ -130,11 +137,15 @@ function Page() {
           <TabsContent value="app" className="mt-6"><AppClientSettingsTab /></TabsContent>
           <TabsContent value="preview" className="mt-6"><ClientAppPreviewTab /></TabsContent>
           <TabsContent value="conta" className="mt-6"><AccountTab /></TabsContent>
+          {isSuperAdmin ? (
+            <TabsContent value="migracao" className="mt-6"><MigrationPanelTab /></TabsContent>
+          ) : null}
         </Tabs>
       </div>
     </AppShell>
   );
 }
+
 
 /* ------------------- GERAL ------------------- */
 function GeneralTab() {

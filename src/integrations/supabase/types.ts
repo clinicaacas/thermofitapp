@@ -3024,6 +3024,7 @@ export type Database = {
         Returns: boolean
       }
       materialize_daily_missions_all: { Args: { _day?: string }; Returns: Json }
+      migration_schema_overview: { Args: never; Returns: Json }
       read_cron_secret: { Args: never; Returns: string }
       start_client_journey: {
         Args: { _client_id: string; _start_date?: string }
