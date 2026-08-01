@@ -102,6 +102,9 @@ function useSavedFlag() {
 }
 
 function Page() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.profile === "super_admin";
+  const tabs = isSuperAdmin ? [...TABS, { value: "migracao", label: "Painel Administrativo" }] : TABS;
   return (
     <AppShell>
       <div className="space-y-1">
@@ -114,7 +117,7 @@ function Page() {
       <div className="mt-6">
         <Tabs defaultValue="geral" className="w-full">
           <TabsList className="flex h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs">
                 {t.label}
               </TabsTrigger>
@@ -132,11 +135,15 @@ function Page() {
           <TabsContent value="app" className="mt-6"><AppClientSettingsTab /></TabsContent>
           <TabsContent value="preview" className="mt-6"><ClientAppPreviewTab /></TabsContent>
           <TabsContent value="conta" className="mt-6"><AccountTab /></TabsContent>
+          {isSuperAdmin ? (
+            <TabsContent value="migracao" className="mt-6"><MigrationPanelTab /></TabsContent>
+          ) : null}
         </Tabs>
       </div>
     </AppShell>
   );
 }
+
 
 /* ------------------- GERAL ------------------- */
 function GeneralTab() {
